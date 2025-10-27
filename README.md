@@ -1,73 +1,43 @@
-# React + TypeScript + Vite
+# APIprojectFrontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SPA en React + Vite que consume una API en Django REST Framework. Se usa React Router en modo Data para routing por carga de datos y Zustand para estado de UI/cliente.
 
-Currently, two official plugins are available:
+## Stack
+- `react`, `vite`, `typescript`
+- `react-router` (Data Router)
+- `zustand` (estado de UI)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Estructura actual
+- `src/main.tsx`: monta `<RouterProvider router={router} />`.
+- `src/router.tsx`: `createBrowserRouter` con layout raíz, páginas y manejo de errores.
+- `src/routes/Layout.tsx`: navegación, `<Outlet />` y demo de Zustand (sidebar).
+- `src/routes/Home.tsx`: ruta inicial con `loader` placeholder y `useLoaderData()`.
+- `src/routes/Login.tsx`: ruta pública (loader placeholder).
+- `src/routes/ErrorPage.tsx`: `errorElement` para errores de loaders/actions.
+- `src/routes/NotFound.tsx`: 404.
+- `src/store/ui.ts`: store mínimo de Zustand (`sidebarOpen`, `toggleSidebar`).
 
-## React Compiler
+Nota: `src/ApiApp.tsx` ya no se usa; la app arranca con el router. Puedes eliminarlo cuando quieras.
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+## Ejecutar en local
+- Requisitos: Node 18+.
+- Instalar dependencias: `npm i`
+- Desarrollo: `npm run dev`
+- Build: `npm run build`
+- Preview: `npm run preview`
 
-## Expanding the ESLint configuration
+## Routing (modo Data)
+- Se usa `createBrowserRouter` y loaders por ruta. Por ahora los loaders son placeholders sin llamadas reales a la API.
+- `ErrorPage` captura errores lanzados desde loaders/actions.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Estado con Zustand
+- Enfocado a UI/client state (toggles, filtros, etc.).
+- Ejemplo en `Layout`: botón que alterna `sidebarOpen` y muestra un `<aside>`.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Próximos pasos (planificados)
+- Autenticación: mover validación de sesión al `loader` del layout raíz y redirigir `401` a `/login`.
+- API helper: `fetch` centralizado con `baseUrl`, `credentials`, y manejo de CSRF/JWT según DRF.
+- Rutas de dominio (ej. `/posts`, `/profile`) con loaders/actions reales y `defer()` donde aplique.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Despliegue
+- Configurar history fallback para SPA (todas las rutas deben servir `index.html`).
