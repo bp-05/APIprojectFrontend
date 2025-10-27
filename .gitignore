@@ -22,3 +22,23 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# Build outputs
+build
+coverage
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# TypeScript
+*.tsbuildinfo
+
+# Linters and tooling caches
+.eslintcache
+
+# Package manager artifacts
+.pnp.*
