@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+/* Base defaults for the app */
+/* Keep it neutral; use utilities for page-specific styling */
+/* Prefer Tailwind classes in components; minimal globals here */
+
+/* Optional: smooth fonts and sensible background/text */
+/* Using Tailwind v4 generated styles */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
