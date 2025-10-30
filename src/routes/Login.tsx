@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useAuth } from '../store/auth'
 import { pathForRole } from './roleMap'
+import { toast } from 'react-hot-toast'
 
 export default function Login() {
   const navigate = useNavigate()
   const { login, loadMe } = useAuth()
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -16,13 +17,22 @@ export default function Login() {
     setError(null)
     setLoading(true)
     try {
-      await login(username.trim(), password)
-      await loadMe()
-      const role = (localStorage.getItem('user_role') as any) || null
+      await login(email.trim(), password)
+      const me = await loadMe()
+      const name = (me.full_name || `${me.first_name ?? ''} ${me.last_name ?? ''}`.trim())
+      if (name) {
+        toast.success(`Bienvenido, ${name}`)
+      } else if (me.role) {
+        toast.success(`Bienvenido, ${me.role}`)
+      } else {
+        toast.success('Bienvenido')
+      }
+      const role = me.role || (localStorage.getItem('user_role') as any) || null
       navigate(pathForRole(role))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error de autenticación'
       setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -41,16 +51,15 @@ export default function Login() {
 
         <form className="space-y-4 px-6 py-6" onSubmit={onSubmit}>
           <div>
-            <label htmlFor="username" className="mb-1 block text-sm font-medium text-zinc-800">
-              Usuario institucional
-            </label>
+            <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-800">Correo institucional</label>
             <input
-              id="username"
-              type="text"
-              autoComplete="username"
-              placeholder="usuario o correo"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              id="email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="nombre.apellido@inacap.cl"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 shadow-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
             />
           </div>
@@ -72,11 +81,7 @@ export default function Login() {
             />
           </div>
 
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+          {/* Los errores se notifican por toast para evitar mover el layout */}
 
           <button
             type="submit"

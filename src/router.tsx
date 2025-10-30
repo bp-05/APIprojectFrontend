@@ -10,6 +10,7 @@ import DAC from './routes/roles/DAC'
 import DC from './routes/roles/DC'
 import DOC from './routes/roles/DOC'
 import COORD from './routes/roles/COORD'
+import Profile from './routes/Profile'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
       { path: 'dc', loader: requireRoleLoader('DC'), element: <DC /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
       { path: 'coord', loader: requireRoleLoader('COORD'), element: <COORD /> },
+      { path: 'profile', loader: requireAuthLoader, element: <Profile /> },
       {
         path: '*',
         element: <NotFound />,

@@ -9,10 +9,10 @@ type AuthState = {
   isAuthenticated: boolean
   role: UserRole | null
   user: MeResponse | null
-  login: (username: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
   logout: () => void
   hydrate: () => void
-  loadMe: () => Promise<void>
+  loadMe: () => Promise<MeResponse>
 }
 
 export type UserRole = 'ADMIN' | 'VCM' | 'DAC' | 'DC' | 'DOC' | 'COORD'
@@ -41,10 +41,10 @@ export const useAuth = create<AuthState>((set) => ({
     const role = (localStorage.getItem('user_role') as UserRole | null) || null
     set({ accessToken: access, refreshToken: refresh, isAuthenticated: !!access, role })
   },
-  login: async (username: string, password: string) => {
+  login: async (email: string, password: string) => {
     const { data } = await axios.post(
       `${apiBaseUrl()}${apiEnv.loginPath}`,
-      { username, password },
+      { email, password },
       { headers: { 'Content-Type': 'application/json' }, timeout: apiEnv.timeout }
     )
 
@@ -58,8 +58,9 @@ export const useAuth = create<AuthState>((set) => ({
   },
   loadMe: async () => {
     const { data } = await http.get<MeResponse>('/users/me/')
-    localStorage.setItem('user_role', data.role)
-    set({ user: data, role: data.role })
+    if (data?.role) localStorage.setItem('user_role', data.role)
+    set({ user: data, role: data.role ?? null })
+    return data
   },
   logout: () => {
     localStorage.removeItem('access_token')

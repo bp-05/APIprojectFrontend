@@ -8,12 +8,14 @@ SPA en React + Vite que consume una API Django REST Framework (DRF). Usa React R
 - `zustand` (estado de auth/ui)
 - `axios` (cliente HTTP)
 - `tailwindcss` v4 (+ `@tailwindcss/vite`)
+- `react-hot-toast` (toasts no intrusivos)
 
 ## Estructura principal
-- `src/main.tsx`: monta el router y ejecuta `useAuth.getState().hydrate()` antes del render.
+- `src/main.tsx`: monta el router, hidrata auth y agrega `<Toaster position="top-center" />`.
 - `src/router.tsx`: definición de rutas públicas/privadas y rutas por rol.
 - `src/routes/Layout.tsx`: header institucional ("Gestor API") y `<Outlet />`.
-- `src/routes/Login.tsx`: login con JWT (POST `/api/token/`), carga de usuario (`/api/users/me/`) y redirección por rol.
+- `src/routes/Login.tsx`: login con JWT usando email+password (POST `/api/token/`), carga de usuario (`/api/users/me/`) y redirección por rol.
+- `src/routes/Profile.tsx`: perfil del usuario (editar nombre/apellido/email) y cambio de contraseña con toasts.
 - `src/routes/guards.ts`: loaders de protección (`requireAuthLoader`, `requireRoleLoader`, etc.).
 - `src/routes/roleMap.ts`: mapa de rutas por rol.
 - `src/routes/roles/*.tsx`: páginas placeholder para cada rol (ADMIN, VCM, DAC, DC, DOC, COORD).
@@ -21,13 +23,15 @@ SPA en React + Vite que consume una API Django REST Framework (DRF). Usa React R
 - `src/lib/http.ts`: instancia Axios con `Authorization` y refresh de token en 401.
 - `src/index.css`: importa Tailwind v4.
 
-El archivo `src/routes/Home.tsx` fue eliminado; la ruta índice redirige a la ruta correspondiente al rol.
+La antigua ruta `src/routes/Home.tsx` fue removida; la ruta índice redirige a la ruta correspondiente al rol.
 
 ## Autenticación y roles
 - Backend DRF (README) expone JWT Simple:
-  - Login: `POST /api/token/`
-  - Refresh: `POST /api/token/refresh/`
-- Tras login, se consulta `GET /api/users/me/` para obtener `role` y se persiste `user_role`.
+  - Login: `POST /api/token/` con payload `{ email, password }`.
+  - Refresh: `POST /api/token/refresh/` con `{ refresh }`.
+- Perfil y cambio de contraseña:
+  - Obtener usuario: `GET /api/users/me/` → campos incluyen `role`.
+  - Cambiar contraseña: `POST /api/users/me/change-password/` con `{ old_password, new_password, new_password2 }`.
 - Redirecciones por rol (ver `src/routes/roleMap.ts:1`):
   - ADMIN → `/admin`
   - VCM → `/vcm`
@@ -53,7 +57,7 @@ El archivo `src/routes/Home.tsx` fue eliminado; la ruta índice redirige a la ru
 ## Tailwind CSS v4
 - Configurado vía plugin Vite (`vite.config.ts:3,9`).
 - Entrada global `src/index.css:1` con `@import "tailwindcss";`.
-- No requiere `tailwind.config.js` por defecto (zero‑config).
+- No requiere `tailwind.config.js` por defecto (zero-config).
 
 ## Ejecutar en local
 - Requisitos: Node 18+.
