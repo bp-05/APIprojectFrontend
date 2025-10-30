@@ -32,7 +32,7 @@ export default function Login() {
     <section className="flex min-h-[60vh] items-center justify-center py-12">
       <div className="w-full max-w-md rounded-xl bg-white shadow-md ring-1 ring-black/5">
         <div className="flex items-center gap-3 border-b border-zinc-100 px-6 py-4">
-          <div className="h-8 w-8 rounded-md bg-red-600" aria-hidden />
+          <img src="/favicon.ico" alt="Logo" className="h-8 w-8 rounded-md" />
           <div>
             <h1 className="text-base font-semibold text-zinc-900">Gestor API</h1>
             <p className="text-xs text-zinc-500">Acceso institucional</p>

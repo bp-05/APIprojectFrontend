@@ -12,7 +12,10 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 shadow-sm">
-        <div className="text-sm font-semibold tracking-wide text-zinc-800">Gestor API</div>
+        <div className="flex items-center gap-2">
+          <img src="/favicon.ico" alt="Logo" className="h-6 w-6 rounded-sm" />
+          <div className="text-sm font-semibold tracking-wide text-zinc-800">Gestor API</div>
+        </div>
         {isAuthenticated && (
           <button
             onClick={handleLogout}
