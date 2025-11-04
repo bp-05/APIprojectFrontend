@@ -1,7 +1,8 @@
 import { Link, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../store/auth'
 import { useEffect } from 'react'
-import { pathForRole } from './roleMap'
+import { pathForRole, roleLabelMap } from './roleMap'
+import { nameCase } from '../lib/strings'
 
 export default function Layout() {
   const navigate = useNavigate()
@@ -27,8 +28,12 @@ export default function Layout() {
         {isAuthenticated && (
           <div className="flex items-center gap-3">
             <div className="text-sm text-zinc-700">
-              {user?.full_name || `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || user?.username}
-              {role ? <span className="ml-2 rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{role}</span> : null}
+              {nameCase(user?.full_name || `${user?.first_name ?? ''} ${user?.last_name ?? ''}`) || user?.username}
+              {role ? (
+                <span className="ml-2 rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                  {roleLabelMap[role] || role}
+                </span>
+              ) : null}
             </div>
             <Link
               to="/profile"
@@ -45,9 +50,30 @@ export default function Layout() {
           </div>
         )}
       </header>
-      <main>
-        <Outlet />
-      </main>
+      <div className="flex">
+        {isAuthenticated ? (
+          <aside className="hidden w-64 shrink-0 border-r border-zinc-200 bg-white/70 p-4 md:block">
+            <nav className="space-y-1">
+              {role === 'ADMIN' && (
+                <>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Administración</div>
+                  <Link
+                    to="/usuarios"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Usuarios
+                  </Link>
+                </>
+              )}
+              {/* Otros roles/links se agregarán luego */}
+            </nav>
+          </aside>
+        ) : null}
+
+        <main className="min-h-[calc(100vh-4rem)] flex-1">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

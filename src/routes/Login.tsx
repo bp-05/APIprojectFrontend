@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router'
 import { useAuth } from '../store/auth'
 import { pathForRole } from './roleMap'
 import { toast } from 'react-hot-toast'
+import { roleLabelMap } from './roleMap'
+import { nameCase } from '../lib/strings'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -19,11 +21,13 @@ export default function Login() {
     try {
       await login(email.trim(), password)
       const me = await loadMe()
-      const name = (me.full_name || `${me.first_name ?? ''} ${me.last_name ?? ''}`.trim())
-      if (name) {
-        toast.success(`Bienvenido, ${name}`)
+      const rawName = (me.full_name || `${me.first_name ?? ''} ${me.last_name ?? ''}`.trim())
+      const displayName = nameCase(rawName)
+      if (displayName) {
+        toast.success(`Bienvenido, ${displayName}`)
       } else if (me.role) {
-        toast.success(`Bienvenido, ${me.role}`)
+        const roleLabel = roleLabelMap[me.role as any] || me.role
+        toast.success(`Bienvenido, ${roleLabel}`)
       } else {
         toast.success('Bienvenido')
       }

@@ -1,0 +1,40 @@
+import http from '../lib/http'
+
+export type User = {
+  id: number
+  email: string
+  first_name: string
+  last_name: string
+  role: string
+  is_active: boolean
+}
+
+export async function listUsers(query?: string) {
+  const { data } = await http.get<User[]>(`/users/`, {
+    params: query ? { search: query } : undefined,
+  })
+  return data
+}
+
+export async function createUser(
+  payload: Pick<User, 'email' | 'first_name' | 'last_name' | 'role'> & {
+    is_active?: boolean
+    password: string
+    password2: string
+  }
+) {
+  const { data } = await http.post<User>(`/users/`, payload)
+  return data
+}
+
+export async function updateUser(
+  id: number,
+  payload: Partial<User> & { password?: string; password2?: string }
+) {
+  const { data } = await http.patch<User>(`/users/${id}/`, payload)
+  return data
+}
+
+export async function deleteUser(id: number) {
+  await http.delete(`/users/${id}/`)
+}
