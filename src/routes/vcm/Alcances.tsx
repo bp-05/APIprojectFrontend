@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useId } from 'react'
 import { toast } from 'react-hot-toast'
 import {
   createEngagementScope,
@@ -49,6 +49,11 @@ export default function Alcances() {
     companies.forEach((c) => m.set(c.id, c))
     return m
   }, [companies])
+  const subjectsByCodeSection = useMemo(() => {
+    const m = new Map<string, Subject>()
+    subjects.forEach((s) => m.set(`${s.code}-${s.section}`, s))
+    return m
+  }, [subjects])
 
   function openCreate() {
     setEditing(null)
@@ -101,7 +106,13 @@ export default function Alcances() {
               items.map((a) => (
                 <tr key={a.id} className="hover:bg-zinc-50">
                   <Td>{companiesById.get(a.company)?.name || `#${a.company}`}</Td>
-                  <Td>{a.subject_code}-{a.subject_section}</Td>
+                  <Td>
+                    {(() => {
+                      const key = `${a.subject_code}-${a.subject_section}`
+                      const subj = subjectsByCodeSection.get(key)
+                      return subj ? `${subj.name} (${key})` : key
+                    })()}
+                  </Td>
                   <Td>{a.benefits_from_student || '-'}</Td>
                   <Td>{a.workplace_has_conditions_for_group ? 'Sí' : 'No'}</Td>
                   <Td className="text-right">
@@ -163,14 +174,12 @@ function AlcanceForm({
   onClose: () => void
   onSaved: () => void | Promise<void>
 }) {
-  const [company, setCompany] = useState<number>(initial?.company || companies[0]?.id || 0)
-  const [subjectId, setSubjectId] = useState<number>(
-    initial ? -1 : subjects[0]?.id || 0,
-  )
+  const [company, setCompany] = useState<number>(initial?.company || 0)
+  const [subjectId, setSubjectId] = useState<number>(initial ? -1 : 0)
   const [form, setForm] = useState<Omit<CompanyEngagementScope, 'id'>>({
     company,
-    subject_code: initial?.subject_code || (subjects[0]?.code ?? ''),
-    subject_section: initial?.subject_section || (subjects[0]?.section ?? '1'),
+    subject_code: initial?.subject_code || '',
+    subject_section: initial?.subject_section || '',
     benefits_from_student: initial?.benefits_from_student || '',
     has_value_or_research_project: initial?.has_value_or_research_project || false,
     time_availability_and_participation: initial?.time_availability_and_participation || '',
@@ -199,6 +208,11 @@ function AlcanceForm({
     e.preventDefault()
     setSaving(true)
     try {
+      if (!initial) {
+        if (!company || !form.subject_code || !form.subject_section) {
+          throw new Error('Seleccione empresa y asignatura')
+        }
+      }
       if (initial) {
         await updateEngagementScope(initial.id, form)
         toast.success('Alcance actualizado')
@@ -229,9 +243,11 @@ function AlcanceForm({
         <form className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 sm:px-6" onSubmit={onSubmit}>
           <Select
             label="Empresa"
-            value={String(company)}
+            value={String(company || '')}
             onChange={(v) => setCompany(Number(v))}
             options={companies.map((c) => ({ value: String(c.id), label: c.name }))}
+            placeholder={companies.length === 0 ? 'Sin empresas disponibles' : 'Seleccionar empresa'}
+            disabled={companies.length === 0}
           />
           {initial ? (
             <Text
@@ -243,35 +259,42 @@ function AlcanceForm({
           ) : (
             <Select
               label="Asignatura"
-              value={String(subjectId)}
+              value={String(subjectId || '')}
               onChange={(v) => setSubjectId(Number(v))}
-              options={subjects.map((s) => ({ value: String(s.id), label: `${s.code}-${s.section}` }))}
+              options={subjects.map((s) => ({
+                value: String(s.id),
+                label: `${s.name || '(sin nombre)'} (${s.code}-${s.section})`,
+              }))}
+              placeholder={subjects.length === 0 ? 'Sin asignaturas disponibles' : 'Seleccionar asignatura'}
+              disabled={subjects.length === 0}
             />
           )}
 
           <Area
-            label="Beneficios esperados"
+            label="¿Qué beneficios podría aportar un estudiante a su organización?"
             value={form.benefits_from_student}
             onChange={(v) => update('benefits_from_student', v)}
           />
           <Area
-            label="Disponibilidad de tiempo y participación"
+            label="¿Cuánto tiempo le gustaría disponer para esta experiencia? ¿Podría participar durante el semestre?"
+            help="Se busca que la contraparte participe al inicio, presentando el proyecto, y al final, retroalimentando los entregables. Idealmente, podría participar además en instancias de retroalimentación intermedias durante el semestre."
             value={form.time_availability_and_participation}
             onChange={(v) => update('time_availability_and_participation', v)}
           />
           <Area
-            label="Disponibilidad de agenda de reuniones"
+            label="¿Qué horarios de reunión (presencial / online) tiene disponible para discutir avances del proyecto con la contraparte de Inacap?"
             value={form.meeting_schedule_availability}
             onChange={(v) => update('meeting_schedule_availability', v)}
           />
 
           <Check
-            label="Tiene proyecto de valor/investigación"
+            label="¿Tiene un proyecto de investigación o de valor agregado que podría asignar al grupo de estudiantes?"
             checked={form.has_value_or_research_project}
             onChange={(v) => update('has_value_or_research_project', v)}
           />
           <Check
-            label="El lugar cuenta con condiciones para grupo"
+            label="¿Su lugar de trabajo presenta condiciones para recibir al grupo de estudiantes?"
+            help="Por ejemplo, para mostrar el equipamiento, equipos de trabajo, auditorio para presentar el proyecto y/o retroalimentarlo u otras actividades. En caso de que no, la contraparte también puede ir a la sede."
             checked={form.workplace_has_conditions_for_group}
             onChange={(v) => update('workplace_has_conditions_for_group', v)}
           />
@@ -323,11 +346,15 @@ function Select({
   value,
   onChange,
   options,
+  placeholder,
+  disabled,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   options: Array<{ value: string; label: string }>
+  placeholder?: string
+  disabled?: boolean
 }) {
   return (
     <label className="block text-sm">
@@ -335,8 +362,14 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+        disabled={disabled}
+        className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none disabled:cursor-not-allowed disabled:bg-zinc-50 focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
       >
+        {!value ? (
+          <option value="" disabled>
+            {placeholder || 'Seleccione una opción'}
+          </option>
+        ) : null}
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -347,10 +380,34 @@ function Select({
   )
 }
 
-function Area({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Area({ label, value, onChange, help }: { label: string; value: string; onChange: (v: string) => void; help?: string }) {
+  const [open, setOpen] = useState(false)
+  const helpId = useId()
   return (
-    <label className="col-span-full block text-sm">
-      <span className="mb-1 block font-medium text-zinc-800">{label}</span>
+    <label className="relative col-span-full block text-sm">
+      <span className="mb-1 flex items-start gap-2 font-medium text-zinc-800">
+        <span className="text-justify">{label}</span>
+        {help ? (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-controls={helpId}
+            className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-zinc-300 text-[10px] leading-none text-zinc-600 hover:bg-zinc-50"
+            aria-label="Ayuda"
+          >
+            ?
+          </button>
+        ) : null}
+      </span>
+      {help && open ? (
+        <div
+          id={helpId}
+          className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-700 shadow-lg"
+        >
+          {help}
+        </div>
+      ) : null}
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -361,16 +418,40 @@ function Area({ label, value, onChange }: { label: string; value: string; onChan
   )
 }
 
-function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Check({ label, checked, onChange, help }: { label: string; checked: boolean; onChange: (v: boolean) => void; help?: string }) {
+  const [open, setOpen] = useState(false)
+  const helpId = useId()
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="relative flex items-start gap-2 text-sm">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600"
       />
-      <span className="text-zinc-800">{label}</span>
+      <span className="flex items-start gap-2 text-zinc-800">
+        <span className="block leading-snug text-justify">{label}</span>
+        {help ? (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-controls={helpId}
+            className="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-zinc-300 text-[10px] leading-none text-zinc-600 hover:bg-zinc-50"
+            aria-label="Ayuda"
+          >
+            ?
+          </button>
+        ) : null}
+      </span>
+      {help && open ? (
+        <div
+          id={helpId}
+          className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-700 shadow-lg"
+        >
+          {help}
+        </div>
+      ) : null}
     </label>
   )
 }
