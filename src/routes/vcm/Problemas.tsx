@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import {
   createProblemStatement,
@@ -9,12 +10,12 @@ import {
   type ProblemStatement,
   type Company,
 } from '../../api/companies'
-import { listSubjects, type Subject } from '../../api/subjects'
+import { listSubjectCodeSections, type BasicSubject } from '../../api/subjects'
 
 export default function Problemas() {
   const [items, setItems] = useState<ProblemStatement[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
-  const [subjects, setSubjects] = useState<Subject[]>([])
+  const [subjects, setSubjects] = useState<BasicSubject[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +29,7 @@ export default function Problemas() {
       const [ps, cs, ss] = await Promise.all([
         listProblemStatements(),
         listCompanies(),
-        listSubjects(),
+        listSubjectCodeSections(),
       ])
       setItems(ps)
       setCompanies(cs)
@@ -106,6 +107,13 @@ export default function Problemas() {
 
       {error ? (
         <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      {!loading && subjects.length === 0 ? (
+        <div className="mb-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+          No hay asignaturas disponibles para tu usuario. Si tu rol es VCM, solicita que te agreguen al grupo
+          <span className="mx-1 rounded bg-yellow-100 px-1.5 py-0.5 font-mono">vcm</span> en el backend o usa una cuenta con permisos (Admin/DAC) para ver todas las asignaturas.
+        </div>
       ) : null}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
@@ -190,13 +198,13 @@ function ProblemForm({
 }: {
   initial?: ProblemStatement
   companies: Company[]
-  subjects: Subject[]
+  subjects: BasicSubject[]
   onClose: () => void
   onSaved: () => void | Promise<void>
 }) {
   const [form, setForm] = useState<Omit<ProblemStatement, 'id'>>({
-    company: initial?.company || companies[0]?.id || 0,
-    subject: initial?.subject || subjects[0]?.id || 0,
+    company: initial?.company || 0,
+    subject: initial?.subject || 0,
     problem_to_address: initial?.problem_to_address || '',
     why_important: initial?.why_important || '',
     stakeholders: initial?.stakeholders || '',
@@ -210,20 +218,42 @@ function ProblemForm({
     setForm((f) => ({ ...f, [key]: value }))
   }
 
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     try {
+      const payload = Object.fromEntries(
+        Object.entries(form).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]),
+      ) as typeof form
+      const isValidId = (x: unknown) => typeof x === 'number' && Number.isFinite(x) && x > 0
+      if (!isValidId(payload.company)) throw new Error('Seleccione una empresa válida')
+      if (!isValidId(payload.subject)) throw new Error('Seleccione una asignatura válida')
       if (initial) {
-        await updateProblemStatement(initial.id, form)
+        await updateProblemStatement(initial.id, payload)
         toast.success('Problemática actualizada')
       } else {
-        await createProblemStatement(form)
+        await createProblemStatement(payload)
         toast.success('Problemática creada')
       }
       await onSaved()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al guardar'
+      let msg = 'Error al guardar'
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as any
+        if (typeof data === 'string') msg = data
+        else if (data && typeof data === 'object') {
+          try {
+            const parts = Object.entries(data).map(([k, v]) => {
+              const val = Array.isArray(v) ? v.join(', ') : String(v)
+              return `${k}: ${val}`
+            })
+            if (parts.length) msg = parts.join(' | ')
+          } catch {}
+        }
+      } else if (err instanceof Error) {
+        msg = err.message
+      }
       toast.error(msg)
     } finally {
       setSaving(false)
@@ -231,8 +261,8 @@ function ProblemForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 p-4">
-      <div className="my-8 w-full max-w-3xl rounded-xl bg-white shadow-lg ring-1 ring-black/5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-3xl rounded-xl bg-white shadow-lg ring-1 ring-black/5 max-h-[calc(100vh-4rem)] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-3">
           <h2 className="text-sm font-semibold text-zinc-900">
             {initial ? 'Editar problemática' : 'Nueva problemática'}
@@ -241,30 +271,39 @@ function ProblemForm({
             Cerrar
           </button>
         </div>
-        <form className="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-2" onSubmit={onSubmit}>
+        <form className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 sm:px-6" onSubmit={onSubmit}>
           <Select
             label="Empresa"
-            value={String(form.company)}
+            value={String(form.company || '')}
             onChange={(v) => update('company', Number(v))}
             options={companies.map((c) => ({ value: String(c.id), label: c.name }))}
+            placeholder={companies.length === 0 ? 'Sin empresas disponibles' : 'Seleccionar empresa'}
+            disabled={companies.length === 0}
           />
           <Select
             label="Asignatura"
-            value={String(form.subject)}
+            value={String(form.subject || '')}
             onChange={(v) => update('subject', Number(v))}
-            options={subjects.map((s) => ({ value: String(s.id), label: `${s.code}-${s.section}` }))}
+            options={subjects.map((s) => ({ value: String(s.id), label: `${s.code}-${s.section} · ${s.name}` }))}
+            placeholder={subjects.length === 0 ? 'Sin asignaturas disponibles' : 'Seleccionar asignatura'}
+            disabled={subjects.length === 0}
           />
+          {subjects.length === 0 ? (
+            <div className="col-span-full -mt-2 text-xs text-yellow-700">
+              No se encontraron asignaturas. Verifique que su usuario tenga permisos VCM y vuelva a intentar.
+            </div>
+          ) : null}
 
-          <Area label="Asunto a abordar" value={form.problem_to_address} onChange={(v) => update('problem_to_address', v)} />
-          <Area label="Por qué es importante" value={form.why_important} onChange={(v) => update('why_important', v)} />
-          <Area label="Stakeholders" value={form.stakeholders} onChange={(v) => update('stakeholders', v)} />
-          <Area label="Área relacionada" value={form.related_area} onChange={(v) => update('related_area', v)} />
+          <Area label="¿Cuál es la problemática que necesitamos abordar?" value={form.problem_to_address} onChange={(v) => update('problem_to_address', v)} />
+          <Area label="¿Por qué esta problemática es importante para nosotros?" value={form.why_important} onChange={(v) => update('why_important', v)} />
+          <Area label="¿Para quiénes es relevante? ¿A quién concierne? ¿Quiénes están involucrados y en qué medida?" value={form.stakeholders} onChange={(v) => update('stakeholders', v)} />
+          <Area label="¿Qué área está más directamente relacionada?" value={form.related_area} onChange={(v) => update('related_area', v)} />
           <Area
-            label="Beneficios (corto/mediano/largo)"
+            label="¿Cómo y en qué nos beneficiaría en el corto, mediano y largo plazo la solución a la problemática cuando esté resuelta?"
             value={form.benefits_short_medium_long_term}
             onChange={(v) => update('benefits_short_medium_long_term', v)}
           />
-          <Area label="Definición del problema" value={form.problem_definition} onChange={(v) => update('problem_definition', v)} />
+          <Area label="A partir de las respuestas, define la problemática a trabajar en la asignatura." value={form.problem_definition} onChange={(v) => update('problem_definition', v)} />
 
           <div className="col-span-full mt-2 flex items-center justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">
@@ -289,27 +328,48 @@ function Select({
   value,
   onChange,
   options,
+  placeholder,
+  disabled,
+  actionLabel,
+  onAction,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   options: Array<{ value: string; label: string }>
+  placeholder?: string
+  disabled?: boolean
+  actionLabel?: string
+  onAction?: () => void | Promise<void>
 }) {
   return (
-    <label className="block text-sm">
-      <span className="mb-1 block font-medium text-zinc-800">{label}</span>
+    <div className="block text-sm">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="block font-medium text-zinc-800">{label}</span>
+        {onAction ? (
+          <button type="button" onClick={onAction} className="text-xs text-red-600 hover:underline">
+            {actionLabel || 'Recargar'}
+          </button>
+        ) : null}
+      </div>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+        disabled={disabled}
+        className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none disabled:cursor-not-allowed disabled:bg-zinc-50 focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
       >
+        {!value ? (
+          <option value="" disabled>
+            {placeholder || 'Seleccione una opción'}
+          </option>
+        ) : null}
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
       </select>
-    </label>
+    </div>
   )
 }
 

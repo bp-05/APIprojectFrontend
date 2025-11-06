@@ -226,7 +226,7 @@ function CompanyForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-2xl rounded-xl bg-white shadow-lg ring-1 ring-black/5">
+      <div className="w-full max-w-2xl rounded-xl bg-white shadow-lg ring-1 ring-black/5 max-h-[calc(100vh-4rem)] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-3">
           <h2 className="text-sm font-semibold text-zinc-900">
             {initial ? 'Editar empresa' : 'Nueva empresa'}
@@ -235,7 +235,7 @@ function CompanyForm({
             Cerrar
           </button>
         </div>
-        <form className="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-2" onSubmit={onSubmit}>
+        <form className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 sm:px-6" onSubmit={onSubmit}>
           <Text label="Nombre" value={form.name} onChange={(v) => update('name', v)} required />
           <Text label="Correo" value={form.email} onChange={(v) => update('email', v)} type="email" required />
           <Text label="Teléfono" value={form.phone} onChange={(v) => update('phone', v)} />
