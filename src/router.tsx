@@ -3,7 +3,7 @@ import Layout from './routes/Layout'
 import Login from './routes/Login'
 import ErrorPage from './routes/ErrorPage'
 import NotFound from './routes/NotFound'
-import { redirectIfAuthedLoader, requireAuthLoader, requireRoleLoader, entryLoader } from './routes/guards'
+import { redirectIfAuthedLoader, requireAuthLoader, requireRoleLoader, requireAnyRoleLoader, entryLoader } from './routes/guards'
 import Admin from './routes/roles/Admin'
 import VCM from './routes/roles/VCM'
 import DAC from './routes/roles/DAC'
@@ -35,7 +35,7 @@ export const router = createBrowserRouter([
       },
       { path: 'admin', loader: requireRoleLoader('ADMIN'), element: <Admin /> },
       { path: 'usuarios', loader: requireRoleLoader('ADMIN'), element: <Usuarios /> },
-      { path: 'asignaturas', loader: requireRoleLoader('DAC'), element: <Asignaturas /> },
+      { path: 'asignaturas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Asignaturas /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
       { path: 'dac', loader: requireRoleLoader('DAC'), element: <DAC /> },
       { path: 'dc', loader: requireRoleLoader('DC'), element: <DC /> },

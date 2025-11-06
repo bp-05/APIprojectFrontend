@@ -63,6 +63,12 @@ export default function Layout() {
                   >
                     Usuarios
                   </Link>
+                  <Link
+                    to="/asignaturas"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Asignaturas
+                  </Link>
                 </>
               )}
               {role === 'DAC' && (

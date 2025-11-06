@@ -32,6 +32,18 @@ export function requireRoleLoader(requiredRole: string) {
   }
 }
 
+export function requireAnyRoleLoader(roles: string[]) {
+  return async function () {
+    if (!hasToken()) return redirect('/login')
+    const role = localStorage.getItem('user_role')
+    if (!role) return redirect('/login')
+    if (!roles.includes(role)) {
+      return redirect(pathForRole(role as any))
+    }
+    return null
+  }
+}
+
 export async function entryLoader() {
   // Entry point after auth: send to role route
   if (!hasToken()) return redirect('/login')
