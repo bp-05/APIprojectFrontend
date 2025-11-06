@@ -13,6 +13,10 @@ import COORD from './routes/roles/COORD'
 import Profile from './routes/Profile'
 import Usuarios from './routes/Usuarios'
 import Asignaturas from './routes/Asignaturas'
+import Empresas from './routes/vcm/Empresas'
+import Problemas from './routes/vcm/Problemas'
+import Alcances from './routes/vcm/Alcances'
+import DocentesVCM from './routes/vcm/Docentes'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -37,6 +41,10 @@ export const router = createBrowserRouter([
       { path: 'usuarios', loader: requireRoleLoader('ADMIN'), element: <Usuarios /> },
       { path: 'asignaturas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Asignaturas /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
+      { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <Empresas /> },
+      { path: 'vcm/problemas', loader: requireRoleLoader('VCM'), element: <Problemas /> },
+      { path: 'vcm/alcances', loader: requireRoleLoader('VCM'), element: <Alcances /> },
+      { path: 'vcm/docentes', loader: requireRoleLoader('VCM'), element: <DocentesVCM /> },
       { path: 'dac', loader: requireRoleLoader('DAC'), element: <DAC /> },
       { path: 'dc', loader: requireRoleLoader('DC'), element: <DC /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },

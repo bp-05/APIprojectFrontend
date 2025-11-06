@@ -83,6 +83,35 @@ export default function Layout() {
                 </>
               )}
               {/* Otros roles/links se agregarán luego */}
+              {role === 'VCM' && (
+                <>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Vinculacion con el medio</div>
+                  <Link
+                    to="/vcm/empresas"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Empresas
+                  </Link>
+                  <Link
+                    to="/vcm/problemas"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Problematicas
+                  </Link>
+                  <Link
+                    to="/vcm/alcances"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Alcances
+                  </Link>
+                  <Link
+                    to="/vcm/docentes"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Docentes
+                  </Link>
+                </>
+              )}
             </nav>
           </aside>
         ) : null}
