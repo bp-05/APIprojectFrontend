@@ -38,3 +38,20 @@ export async function updateUser(
 export async function deleteUser(id: number) {
   await http.delete(`/users/${id}/`)
 }
+
+export async function listDocentes(options?: { search?: string; onlyActive?: boolean }) {
+  const params: Record<string, any> = {}
+  if (options?.search) params.search = options.search
+  try {
+    // Endpoint dedicado para docentes (requiere ADMIN, DAC o grupo vcm)
+    const { data } = await http.get<User[]>(`/users/teachers/`, { params })
+    return data
+  } catch (_) {
+    // Fallback: usar filtro por rol en listado general
+    const p: Record<string, any> = { role: 'DOC' }
+    if (options?.onlyActive !== false) p.is_active = true
+    if (options?.search) p.search = options.search
+    const { data } = await http.get<User[]>(`/users/`, { params: p })
+    return data
+  }
+}

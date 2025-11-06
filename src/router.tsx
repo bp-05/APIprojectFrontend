@@ -12,6 +12,7 @@ import DOC from './routes/roles/DOC'
 import COORD from './routes/roles/COORD'
 import Profile from './routes/Profile'
 import Usuarios from './routes/Usuarios'
+import Asignaturas from './routes/Asignaturas'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
       },
       { path: 'admin', loader: requireRoleLoader('ADMIN'), element: <Admin /> },
       { path: 'usuarios', loader: requireRoleLoader('ADMIN'), element: <Usuarios /> },
+      { path: 'asignaturas', loader: requireRoleLoader('DAC'), element: <Asignaturas /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
       { path: 'dac', loader: requireRoleLoader('DAC'), element: <DAC /> },
       { path: 'dc', loader: requireRoleLoader('DC'), element: <DC /> },

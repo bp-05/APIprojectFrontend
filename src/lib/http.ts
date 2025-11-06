@@ -9,6 +9,7 @@ const http = axios.create({
 
 let isRefreshing = false
 let pendingQueue: Array<{ resolve: (t: string) => void; reject: (e: any) => void }> = []
+let loggingOut = false
 
 function getAccess() {
   return localStorage.getItem('access_token') || ''
@@ -20,6 +21,22 @@ function getRefresh() {
 
 function setAccess(token: string) {
   localStorage.setItem('access_token', token)
+}
+
+function handleAuthFailure() {
+  if (loggingOut) return
+  loggingOut = true
+  try {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user_role')
+  } catch {}
+  // Redirigir al login para reautenticar cuando backend se reinicia o el token vence
+  try {
+    if (typeof window !== 'undefined' && window.location) {
+      window.location.assign('/login')
+    }
+  } catch {}
 }
 
 http.interceptors.request.use((config) => {
@@ -57,14 +74,20 @@ http.interceptors.response.use(
     isRefreshing = true
     try {
       const refresh = getRefresh()
-      if (!refresh) throw error
+      if (!refresh) {
+        handleAuthFailure()
+        throw error
+      }
       const { data } = await axios.post(
         `${apiBaseUrl()}${apiEnv.refreshPath}`,
         { refresh },
         { timeout: apiEnv.timeout }
       )
       const newAccess = data?.access as string
-      if (!newAccess) throw error
+      if (!newAccess) {
+        handleAuthFailure()
+        throw error
+      }
       setAccess(newAccess)
       pendingQueue.forEach(({ resolve }) => resolve(newAccess))
       pendingQueue = []
@@ -76,6 +99,7 @@ http.interceptors.response.use(
     } catch (e) {
       pendingQueue.forEach(({ reject }) => reject(e))
       pendingQueue = []
+      handleAuthFailure()
       return Promise.reject(e)
     } finally {
       isRefreshing = false
