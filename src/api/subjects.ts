@@ -70,6 +70,11 @@ export async function processDescriptor(id: number) {
   await http.post(`/descriptors/${id}/process/`)
 }
 
+export async function getDescriptor(id: number) {
+  const { data } = await http.get<Descriptor>(`/descriptors/${id}/`)
+  return data
+}
+
 export async function listDescriptorsBySubject(subjectId: number) {
   const { data } = await http.get<Descriptor[]>(`/descriptors/`, { params: { subject: subjectId } })
   return data

@@ -42,16 +42,44 @@ export async function deleteUser(id: number) {
 export async function listDocentes(options?: { search?: string; onlyActive?: boolean }) {
   const params: Record<string, any> = {}
   if (options?.search) params.search = options.search
+  if (options?.onlyActive !== false) params.is_active = true
   try {
-    // Endpoint dedicado para docentes (requiere ADMIN, DAC o grupo vcm)
-    const { data } = await http.get<User[]>(`/users/teachers/`, { params })
+    // Nuevo endpoint CRUD dedicado para docentes
+    const { data } = await http.get<User[]>(`/teachers/`, { params })
     return data
   } catch (_) {
-    // Fallback: usar filtro por rol en listado general
-    const p: Record<string, any> = { role: 'DOC' }
-    if (options?.onlyActive !== false) p.is_active = true
-    if (options?.search) p.search = options.search
-    const { data } = await http.get<User[]>(`/users/`, { params: p })
-    return data
+    try {
+      // Compatibilidad: endpoint antiguo de solo listado
+      const { data } = await http.get<User[]>(`/users/teachers/`, { params })
+      return data
+    } catch {
+      // Fallback: usar filtro por rol en listado general
+      const p: Record<string, any> = { role: 'DOC' }
+      if (options?.onlyActive !== false) p.is_active = true
+      if (options?.search) p.search = options.search
+      const { data } = await http.get<User[]>(`/users/`, { params: p })
+      return data
+    }
   }
+}
+
+export async function createTeacher(payload: {
+  email: string
+  first_name?: string
+  last_name?: string
+  password: string
+  password2: string
+  is_active?: boolean
+}) {
+  const { data } = await http.post<User>(`/teachers/`, payload)
+  return data
+}
+
+export async function updateTeacher(id: number, payload: Partial<User>) {
+  const { data } = await http.patch<User>(`/teachers/${id}/`, payload)
+  return data
+}
+
+export async function deleteTeacher(id: number) {
+  await http.delete(`/teachers/${id}/`)
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { createSubject, deleteSubject, listSubjects, updateSubject, type Subject, listAreas, listSemesters, type Area, type SemesterLevel, uploadDescriptor, processDescriptor, type Descriptor, listDescriptorsBySubject, listCareers, type Career } from '../api/subjects'
+import { createSubject, deleteSubject, listSubjects, updateSubject, type Subject, listAreas, listSemesters, type Area, type SemesterLevel, uploadDescriptor, processDescriptor, type Descriptor, listDescriptorsBySubject, listCareers, type Career, getDescriptor } from '../api/subjects'
 import { listDocentes, type User as AppUser } from '../api/users'
 import { nameCase } from '../lib/strings'
 import { toast } from 'react-hot-toast'
@@ -200,9 +200,8 @@ export default function Asignaturas() {
           onClose={() => setCreateMode('none')}
           onUploaded={async () => {
             setCreateMode('none')
-            setAutoPolling(true)
-            setAutoUntil(Date.now() + 3 * 60 * 1000)
-            toast.success('Descriptor subido. Procesamiento iniciado; la asignatura aparecerá en breve.')
+            await load()
+            toast.success('Asignatura creada desde descriptor')
           }}
         />
       ) : null}
@@ -943,6 +942,14 @@ function UploadDescriptorAutoDialog({ onClose, onUploaded }: { onClose: () => vo
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const autoFileInputRef = useRef<HTMLInputElement | null>(null)
+  const mountedRef = useRef(true)
+  const closedRef = useRef(false)
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -960,12 +967,29 @@ function UploadDescriptorAutoDialog({ onClose, onUploaded }: { onClose: () => vo
       setLoading(true)
       const d = await uploadDescriptor(file, null)
       try { await processDescriptor(d.id) } catch {}
+      // Cerrar el cuadro inmediatamente
+      closedRef.current = true
+      onClose()
+      // Esperar hasta que el descriptor termine de procesarse (en segundo plano)
+      const timeoutMs = 3 * 60 * 1000
+      const intervalMs = 3000
+      const start = Date.now()
+      while (true) {
+        try {
+          const latest = await getDescriptor(d.id)
+          if (latest?.processed_at) break
+        } catch {}
+        if (Date.now() - start > timeoutMs) {
+          break
+        }
+        await new Promise((r) => setTimeout(r, intervalMs))
+      }
       await onUploaded()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al subir descriptor'
       setError(msg)
     } finally {
-      setLoading(false)
+      if (mountedRef.current && !closedRef.current) setLoading(false)
     }
   }
 
