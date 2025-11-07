@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { getCompany, listProblemStatements, listEngagementScopes, type Company, type ProblemStatement, type CompanyEngagementScope } from '../../api/companies'
-import { listCompanyRequirements, type CompanyRequirement } from '../../api/subjects'
+import { getCompany, listProblemStatements, type Company, type ProblemStatement } from '../../api/companies'
 
 export default function EmpresaDetalle() {
   const { id, companyId } = useParams()
@@ -9,8 +8,6 @@ export default function EmpresaDetalle() {
   const compId = Number(companyId)
   const [company, setCompany] = useState<Company | null>(null)
   const [problems, setProblems] = useState<ProblemStatement[]>([])
-  const [scope, setScope] = useState<CompanyEngagementScope | null>(null)
-  const [requirements, setRequirements] = useState<CompanyRequirement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -20,19 +17,13 @@ export default function EmpresaDetalle() {
       setLoading(true)
       setError(null)
       try {
-        const [c, probs, scopes, reqs] = await Promise.all([
+        const [c, probs] = await Promise.all([
           getCompany(compId),
           listProblemStatements({ subject: subjectId, company: compId }),
-          listEngagementScopes({ company: compId }),
-          listCompanyRequirements(),
         ])
         if (!mounted) return
         setCompany(c)
         setProblems(probs || [])
-        const s = (scopes || []).find((x) => x.subject_code && x.subject_section) || null
-        setScope(s || null)
-        const reqFiltered = (reqs || []).filter((r) => r.subject === subjectId && r.company === compId)
-        setRequirements(reqFiltered as CompanyRequirement[])
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'No se pudo cargar la empresa'
         setError(msg)
@@ -55,7 +46,12 @@ export default function EmpresaDetalle() {
         <div>
           <h1 className="text-xl font-semibold">Empresa</h1>
           {company ? (
-            <p className="text-sm text-zinc-600">{company.name} — {company.sector}</p>
+            <>
+              <p className="text-sm text-zinc-600">{company.name} - {company.sector}</p>
+              <div className="mt-1 text-xs text-zinc-600">
+                <span className="font-medium">Contacto:</span> {company.email || '-'} | {company.phone || '-'} | {company.address || '-'}
+              </div>
+            </>
           ) : null}
         </div>
         <Link to={`/coord/asignaturas/${id}`} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Volver</Link>
@@ -69,17 +65,12 @@ export default function EmpresaDetalle() {
         <div className="text-sm text-zinc-600">Cargando…</div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          <Section title="Problemática">
+          <Section title="Problematica">
             {problems.length === 0 ? (
               <div className="text-sm text-zinc-600">Sin problemática registrada</div>
             ) : (
               problems.map((p) => (
                 <div key={p.id} className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-                  <Field label="Problema a abordar" value={p.problem_to_address || '-'} />
-                  <Field label="Importancia" value={p.why_important || '-'} />
-                  <Field label="Actores involucrados" value={p.stakeholders || '-'} />
-                  <Field label="Área relacionada" value={p.related_area || '-'} />
-                  <Field label="Beneficios (corto/mediano/largo)" value={p.benefits_short_medium_long_term || '-'} />
                   <Field label="Definición del problema" value={p.problem_definition || '-'} />
                 </div>
               ))
@@ -87,55 +78,39 @@ export default function EmpresaDetalle() {
           </Section>
 
           <Section title="Alcance con contraparte">
-            {!scope ? (
-              <div className="text-sm text-zinc-600">Sin alcance registrado</div>
+            {problems.length === 0 ? (
+              <div className="text-sm text-zinc-600">Sin información</div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Field label="Beneficios esperados" value={scope.benefits_from_student || '-'} />
-                <Field label="Proyecto de valor/investigación" value={scope.has_value_or_research_project ? 'Sí' : 'No'} />
-                <Field label="Disponibilidad/participación" value={scope.time_availability_and_participation || '-'} />
-                <Field label="Condiciones de espacio" value={scope.workplace_has_conditions_for_group ? 'Sí' : 'No'} />
-                <Field label="Disponibilidad reuniones" value={scope.meeting_schedule_availability || '-'} />
-              </div>
+              problems.map((p) => (
+                <div key={p.id} className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                  <Field label="Beneficios (corto/mediano/largo plazo)" value={p.benefits_short_medium_long_term || '-'} />
+                </div>
+              ))
             )}
           </Section>
 
           <Section title="Requisitos de la empresa">
-            {requirements.length === 0 ? (
-              <div className="text-sm text-zinc-600">Sin requisitos registrados</div>
+            {problems.length === 0 ? (
+              <div className="text-sm text-zinc-600">Sin información</div>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-                <table className="min-w-full divide-y divide-zinc-200">
-                  <thead className="bg-zinc-50">
-                    <tr>
-                      <Th>Sector</Th>
-                      <Th>Ha trabajado antes</Th>
-                      <Th>Interés colaborar</Th>
-                      <Th>Puede desarrollar actividades</Th>
-                      <Th>Diseñar proyecto</Th>
-                      <Th>Interacción</Th>
-                      <Th>Guía</Th>
-                      <Th>Recibe alternancia</Th>
-                      <Th>Cupos alternancia</Th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100 bg-white">
-                    {requirements.map((r) => (
-                      <tr key={r.id} className="hover:bg-zinc-50">
-                        <Td>{r.sector || '-'}</Td>
-                        <Td>{r.worked_before ? 'Sí' : 'No'}</Td>
-                        <Td>{r.interest_collaborate ? 'Sí' : 'No'}</Td>
-                        <Td>{r.can_develop_activities ? 'Sí' : 'No'}</Td>
-                        <Td>{r.willing_design_project ? 'Sí' : 'No'}</Td>
-                        <Td>{r.interaction_type || '-'}</Td>
-                        <Td>{r.has_guide ? 'Sí' : 'No'}</Td>
-                        <Td>{r.can_receive_alternance ? 'Sí' : 'No'}</Td>
-                        <Td>{r.alternance_students_quota ?? '-'}</Td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              problems.map((p) => (
+                <div key={p.id} className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                  <Field label="Problema a abordar" value={p.problem_to_address || '-'} />
+                  <Field label="Importancia" value={p.why_important || '-'} />
+                </div>
+              ))
+            )}
+          </Section>
+
+          <Section title="Área relacionada">
+            {problems.length === 0 ? (
+              <div className="text-sm text-zinc-600">Sin información</div>
+            ) : (
+              problems.map((p) => (
+                <div key={p.id} className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                  <Field label="Área relacionada" value={p.related_area || '-'} />
+                </div>
+              ))
             )}
           </Section>
         </div>
@@ -157,7 +132,7 @@ function Field({ label, value }: { label: string; value: any }) {
   return (
     <div className="mb-1">
       <div className="text-xs font-medium text-zinc-600">{label}</div>
-      <div className="text-sm text-zinc-800 whitespace-pre-wrap">{String(value)}</div>
+      <div className="whitespace-pre-wrap text-sm text-zinc-800">{String(value)}</div>
     </div>
   )
 }
