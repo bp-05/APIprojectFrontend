@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { getSubject, updateSubject, listCompanyRequirements, type CompanyRequirement, type Subject } from '../../api/subjects'
+import { getSubject, updateSubject, type Subject } from '../../api/subjects'
 import { listDocentes, type User as AppUser, getTeacher } from '../../api/users'
 import { listProblemStatements, getCompany, type ProblemStatement } from '../../api/companies'
+import { listCompanyRequirements, type CompanyRequirement } from '../../api/subjects'
 import { nameCase } from '../../lib/strings'
 
 export default function AsignaturaCoordDetalle() {
@@ -38,8 +39,9 @@ export default function AsignaturaCoordDetalle() {
         setSubject(s)
 
         let compId: number | null = null
-        if (Array.isArray(probs) && probs.length > 0) compId = probs[0].company
-        else if (Array.isArray(reqs) && reqs.length > 0) {
+        if (Array.isArray(probs) && probs.length > 0) {
+          compId = probs[0].company
+        } else if (Array.isArray(reqs) && reqs.length > 0) {
           const r = (reqs as CompanyRequirement[]).find((r) => r.subject === subjectId)
           if (r) compId = r.company
         }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getCompany, listProblemStatements, listEngagementScopes, type Company, type ProblemStatement, type CompanyEngagementScope } from '../../api/companies'
+import { listCompanyRequirements, type CompanyRequirement } from '../../api/subjects'
 
 export default function EmpresaDetalle() {
   const { id, companyId } = useParams()
@@ -9,6 +10,7 @@ export default function EmpresaDetalle() {
   const [company, setCompany] = useState<Company | null>(null)
   const [problems, setProblems] = useState<ProblemStatement[]>([])
   const [scope, setScope] = useState<CompanyEngagementScope | null>(null)
+  const [requirements, setRequirements] = useState<CompanyRequirement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,16 +20,19 @@ export default function EmpresaDetalle() {
       setLoading(true)
       setError(null)
       try {
-        const [c, probs, scopes] = await Promise.all([
+        const [c, probs, scopes, reqs] = await Promise.all([
           getCompany(compId),
           listProblemStatements({ subject: subjectId, company: compId }),
           listEngagementScopes({ company: compId }),
+          listCompanyRequirements(),
         ])
         if (!mounted) return
         setCompany(c)
         setProblems(probs || [])
         const s = (scopes || []).find((x) => x.subject_code && x.subject_section) || null
         setScope(s || null)
+        const reqFiltered = (reqs || []).filter((r) => r.subject === subjectId && r.company === compId)
+        setRequirements(reqFiltered as CompanyRequirement[])
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'No se pudo cargar la empresa'
         setError(msg)
@@ -94,6 +99,45 @@ export default function EmpresaDetalle() {
               </div>
             )}
           </Section>
+
+          <Section title="Requisitos de la empresa">
+            {requirements.length === 0 ? (
+              <div className="text-sm text-zinc-600">Sin requisitos registrados</div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+                <table className="min-w-full divide-y divide-zinc-200">
+                  <thead className="bg-zinc-50">
+                    <tr>
+                      <Th>Sector</Th>
+                      <Th>Ha trabajado antes</Th>
+                      <Th>Interés colaborar</Th>
+                      <Th>Puede desarrollar actividades</Th>
+                      <Th>Diseñar proyecto</Th>
+                      <Th>Interacción</Th>
+                      <Th>Guía</Th>
+                      <Th>Recibe alternancia</Th>
+                      <Th>Cupos alternancia</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 bg-white">
+                    {requirements.map((r) => (
+                      <tr key={r.id} className="hover:bg-zinc-50">
+                        <Td>{r.sector || '-'}</Td>
+                        <Td>{r.worked_before ? 'Sí' : 'No'}</Td>
+                        <Td>{r.interest_collaborate ? 'Sí' : 'No'}</Td>
+                        <Td>{r.can_develop_activities ? 'Sí' : 'No'}</Td>
+                        <Td>{r.willing_design_project ? 'Sí' : 'No'}</Td>
+                        <Td>{r.interaction_type || '-'}</Td>
+                        <Td>{r.has_guide ? 'Sí' : 'No'}</Td>
+                        <Td>{r.can_receive_alternance ? 'Sí' : 'No'}</Td>
+                        <Td>{r.alternance_students_quota ?? '-'}</Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
         </div>
       )}
     </section>
@@ -117,4 +161,3 @@ function Field({ label, value }: { label: string; value: any }) {
     </div>
   )
 }
-
