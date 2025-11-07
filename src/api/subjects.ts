@@ -25,6 +25,23 @@ export async function listSubjects() {
   return data
 }
 
+export type BasicSubject = { id: number; code: string; section: string; name: string }
+export async function listSubjectCodeSections() {
+  try {
+    const { data } = await http.get<BasicSubject[]>(`/subjects/code-sections/`)
+    if (Array.isArray(data) && data.length > 0) return data
+  } catch (_) {
+    // fallback abajo
+  }
+  // Fallback: obtener desde /subjects/ y mapear a campos básicos
+  try {
+    const { data } = await http.get<Subject[]>(`/subjects/`)
+    return (data || []).map((s) => ({ id: s.id, code: s.code, section: s.section, name: s.name }))
+  } catch (e) {
+    throw e
+  }
+}
+
 export async function createSubject(
   payload: Pick<Subject, 'code' | 'section' | 'name' | 'hours' | 'api_type' | 'campus' | 'area' | 'semester'> & {
     teacher?: number | null
