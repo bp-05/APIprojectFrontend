@@ -19,6 +19,10 @@ import Empresas from './routes/vcm/Empresas'
 import Problemas from './routes/vcm/Problemas'
 import Alcances from './routes/vcm/Alcances'
 import DocentesVCM from './routes/vcm/Docentes'
+import AsignaturasCoord from './routes/coord/Asignaturas'
+import AsignaturaCoordDetalle from './routes/coord/AsignaturaDetalle'
+import EmpresaDetalle from './routes/coord/EmpresaDetalle'
+import DocentesCoord from './routes/coord/Docentes'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -53,6 +57,10 @@ export const router = createBrowserRouter([
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
       { path: 'mis-asignaturas', loader: requireRoleLoader('DOC'), element: <MisAsignaturas /> },
       { path: 'coord', loader: requireRoleLoader('COORD'), element: <COORD /> },
+      { path: 'coord/asignaturas', loader: requireRoleLoader('COORD'), element: <AsignaturasCoord /> },
+      { path: 'coord/asignaturas/:id', loader: requireRoleLoader('COORD'), element: <AsignaturaCoordDetalle /> },
+      { path: 'coord/asignaturas/:id/empresa/:companyId', loader: requireRoleLoader('COORD'), element: <EmpresaDetalle /> },
+      { path: 'coord/docentes', loader: requireRoleLoader('COORD'), element: <DocentesCoord /> },
       { path: 'profile', loader: requireAuthLoader, element: <Profile /> },
       {
         path: '*',

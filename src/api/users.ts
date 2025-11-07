@@ -83,3 +83,8 @@ export async function updateTeacher(id: number, payload: Partial<User>) {
 export async function deleteTeacher(id: number) {
   await http.delete(`/teachers/${id}/`)
 }
+
+export async function getTeacher(id: number) {
+  const { data } = await http.get<User>(`/teachers/${id}/`)
+  return data
+}

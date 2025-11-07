@@ -49,6 +49,11 @@ export async function listProblemStatements(params?: { subject?: number; company
   return data
 }
 
+export async function getCompany(id: number) {
+  const { data } = await http.get<Company>(`/companies/${id}/`)
+  return data
+}
+
 export async function createProblemStatement(payload: Omit<ProblemStatement, 'id'>) {
   const { data } = await http.post<ProblemStatement>('/problem-statements/', payload)
   return data

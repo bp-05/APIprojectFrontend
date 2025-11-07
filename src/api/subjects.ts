@@ -144,3 +144,58 @@ export async function createSubjectUnit(payload: Omit<SubjectUnit, 'id'>) {
   const { data } = await http.post<SubjectUnit>(`/subject-units/`, payload)
   return data
 }
+
+export type SubjectCompetency = {
+  id: number
+  subject: number
+  number: number
+  description: string
+}
+
+export async function listSubjectCompetencies(subjectId: number) {
+  const { data } = await http.get<SubjectCompetency[]>(`/subject-competencies/`, { params: { subject: subjectId } })
+  return data
+}
+
+export type CompanyBoundaryCondition = {
+  id: number
+  subject: number
+  large_company: boolean
+  medium_company: boolean
+  small_company: boolean
+  family_enterprise: boolean
+  not_relevant: boolean
+  company_type_description: string
+  company_requirements_for_level_2_3: string
+  project_minimum_elements: string
+}
+
+export async function listBoundaryConditions() {
+  const { data } = await http.get<CompanyBoundaryCondition[]>(`/boundary-conditions/`)
+  return data
+}
+
+export type CompanyRequirement = {
+  id: number
+  sector: string
+  worked_before: boolean
+  interest_collaborate: boolean
+  can_develop_activities: boolean
+  willing_design_project: boolean
+  interaction_type: string
+  has_guide: boolean
+  can_receive_alternance: boolean
+  alternance_students_quota: number | null
+  subject: number
+  company: number
+}
+
+export async function listCompanyRequirements() {
+  const { data } = await http.get<CompanyRequirement[]>(`/company-requirements/`)
+  return data
+}
+
+export async function getSubject(id: number) {
+  const { data } = await http.get<Subject>(`/subjects/${id}/`)
+  return data
+}

@@ -111,6 +111,23 @@ export default function Layout() {
                   </Link>
                 </>
               )}
+              {role === 'COORD' && (
+                <>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Coordinación</div>
+                  <Link
+                    to="/coord/asignaturas"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Asignaturas
+                  </Link>
+                  <Link
+                    to="/coord/docentes"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Docentes
+                  </Link>
+                </>
+              )}
               {/* Otros roles/links se agregarán luego */}
               {role === 'VCM' && (
                 <>
@@ -181,6 +198,13 @@ export default function Layout() {
                 <>
                   <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Docente</div>
                   <Link onClick={() => setMobileNavOpen(false)} to="/mis-asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
+                </>
+              )}
+              {role === 'COORD' && (
+                <>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Coordinación</div>
+                  <Link onClick={() => setMobileNavOpen(false)} to="/coord/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
+                  <Link onClick={() => setMobileNavOpen(false)} to="/coord/docentes" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Docentes</Link>
                 </>
               )}
               <Link onClick={() => setMobileNavOpen(false)} to="/profile" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Perfil</Link>
