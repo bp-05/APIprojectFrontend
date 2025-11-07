@@ -100,6 +100,17 @@ export default function Layout() {
                   </Link>
                 </>
               )}
+              {role === 'DOC' && (
+                <>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Docente</div>
+                  <Link
+                    to="/mis-asignaturas"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Asignaturas
+                  </Link>
+                </>
+              )}
               {/* Otros roles/links se agregarán luego */}
             </nav>
           </aside>
@@ -135,6 +146,12 @@ export default function Layout() {
                   <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Departamento Academico</div>
                   <Link onClick={() => setMobileNavOpen(false)} to="/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
                   <Link onClick={() => setMobileNavOpen(false)} to="/docentes" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Docentes</Link>
+                </>
+              )}
+              {role === 'DOC' && (
+                <>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Docente</div>
+                  <Link onClick={() => setMobileNavOpen(false)} to="/mis-asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
                 </>
               )}
               <Link onClick={() => setMobileNavOpen(false)} to="/profile" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Perfil</Link>

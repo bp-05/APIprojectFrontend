@@ -98,3 +98,32 @@ export async function listCareers() {
   const { data } = await http.get<Career[]>(`/careers/`)
   return data
 }
+
+export type SubjectUnit = {
+  id: number
+  subject: number
+  number: number
+  expected_learning?: string | null
+  unit_hours?: number | null
+  activities_description?: string | null
+  evaluation_evidence?: string | null
+  evidence_detail?: string | null
+  counterpart_link?: string | null
+  place_mode_type?: string | null
+  counterpart_participant_name?: string | null
+}
+
+export async function listSubjectUnits(subjectId: number) {
+  const { data } = await http.get<SubjectUnit[]>(`/subject-units/`, { params: { subject: subjectId } })
+  return data
+}
+
+export async function updateSubjectUnit(id: number, payload: Partial<SubjectUnit>) {
+  const { data } = await http.patch<SubjectUnit>(`/subject-units/${id}/`, payload)
+  return data
+}
+
+export async function createSubjectUnit(payload: Omit<SubjectUnit, 'id'>) {
+  const { data } = await http.post<SubjectUnit>(`/subject-units/`, payload)
+  return data
+}
