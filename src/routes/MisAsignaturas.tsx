@@ -420,8 +420,8 @@ function UnitForm({ unit, onSaved, onClose }: { unit: SubjectUnit; onSaved: () =
   )
 }
 
-function AutoTextarea({ className = '', value, onChange, ...rest }:React.TextareaHTMLAttributes<HTMLTextareaElement>) {
-  const ref = useRef<HTMLTextareaElement | null>(null)
+function AutoTextarea({ className = '', value, onChange, ...rest }:React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement | null>(null)
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
