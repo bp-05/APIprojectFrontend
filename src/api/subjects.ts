@@ -7,6 +7,7 @@ export type Subject = {
   name: string
   campus: string
   shift: string
+  phase: string
   hours: number
   api_type: number
   teacher: number | null
@@ -197,5 +198,23 @@ export async function listCompanyRequirements() {
 
 export async function getSubject(id: number) {
   const { data } = await http.get<Subject>(`/subjects/${id}/`)
+  return data
+}
+
+// -----------------
+// Schedules de fases (soporte backend actual)
+// -----------------
+
+export type SubjectPhaseSchedule = {
+  id: number
+  subject: number
+  phase: string
+  days_allocated: number
+  start_date: string | null
+  end_date: string | null
+}
+
+export async function listSubjectPhaseSchedules(subjectId: number) {
+  const { data } = await http.get<SubjectPhaseSchedule[]>(`/subject-phase-schedules/`, { params: { subject: subjectId } })
   return data
 }

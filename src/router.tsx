@@ -23,6 +23,7 @@ import AsignaturasCoord from './routes/coord/Asignaturas'
 import AsignaturaCoordDetalle from './routes/coord/AsignaturaDetalle'
 import EmpresaDetalle from './routes/coord/EmpresaDetalle'
 import DocentesCoord from './routes/coord/Docentes'
+import ProcesoAPI from './routes/ProcesoAPI'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: 'admin', loader: requireRoleLoader('ADMIN'), element: <Admin /> },
       { path: 'usuarios', loader: requireRoleLoader('ADMIN'), element: <Usuarios /> },
       { path: 'asignaturas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Asignaturas /> },
+      { path: 'proceso-api', loader: requireRoleLoader('ADMIN'), element: <ProcesoAPI /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
       { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <Empresas /> },
       { path: 'vcm/problemas', loader: requireRoleLoader('VCM'), element: <Problemas /> },
