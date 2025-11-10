@@ -23,6 +23,9 @@ import AsignaturasCoord from './routes/coord/Asignaturas'
 import AsignaturaCoordDetalle from './routes/coord/AsignaturaDetalle'
 import EmpresaDetalle from './routes/coord/EmpresaDetalle'
 import DocentesCoord from './routes/coord/Docentes'
+import Gantt from './routes/coord/Gantt'
+import Reportes from './routes/coord/Reportes'
+import Notificaciones from './routes/coord/Notificaciones'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -61,6 +64,9 @@ export const router = createBrowserRouter([
       { path: 'coord/asignaturas/:id', loader: requireRoleLoader('COORD'), element: <AsignaturaCoordDetalle /> },
       { path: 'coord/asignaturas/:id/empresa/:companyId', loader: requireRoleLoader('COORD'), element: <EmpresaDetalle /> },
       { path: 'coord/docentes', loader: requireRoleLoader('COORD'), element: <DocentesCoord /> },
+      { path: 'coord/gantt', loader: requireRoleLoader('COORD'), element: <Gantt /> },
+      { path: 'coord/reportes', loader: requireRoleLoader('COORD'), element: <Reportes /> },
+      { path: 'coord/notificaciones', loader: requireRoleLoader('COORD'), element: <Notificaciones /> },
       { path: 'profile', loader: requireAuthLoader, element: <Profile /> },
       {
         path: '*',

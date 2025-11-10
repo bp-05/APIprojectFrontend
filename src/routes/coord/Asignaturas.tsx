@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, listDescriptorsBySubject, type Subject, type Descriptor } from '../../api/subjects'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 
 export default function AsignaturasCoord() {
   const [items, setItems] = useState<Subject[]>([])
@@ -8,6 +8,29 @@ export default function AsignaturasCoord() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Overlay de estado local por proyecto (hasta que backend exponga estado)
+  type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
+  type LocalStatus = { status: ProjectState; timestamps?: Partial<Record<ProjectState, string>> }
+  const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
+    try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
+  })
+  function saveLocalStatus(next: Record<number, LocalStatus>) {
+    setLocalStatus(next)
+    try {
+      localStorage.setItem('coordSubjectStatus', JSON.stringify(next))
+      window.dispatchEvent(new Event('coordSubjectStatusChanged'))
+    } catch {}
+  }
+  function setStatus(id: number, status: ProjectState) {
+    saveLocalStatus({
+      ...localStatus,
+      [id]: {
+        status,
+        timestamps: { ...(localStatus[id]?.timestamps || {}), [status]: new Date().toISOString() },
+      },
+    })
+  }
 
   async function load() {
     setLoading(true)
@@ -27,14 +50,68 @@ export default function AsignaturasCoord() {
     load()
   }, [])
 
+  type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
+  function mapStatus(s: any): ProjectState {
+    const local = localStatus[s.id]?.status
+    if (local) return local
+    const raw = String(s?.project_status || s?.status || '').toLowerCase()
+    if (raw.includes('observ')) return 'Observada'
+    if (raw.includes('apro') || raw.includes('aprob')) return 'Aprobada'
+    if (raw.includes('env')) return 'Enviada'
+    if (!s?.teacher) return 'Borrador'
+    return 'Enviada'
+  }
+  function riskScore(s: any) {
+    let score = 0
+    const st = mapStatus(s)
+    if (st === 'Observada') score += 3
+    if (!s?.teacher) score += 2
+    if (!s?.career_name) score += 1
+    if (!s?.area_name) score += 1
+    return score
+  }
+  function statusTimestamp(id: number, status: ProjectState): Date | null {
+    const iso = localStatus[id]?.timestamps?.[status]
+    if (!iso) return null
+    const d = new Date(iso)
+    return isNaN(d.getTime()) ? null : d
+  }
+  function daysBetween(a: Date, b: Date) { return Math.max(0, Math.round((b.getTime() - a.getTime()) / (1000*60*60*24))) }
+  const SLA_DAYS = 14
+  function atrasoInfo(s: Subject): { delayed: boolean; days: number } {
+    const st = mapStatus(s)
+    let ref: Date | null = null
+    if (st === 'Observada') ref = statusTimestamp(s.id, 'Observada') || statusTimestamp(s.id, 'Enviada')
+    else if (st === 'Enviada') ref = statusTimestamp(s.id, 'Enviada')
+    if (!ref) return { delayed: false, days: 0 }
+    const diff = daysBetween(ref, new Date())
+    const over = Math.max(0, diff - SLA_DAYS)
+    return { delayed: over > 0, days: over }
+  }
+
   const filtered = useMemo(() => {
-    if (!search) return items
+    let arr = items
+    const f = (searchParams.get('filter') || '').toLowerCase()
+    if (f) {
+      if (['borrador','enviada','observada','aprobada'].includes(f)) {
+        arr = arr.filter((s) => mapStatus(s).toLowerCase() === f)
+      } else if (f === 'atraso') {
+        arr = arr.filter((s) => mapStatus(s) === 'Observada')
+      } else if (f === 'riesgo') {
+        arr = arr
+          .map((s) => ({ s, r: riskScore(s) }))
+          .filter((x) => x.r > 0)
+          .sort((a, b) => b.r - a.r)
+          .map((x) => x.s)
+      }
+    }
+    if (!search) return arr
     const q = search.toLowerCase()
-    return items.filter((s) =>
+    return arr.filter((s) =>
       [s.code, s.section, s.name, s.campus, s.area_name || '', s.career_name || '', s.semester_name || '']
         .some((v) => String(v || '').toLowerCase().includes(q))
     )
-  }, [items, search])
+  }, [items, search, searchParams])
 
   function openView(s: Subject) {
     navigate(`/coord/asignaturas/${s.id}`)
@@ -57,6 +134,37 @@ export default function AsignaturasCoord() {
         </div>
       </div>
 
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {[
+          { k: '', t: 'Todos' },
+          { k: 'borrador', t: 'Borrador' },
+          { k: 'enviada', t: 'Enviada' },
+          { k: 'observada', t: 'Observada' },
+          { k: 'aprobada', t: 'Aprobada' },
+          { k: 'atraso', t: 'Atraso' },
+          { k: 'riesgo', t: 'Riesgo' },
+        ].map(({ k, t }) => {
+          const active = (searchParams.get('filter') || '') === k
+          return (
+            <button
+              key={k || 'all'}
+              onClick={() => setSearchParams((prev) => { const p = new URLSearchParams(prev); if(k) p.set('filter', k); else p.delete('filter'); return p })}
+              className={`rounded-full border px-3 py-1 text-xs ${active ? 'border-red-300 bg-red-50 text-red-700' : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'}`}
+            >
+              {t}
+            </button>
+          )
+        })}
+        <div className="ml-auto" />
+        <button
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
+          disabled
+          title="Requiere endpoint backend para crear proyectos"
+        >
+          Agregar proyecto (borrador)
+        </button>
+      </div>
+
       {error ? (
         <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
       ) : null}
@@ -72,17 +180,19 @@ export default function AsignaturasCoord() {
               <Th>Área</Th>
               <Th>Carrera</Th>
               <Th>Semestre</Th>
+              <Th>Estado</Th>
+              <Th>Riesgo</Th>
               <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={7}>Sin resultados</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Sin resultados</td>
               </tr>
             ) : (
               filtered.map((s) => (
@@ -96,13 +206,23 @@ export default function AsignaturasCoord() {
                   <Td>{s.area_name}</Td>
                   <Td>{s.career_name || '-'}</Td>
                   <Td>{s.semester_name}</Td>
+                  <Td>
+                    <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{mapStatus(s)}</span>
+                  </Td>
+                  <Td>
+                    {(() => { const r = riskScore(s); return r > 0 ? (<span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{r}</span>) : (<span className="text-xs text-zinc-500">�</span>) })()}
+                  </Td>
                   <Td className="text-right">
                     <button
                       onClick={() => openView(s)}
                       className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                     >
-                      Ver más
+                      {(() => { const a = atrasoInfo(s); return a.delayed ? 'Ver mas - Atraso ' + a.days + 'd' : 'Ver mas' })()}
                     </button>
+                    <div className="mt-2 inline-flex flex-wrap items-center justify-end gap-1">
+                      <button onClick={() => setStatus(s.id, 'Borrador')} className="rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-[11px] hover:bg-zinc-50">Borrador</button>
+                      <button onClick={() => setStatus(s.id, 'Enviada')} className="rounded-md border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">Enviar</button>
+                    </div>
                   </Td>
                 </tr>
               ))
@@ -160,3 +280,14 @@ function DescriptorCell({ subject }: { subject: Subject }) {
     </a>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
