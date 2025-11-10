@@ -75,7 +75,7 @@ export default function COORD() {
     return Math.round((delayed / items.length) * 100)
   }, [items, localStatusMap])
 
-  // Tiempo de ciclo promedio en días (si hay algún campo de duración, usarlo; de lo contrario, mostrar '-')
+  // Tiempo de ciclo promedio en d�as (si hay algún campo de duración, usarlo; de lo contrario, mostrar '-')
   const avgCycleDays = useMemo(() => {
     const values: number[] = []
     for (const s of items as any[]) {
@@ -184,7 +184,7 @@ export default function COORD() {
       {/* KPIs avanzados */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <KpiCard title="% con atraso" value={`${delayedPct}%`} tone="amber" linkTo="/coord/asignaturas?filter=atraso" subtitle="Sobre el total de proyectos" />
-        <KpiCard title="Tiempo de ciclo promedio" value={avgCycleDays === null ? '—' : `${avgCycleDays} días`} tone="zinc" subtitle="Promedio estimado" />
+        <KpiCard title="Tiempo de ciclo promedio" value={avgCycleDays === null ? '—' : `${avgCycleDays} d�as`} tone="zinc" subtitle="Promedio estimado" />
         <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ring-zinc-200">
           <div className="mb-2 flex items-center justify-between">
             <div className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Top 5 proyectos en riesgo</div>
@@ -339,7 +339,7 @@ function exportCsv() {
     ['Observada', String((window as any).kpi?.Observada ?? '')],
     ['Aprobada', String((window as any).kpi?.Aprobada ?? '')],
     ['% con atraso', String((window as any).delayedPct ?? '')],
-    ['Tiempo de ciclo promedio (días)', String((window as any).avgCycleDays ?? '')],
+    ['Tiempo de ciclo promedio (d�as)', String((window as any).avgCycleDays ?? '')],
   ]
   const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -368,7 +368,7 @@ function exportPdf() {
         <tr><td>Observada</td><td>${(window as any).kpi?.Observada ?? ''}</td></tr>
         <tr><td>Aprobada</td><td>${(window as any).kpi?.Aprobada ?? ''}</td></tr>
         <tr><td>% con atraso</td><td>${(window as any).delayedPct ?? ''}%</td></tr>
-        <tr><td>Tiempo de ciclo promedio (días)</td><td>${(window as any).avgCycleDays ?? '—'}</td></tr>
+        <tr><td>Tiempo de ciclo promedio (d�as)</td><td>${(window as any).avgCycleDays ?? '—'}</td></tr>
       </tbody>
     </table>
     <script>window.onload = () => setTimeout(() => window.print(), 300)</script>
@@ -377,4 +377,5 @@ function exportPdf() {
   w.document.write(html)
   w.document.close()
 }
+
 

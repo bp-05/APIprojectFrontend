@@ -128,7 +128,7 @@ export default function AsignaturasCoord() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por código, sección o nombre"
+            placeholder={'Buscar por c\u00F3digo, secci\u00F3n o nombre'}
             className="w-72 max-w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
           />
         </div>
@@ -174,10 +174,10 @@ export default function AsignaturasCoord() {
           <thead className="bg-zinc-50">
             <tr>
               <Th>Descriptor</Th>
-              <Th>Código</Th>
-              <Th>Sección</Th>
+              <Th>{'C\u00F3digo'}</Th>
+              <Th>{'Secci\u00F3n'}</Th>
               <Th>Nombre</Th>
-              <Th>Área</Th>
+              <Th>{'\u00C1rea'}</Th>
               <Th>Carrera</Th>
               <Th>Semestre</Th>
               <Th>Estado</Th>
@@ -217,7 +217,7 @@ export default function AsignaturasCoord() {
                       onClick={() => openView(s)}
                       className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                     >
-                      {(() => { const a = atrasoInfo(s); return a.delayed ? 'Ver mas - Atraso ' + a.days + 'd' : 'Ver mas' })()}
+                      {(() => { const a = atrasoInfo(s); return a.delayed ? 'Ver m\u00E1s \u00B7 Atraso ' + a.days + ' d\u00EDas' : 'Ver m\u00E1s'})()}
                     </button>
                     <div className="mt-2 inline-flex flex-wrap items-center justify-end gap-1">
                       <button onClick={() => setStatus(s.id, 'Borrador')} className="rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-[11px] hover:bg-zinc-50">Borrador</button>
@@ -280,6 +280,12 @@ function DescriptorCell({ subject }: { subject: Subject }) {
     </a>
   )
 }
+
+
+
+
+
+
 
 
 
