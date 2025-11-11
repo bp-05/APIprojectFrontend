@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, listDescriptorsBySubject, type Subject, type Descriptor } from '../../api/subjects'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams  , Link } from 'react-router'
+
+type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
+type LocalStatus = { status: ProjectState; timestamps?: Partial<Record<ProjectState, string>> }
 
 export default function AsignaturasCoord() {
   const [items, setItems] = useState<Subject[]>([])
@@ -10,8 +13,6 @@ export default function AsignaturasCoord() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   // Overlay de estado local por proyecto (hasta que backend exponga estado)
-  type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
-  type LocalStatus = { status: ProjectState; timestamps?: Partial<Record<ProjectState, string>> }
   const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
   })
@@ -49,8 +50,6 @@ export default function AsignaturasCoord() {
   useEffect(() => {
     load()
   }, [])
-
-  type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
   function mapStatus(s: any): ProjectState {
     const local = localStatus[s.id]?.status
     if (local) return local
@@ -188,7 +187,7 @@ export default function AsignaturasCoord() {
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Cargandoâ€¦</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
@@ -210,7 +209,15 @@ export default function AsignaturasCoord() {
                     <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{mapStatus(s)}</span>
                   </Td>
                   <Td>
-                    {(() => { const r = riskScore(s); return r > 0 ? (<span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{r}</span>) : (<span className="text-xs text-zinc-500">�</span>) })()}
+                    {(() => {
+                      const r = riskScore(s)
+                      const lvl = r <= 0 ? '' : r <= 2 ? 'Bajo' : r <= 4 ? 'Medio' : 'Alto'
+                      return r <= 0 ? (
+                        <span className="text-xs text-zinc-500">—</span>
+                      ) : (
+                        <span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{lvl}</span>
+                      )
+                    })()}
                   </Td>
                   <Td className="text-right">
                     <button
@@ -219,10 +226,7 @@ export default function AsignaturasCoord() {
                     >
                       {(() => { const a = atrasoInfo(s); return a.delayed ? 'Ver m\u00E1s \u00B7 Atraso ' + a.days + ' d\u00EDas' : 'Ver m\u00E1s'})()}
                     </button>
-                    <div className="mt-2 inline-flex flex-wrap items-center justify-end gap-1">
-                      <button onClick={() => setStatus(s.id, 'Borrador')} className="rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-[11px] hover:bg-zinc-50">Borrador</button>
-                      <button onClick={() => setStatus(s.id, 'Enviada')} className="rounded-md border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">Enviar</button>
-                    </div>
+                      <Link to={`/coord/estado?id=${s.id}`} className="ml-2 inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-50">Ver estado</Link>
                   </Td>
                 </tr>
               ))
@@ -262,7 +266,7 @@ function DescriptorCell({ subject }: { subject: Subject }) {
   }, [subject.id])
 
   if (items === null) {
-    return <span className="inline-block h-3 w-3 animate-pulse rounded-sm bg-zinc-300" title="Cargando…" />
+    return <span className="inline-block h-3 w-3 animate-pulse rounded-sm bg-zinc-300" title="Cargandoâ€¦" />
   }
   if (!items.length) {
     return <span className="text-xs text-zinc-500">-</span>
@@ -280,6 +284,9 @@ function DescriptorCell({ subject }: { subject: Subject }) {
     </a>
   )
 }
+
+
+
 
 
 

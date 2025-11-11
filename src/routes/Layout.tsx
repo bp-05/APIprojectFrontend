@@ -116,7 +116,7 @@ export default function Layout() {
                     </button>
                   </div>
                   <SidebarItem to="/coord" icon={<IconHome />} collapsed={!!coordSidebarCollapsed} active={location.pathname === '/coord'} label="Dashboard" />
-                  <SidebarItem to="/coord/asignaturas" icon={<IconFolder />} collapsed={!!coordSidebarCollapsed} active={location.pathname.startsWith('/coord/asignaturas')} label="Proyectos" />
+                  <SidebarItem to="/coord/asignaturas" icon={<IconFolder />} collapsed={!!coordSidebarCollapsed} active={location.pathname.startsWith('/coord/asignaturas')} label="Asignaturas" />
                   <SidebarItem to="/coord/gantt" icon={<IconCalendar />} collapsed={!!coordSidebarCollapsed} active={location.pathname.startsWith('/coord/gantt')} label="Gantt" />
                   <SidebarItem to="/coord/reportes" icon={<IconChart />} collapsed={!!coordSidebarCollapsed} active={location.pathname.startsWith('/coord/reportes')} label="Reportes" />
                   <SidebarItem to="/coord/notificaciones" icon={<IconBell />} collapsed={!!coordSidebarCollapsed} active={location.pathname.startsWith('/coord/notificaciones')} label="Notificaciones" />
@@ -324,4 +324,5 @@ function IconBell() {
     </svg>
   )
 }
+
 
