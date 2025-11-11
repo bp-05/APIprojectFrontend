@@ -93,15 +93,15 @@ export default function Alcances() {
               <Th>Empresa</Th>
               <Th>Asignatura</Th>
               <Th>Beneficios</Th>
-              <Th>Condiciones</Th>
+              
               <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Cargando…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Sin resultados</td></tr>
             ) : (
               items.map((a) => (
                 <tr key={a.id} className="hover:bg-zinc-50">
@@ -114,7 +114,7 @@ export default function Alcances() {
                     })()}
                   </Td>
                   <Td>{a.benefits_from_student || '-'}</Td>
-                  <Td><YesNoPill value={!!a.workplace_has_conditions_for_group} /></Td>
+                  
                   <Td className="text-right">
                     <button
                       onClick={() => openEdit(a)}
