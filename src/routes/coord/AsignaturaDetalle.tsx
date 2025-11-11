@@ -23,6 +23,7 @@ export default function AsignaturaCoordDetalle() {
 
   const [companyId, setCompanyId] = useState<number | null>(null)
   const [companyName, setCompanyName] = useState<string | null>(null)
+  const [confirm, setConfirm] = useState<null | { title: string; message: string; confirmText?: string; onConfirm: () => void }>(null)
 
   useEffect(() => {
     let mounted = true
@@ -172,10 +173,7 @@ export default function AsignaturaCoordDetalle() {
                         <>
                           <div className="font-medium">{nameCase(subject.teacher_name || '')}</div>
                           <div className="text-xs text-zinc-600">{teacher?.email || '-'}</div>
-                          <div className="mt-2 flex gap-2">
-                            <button onClick={() => startEditTeacher()} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Editar</button>
-                            <button onClick={() => removeTeacher()} className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700">Eliminar</button>
-                          </div>
+                          {/* Botones de edición/eliminación removidos por políticas de privilegios */}
                         </>
                       ) : (
                         <>
@@ -220,6 +218,47 @@ export default function AsignaturaCoordDetalle() {
           ) : null}
         </div>
       )}
+      {confirm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setConfirm(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-base font-semibold">{confirm.title || 'Confirmación'}</h2>
+              <button
+                onClick={() => setConfirm(null)}
+                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
+              >
+                Cerrar
+              </button>
+            </div>
+            <p className="text-sm text-zinc-700">{confirm.message}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirm(null)}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => confirm.onConfirm()}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700"
+              >
+                {confirm.confirmText || 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </section>
   )
 }

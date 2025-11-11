@@ -10,6 +10,8 @@ export default function AsignaturasCoord() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [filterInput, setFilterInput] = useState('')
+  const [advFilters, setAdvFilters] = useState<Array<{ kind: 'status' | 'risk' | 'delay'; value: string }>>([])
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   // Overlay de estado local por proyecto (hasta que backend exponga estado)
@@ -104,16 +106,85 @@ export default function AsignaturasCoord() {
           .map((x) => x.s)
       }
     }
+    // Aplicar filtros avanzados (chips): AND entre tipos, OR dentro del mismo tipo
+    if (advFilters.length > 0) {
+      const statusVals = advFilters.filter((f) => f.kind === 'status').map((f) => f.value.toLowerCase())
+      const riskVals = advFilters.filter((f) => f.kind === 'risk').map((f) => f.value.toLowerCase())
+      const hasDelay = advFilters.some((f) => f.kind === 'delay')
+      arr = arr.filter((s) => {
+        // status
+        if (statusVals.length) {
+          const st = mapStatus(s).toLowerCase()
+          if (!statusVals.includes(st)) return false
+        }
+        // riesgo
+        if (riskVals.length) {
+          const r = riskScore(s)
+          const lvl = r <= 0 ? 'sin riesgo' : r <= 2 ? 'bajo' : r <= 4 ? 'medio' : 'alto'
+          if (!riskVals.includes(lvl)) return false
+        }
+        // atraso
+        if (hasDelay) {
+          const a = atrasoInfo(s)
+          if (!a.delayed) return false
+        }
+        return true
+      })
+    }
     if (!search) return arr
     const q = search.toLowerCase()
     return arr.filter((s) =>
       [s.code, s.section, s.name, s.campus, s.area_name || '', s.career_name || '', s.semester_name || '']
         .some((v) => String(v || '').toLowerCase().includes(q))
     )
-  }, [items, search, searchParams])
+  }, [items, search, searchParams, advFilters])
 
   function openView(s: Subject) {
     navigate(`/coord/asignaturas/${s.id}`)
+  }
+
+  // (Revertido) Lectura de fase local eliminada; se mantiene columna Riesgo
+
+  // Utilities para filtros avanzados
+  function addFilterFromInput() {
+    const raw = filterInput.trim()
+    if (!raw) return
+    const tokens = raw.split(',').map((t) => t.trim()).filter(Boolean)
+    const next: Array<{ kind: 'status' | 'risk' | 'delay'; value: string }> = []
+    for (const t of tokens) {
+      const k = t.toLowerCase()
+      // Estados
+      if (['borrador','enviada','enviado','observada','aprobada'].includes(k)) {
+        const map: Record<string, string> = { enviado: 'Enviada', enviada: 'Enviada', borrador: 'Borrador', observada: 'Observada', aprobada: 'Aprobada' }
+        next.push({ kind: 'status', value: map[k] })
+        continue
+      }
+      // Atraso
+      if (k === 'atraso' || k === 'atrasado' || k === 'con atraso') {
+        next.push({ kind: 'delay', value: 'atraso' })
+        continue
+      }
+      // Riesgo niveles
+      if (k.startsWith('riesgo')) {
+        const level = k.replace('riesgo', '').trim()
+        const lvl = level || 'alto' // si solo ponen "riesgo", asumir alto
+        const mapR: Record<string, string> = { alto: 'Alto', medio: 'Medio', mediano: 'Medio', bajo: 'Bajo', 'sin riesgo': 'Sin riesgo', ninguno: 'Sin riesgo' }
+        if (mapR[lvl]) next.push({ kind: 'risk', value: mapR[lvl] })
+        continue
+      }
+      if (['alto','medio','mediano','bajo','sin riesgo','ninguno'].includes(k)) {
+        const mapR: Record<string, string> = { alto: 'Alto', medio: 'Medio', mediano: 'Medio', bajo: 'Bajo', 'sin riesgo': 'Sin riesgo', ninguno: 'Sin riesgo' }
+        next.push({ kind: 'risk', value: mapR[k] })
+        continue
+      }
+    }
+    if (next.length) {
+      setAdvFilters((prev) => {
+        const exists = (f: { kind: 'status'|'risk'|'delay'; value: string }) => prev.some((p) => p.kind === f.kind && p.value === f.value)
+        return [...prev, ...next.filter((f) => !exists(f))]
+      })
+      setFilterInput('')
+    }
   }
 
   return (
@@ -127,41 +198,45 @@ export default function AsignaturasCoord() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={'Buscar por c\u00F3digo, secci\u00F3n o nombre'}
-            className="w-72 max-w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            placeholder={'Buscar asignatura por c\u00F3digo, secci\u00F3n o nombre'}
+            className="w-72 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
           />
         </div>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {[
-          { k: '', t: 'Todos' },
-          { k: 'borrador', t: 'Borrador' },
-          { k: 'enviada', t: 'Enviada' },
-          { k: 'observada', t: 'Observada' },
-          { k: 'aprobada', t: 'Aprobada' },
-          { k: 'atraso', t: 'Atraso' },
-          { k: 'riesgo', t: 'Riesgo' },
-        ].map(({ k, t }) => {
-          const active = (searchParams.get('filter') || '') === k
-          return (
-            <button
-              key={k || 'all'}
-              onClick={() => setSearchParams((prev) => { const p = new URLSearchParams(prev); if(k) p.set('filter', k); else p.delete('filter'); return p })}
-              className={`rounded-full border px-3 py-1 text-xs ${active ? 'border-red-300 bg-red-50 text-red-700' : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'}`}
-            >
-              {t}
-            </button>
-          )
-        })}
-        <div className="ml-auto" />
+        {/* Botón Todos */}
         <button
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
-          disabled
-          title="Requiere endpoint backend para crear proyectos"
+          onClick={() => {
+            setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('filter'); return p })
+            setAdvFilters([])
+          }}
+          className={`rounded-full border px-3 py-1 text-xs ${!searchParams.get('filter') && advFilters.length === 0 ? 'border-red-300 bg-red-50 text-red-700' : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'}`}
         >
-          Agregar proyecto (borrador)
+          Todos
         </button>
+        {/* Chips de filtros agregados */}
+        {advFilters.map((f, i) => (
+          <span key={i} className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+            {f.kind === 'status' ? `Estado: ${f.value}` : f.kind === 'risk' ? `Riesgo: ${f.value}` : 'Atraso'}
+            <button
+              onClick={() => setAdvFilters((fs) => fs.filter((_, idx) => idx !== i))}
+              className="rounded-full border border-red-200 bg-white px-1 text-red-700 hover:bg-red-50"
+              title="Quitar filtro"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <div className="ml-auto" />
+        {/* Input y acción para agregar filtrado */}
+        <input
+          value={filterInput}
+          onChange={(e) => setFilterInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFilterFromInput() } }}
+          placeholder="Filtrar por estado, riesgo, etc."
+          className="w-72 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+        />
       </div>
 
       {error ? (
@@ -211,11 +286,16 @@ export default function AsignaturasCoord() {
                   <Td>
                     {(() => {
                       const r = riskScore(s)
-                      const lvl = r <= 0 ? '' : r <= 2 ? 'Bajo' : r <= 4 ? 'Medio' : 'Alto'
-                      return r <= 0 ? (
-                        <span className="text-xs text-zinc-500">—</span>
-                      ) : (
-                        <span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{lvl}</span>
+                      const lvl = r <= 0 ? 'Sin riesgo' : r <= 2 ? 'Bajo' : r <= 4 ? 'Medio' : 'Alto'
+                      const cls = lvl === 'Alto'
+                        ? 'bg-red-50 text-red-700'
+                        : lvl === 'Medio'
+                        ? 'bg-orange-50 text-orange-700'
+                        : lvl === 'Bajo'
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-green-50 text-green-700'
+                      return (
+                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{lvl}</span>
                       )
                     })()}
                   </Td>
