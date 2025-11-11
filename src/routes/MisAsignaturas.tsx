@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState, Fragment, useRef, useLayoutEffect } from 'react'
 import type React from 'react'
-import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor } from '../api/subjects'
+import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit } from '../api/subjects'
 
 export default function MisAsignaturas() {
   const [items, setItems] = useState<Subject[]>([])
@@ -215,6 +215,36 @@ function DescriptorCellDoc({ subject }: { subject: Subject }) {
   onUnitsReload: () => Promise<void>
   onClose: () => void
 }) {
+  const [showCreateUnits, setShowCreateUnits] = useState(false)
+  const [unitsCount, setUnitsCount] = useState<number>(1)
+  const [confirmed, setConfirmed] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  async function handleCreateUnits(e: React.FormEvent) {
+    e.preventDefault()
+    setCreateError(null)
+    if (!confirmed) return
+    if (unitsCount < 1 || unitsCount > 4) {
+      setCreateError('Debe elegir entre 1 y 4 unidades')
+      return
+    }
+    try {
+      setCreating(true)
+      for (let i = 1; i <= unitsCount; i++) {
+        await createSubjectUnit({ subject: subject.id, number: i })
+      }
+      await onUnitsReload()
+      setShowCreateUnits(false)
+      setUnitsCount(1)
+      setConfirmed(false)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudieron crear las unidades'
+      setCreateError(msg)
+    } finally {
+      setCreating(false)
+    }
+  }
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
@@ -228,7 +258,65 @@ function DescriptorCellDoc({ subject }: { subject: Subject }) {
         {units === null ? (
           <span className="text-xs text-zinc-600">Cargando…</span>
         ) : units.length === 0 ? (
-          <span className="text-xs text-zinc-600">Esta asignatura no tiene unidades.</span>
+          !showCreateUnits ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-600">Esta asignatura no tiene unidades.</span>
+              <button
+                type="button"
+                className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
+                onClick={() => setShowCreateUnits(true)}
+              >
+                Añadir unidades
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleCreateUnits} className="w-full max-w-sm space-y-3 rounded-md border border-zinc-200 bg-white p-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-zinc-700">¿Cuántas unidades?</label>
+                <select
+                  className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                  value={unitsCount}
+                  onChange={(e) => setUnitsCount(Number(e.target.value))}
+                >
+                  {[1, 2, 3, 4].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+
+              <label className="inline-flex items-center gap-2 text-xs text-zinc-700">
+                <input
+                  type="checkbox"
+                  className="h-3 w-3 rounded border-zinc-300"
+                  checked={confirmed}
+                  onChange={(e) => setConfirmed(e.target.checked)}
+                />
+                Confirmo que después no se podrán modificar el número de unidades
+              </label>
+
+              {createError ? (
+                <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">{createError}</div>
+              ) : null}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  className="rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!confirmed || creating}
+                >
+                  {creating ? 'Creando…' : 'Crear'}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => { setShowCreateUnits(false); setConfirmed(false); setUnitsCount(1); setCreateError(null) }}
+                  disabled={creating}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          )
         ) : (
           units.map((u) => (
             <button
