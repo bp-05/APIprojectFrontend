@@ -1,17 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listDocentes, type User } from '../../api/users'
-import { nameCase } from '../../lib/strings'
+import { listSubjects, type Subject } from '../../api/subjects'
+import { useNavigate } from 'react-router'
 
 export default function DocentesVCM() {
-  const [items, setItems] = useState<User[]>([])
+  const navigate = useNavigate()
+  const [items, setItems] = useState<Subject[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
+  const [prospects, setProspects] = useState<Prospect[]>([])
+  const [subjectProspects, setSubjectProspects] = useState<Record<number, string[]>>({})
+  // selection of posibles contrapartes ahora va en el detalle
 
   async function load() {
     setLoading(true)
     try {
-      const data = await listDocentes({ search })
-      setItems(data)
+      const subs = await listSubjects()
+      setItems(subs)
+      setProspects(loadProspects())
+      setSubjectProspects(loadSubjectProspects())
     } finally {
       setLoading(false)
     }
@@ -25,22 +31,22 @@ export default function DocentesVCM() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return items
-    return items.filter((u) =>
-      [u.email, u.first_name, u.last_name]
+    return items.filter((s) =>
+      [s.code, s.section, s.name, s.career_name]
         .filter(Boolean)
-        .some((s) => String(s).toLowerCase().includes(q)),
+        .some((v) => String(v).toLowerCase().includes(q)),
     )
   }, [items, search])
 
   return (
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Docentes</h1>
+        <h1 className="text-xl font-semibold">Asignaturas</h1>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && load()}
-          placeholder="Buscar…"
+          placeholder="Buscar"
           className="w-56 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
         />
       </div>
@@ -49,22 +55,49 @@ export default function DocentesVCM() {
         <table className="min-w-full divide-y divide-zinc-200">
           <thead className="bg-zinc-50">
             <tr>
-              <Th>Correo</Th>
+              <Th>Código</Th>
               <Th>Nombre</Th>
-              <Th>Estado</Th>
+              <Th>Carrera</Th>
+              <Th>Posibles contrapartes</Th>
+              <Th className="text-right">Acción</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin resultados</td></tr>
             ) : (
-              filtered.map((u) => (
-                <tr key={u.id} className="hover:bg-zinc-50">
-                  <Td>{u.email}</Td>
-                  <Td>{nameCase(`${u.first_name ?? ''} ${u.last_name ?? ''}`)}</Td>
-                  <Td>{u.is_active ? 'Activo' : 'Inactivo'}</Td>
+              filtered.map((s) => (
+                <tr key={s.id} className="hover:bg-zinc-50">
+                  <Td>
+                    <button
+                      className="text-left font-medium text-red-700 hover:underline"
+                      onClick={() => navigate(`/vcm/asignaturas/${s.id}`)}
+                    >
+                      {s.code}-{s.section}
+                    </button>
+                  </Td>
+                  <Td>{s.name}</Td>
+                  <Td>{s.career_name || '—'}</Td>
+                  <Td>
+                    {(() => {
+                      const ids = subjectProspects[s.id] || []
+                      if (!ids.length) return '—'
+                      const names = ids
+                        .map((id) => prospects.find((p) => p.id === id)?.company_name || `#${id}`)
+                        .filter(Boolean)
+                      return names.length ? names.join(', ') : '—'
+                    })()}
+                  </Td>
+                  <Td className="text-right">
+                    <button
+                      onClick={() => navigate(`/vcm/asignaturas/${s.id}`)}
+                      className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
+                    >
+                      Ver
+                    </button>
+                  </Td>
                 </tr>
               ))
             )}
@@ -83,4 +116,36 @@ function Th({ children, className = '' }: { children: React.ReactNode; className
 function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
+
+// Read-only helpers to show selected prospects per subject
+type Prospect = { id: string; company_name: string }
+
+function loadProspects(): Prospect[] {
+  try {
+    const raw = localStorage.getItem('vcm_posibles_contrapartes')
+    const arr = raw ? JSON.parse(raw) : []
+    if (Array.isArray(arr)) {
+      return arr.map((p: any) => ({ id: String(p.id), company_name: String(p.company_name || '') }))
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+function loadSubjectProspects(): Record<number, string[]> {
+  try {
+    const raw = localStorage.getItem('vcm_subject_prospects')
+    const obj = raw ? JSON.parse(raw) : {}
+    return obj && typeof obj === 'object' ? obj : {}
+  } catch {
+    return {}
+  }
+}
+
+
+
+
+
+
 

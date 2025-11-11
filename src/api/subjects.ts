@@ -195,7 +195,43 @@ export async function listCompanyRequirements() {
   return data
 }
 
+export async function createCompanyRequirement(payload: Omit<CompanyRequirement, 'id'>) {
+  const { data } = await http.post<CompanyRequirement>(`/company-requirements/`, payload)
+  return data
+}
+
+export async function updateCompanyRequirement(id: number, payload: Partial<Omit<CompanyRequirement, 'id'>>) {
+  const { data } = await http.patch<CompanyRequirement>(`/company-requirements/${id}/`, payload)
+  return data
+}
+
 export async function getSubject(id: number) {
   const { data } = await http.get<Subject>(`/subjects/${id}/`)
+  return data
+}
+
+// API 3 Alternance
+export type Api3Alternance = {
+  id: number
+  student_role: string
+  students_quota: number
+  tutor_name: string
+  tutor_email: string
+  alternance_hours: number
+  subject: number
+}
+
+export async function listAlternances() {
+  const { data } = await http.get<Api3Alternance[]>(`/alternances/`)
+  return data
+}
+
+export async function createAlternance(payload: Omit<Api3Alternance, 'id'>) {
+  const { data } = await http.post<Api3Alternance>(`/alternances/`, payload)
+  return data
+}
+
+export async function updateAlternance(id: number, payload: Partial<Omit<Api3Alternance, 'id'>>) {
+  const { data } = await http.patch<Api3Alternance>(`/alternances/${id}/`, payload)
   return data
 }

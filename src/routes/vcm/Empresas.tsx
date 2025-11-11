@@ -151,7 +151,7 @@ export default function Empresas() {
 
 function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <th className={`px-4 py-2 text-left text-xs font-semibold text-zinc-600 ${className}`}>{children}</th>
+    <th className={`px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-600 ${className}`}>{children}</th>
   )
 }
 function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {

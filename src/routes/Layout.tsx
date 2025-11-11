@@ -151,10 +151,16 @@ export default function Layout() {
                     Alcances
                   </Link>
                   <Link
-                    to="/vcm/docentes"
+                    to="/vcm/posible-contraparte"
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
                   >
-                    Docentes
+                    Posible contraparte
+                  </Link>
+                  <Link
+                    to="/vcm/asignaturas"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Asignaturas
                   </Link>
                 </>
               )}
