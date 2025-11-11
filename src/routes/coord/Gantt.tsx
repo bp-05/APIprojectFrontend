@@ -1,46 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listSubjects, listDescriptorsBySubject, type Subject, type Descriptor } from '../../api/subjects'
+import { listSubjects, type Subject } from '../../api/subjects'
 
-type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
-type LocalStatus = { status: ProjectState; timestamps?: Partial<Record<ProjectState, string>> }
+type PhaseMark = 'nr' | 'ec' | 'rz'
+type PhaseMarks = { 1?: PhaseMark; 2?: PhaseMark; 3?: PhaseMark }
 
 export default function Gantt() {
   const [items, setItems] = useState<Subject[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [filterInput, setFilterInput] = useState('')
-  const [advFilters, setAdvFilters] = useState<Array<{ kind: 'status' | 'risk' | 'delay'; value: string }>>([])
-
-  const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
-    try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
+  const [ganttTarget, setGanttTarget] = useState<Subject | null>(null)
+  const [marks, setMarks] = useState<PhaseMarks>({})
+  const [marksMap, setMarksMap] = useState<Record<number, PhaseMarks>>(() => {
+    try { return JSON.parse(localStorage.getItem('coordGanttMarks') || '{}') } catch { return {} }
   })
-  function saveLocalStatus(next: Record<number, LocalStatus>) {
-    setLocalStatus(next)
-    try {
-      localStorage.setItem('coordSubjectStatus', JSON.stringify(next))
-      window.dispatchEvent(new Event('coordSubjectStatusChanged'))
-    } catch {}
-  }
-
-  function mapStatus(s: any): ProjectState {
-    const local = localStatus[s.id]?.status
-    if (local) return local
-    const raw = String(s?.project_status || s?.status || '').toLowerCase()
-    if (raw.includes('observ')) return 'Observada'
-    if (raw.includes('apro') || raw.includes('aprob')) return 'Aprobada'
-    if (raw.includes('env')) return 'Enviada'
-    if (!s?.teacher) return 'Borrador'
-    return 'Enviada'
-  }
-  function riskScore(s: any) {
-    let score = 0
-    const st = mapStatus(s)
-    if (st === 'Observada') score += 3
-    if (!s?.teacher) score += 2
-    if (!s?.career_name) score += 1
-    if (!s?.area_name) score += 1
-    return score
+  function saveMarksMap(next: Record<number, PhaseMarks>) {
+    setMarksMap(next)
+    try { localStorage.setItem('coordGanttMarks', JSON.stringify(next)) } catch {}
   }
 
   async function load() {
@@ -58,73 +34,27 @@ export default function Gantt() {
   }
   useEffect(() => { load() }, [])
 
-  const filtered = useMemo(() => {
-    let arr = items
-    // filtros avanzados
-    if (advFilters.length > 0) {
-      const statusVals = advFilters.filter((f) => f.kind === 'status').map((f) => f.value.toLowerCase())
-      const riskVals = advFilters.filter((f) => f.kind === 'risk').map((f) => f.value.toLowerCase())
-      const hasDelay = advFilters.some((f) => f.kind === 'delay')
-      arr = arr.filter((s) => {
-        if (statusVals.length) {
-          const st = mapStatus(s).toLowerCase()
-          if (!statusVals.includes(st)) return false
-        }
-        if (riskVals.length) {
-          const r = riskScore(s)
-          const lvl = r <= 0 ? 'sin riesgo' : r <= 2 ? 'bajo' : r <= 4 ? 'medio' : 'alto'
-          if (!riskVals.includes(lvl)) return false
-        }
-        if (hasDelay) {
-          // En esta vista no calculamos atraso exacto; placeholder: considerar Observada como atraso
-          if (mapStatus(s) !== 'Observada') return false
-        }
-        return true
-      })
+  function openGantt(s: Subject) {
+    setGanttTarget(s)
+    setMarks(marksMap[s.id] || {})
+  }
+
+  function updateMark(phase: 1 | 2 | 3, t: PhaseMark) {
+    const next = { ...marks, [phase]: t }
+    setMarks(next)
+    if (ganttTarget) {
+      const mapNext = { ...marksMap, [ganttTarget.id]: next }
+      saveMarksMap(mapNext)
     }
+  }
+
+  const filtered = useMemo(() => {
+    const arr = items
     if (!search) return arr
     const q = search.toLowerCase()
     return arr.filter((s) => [s.code, s.section, s.name, s.area_name || '', s.career_name || '']
       .some((v) => String(v || '').toLowerCase().includes(q)))
-  }, [items, search, advFilters])
-
-  function addFilterFromInput() {
-    const raw = filterInput.trim()
-    if (!raw) return
-    const tokens = raw.split(',').map((t) => t.trim()).filter(Boolean)
-    const next: Array<{ kind: 'status' | 'risk' | 'delay'; value: string }> = []
-    for (const t of tokens) {
-      const k = t.toLowerCase()
-      if (['borrador','enviada','enviado','observada','aprobada'].includes(k)) {
-        const map: Record<string, string> = { enviado: 'Enviada', enviada: 'Enviada', borrador: 'Borrador', observada: 'Observada', aprobada: 'Aprobada' }
-        next.push({ kind: 'status', value: map[k] })
-        continue
-      }
-      if (k === 'atraso' || k === 'atrasado' || k === 'con atraso') {
-        next.push({ kind: 'delay', value: 'atraso' })
-        continue
-      }
-      if (k.startsWith('riesgo')) {
-        const level = k.replace('riesgo', '').trim()
-        const lvl = level || 'alto'
-        const mapR: Record<string, string> = { alto: 'Alto', medio: 'Medio', mediano: 'Medio', bajo: 'Bajo', 'sin riesgo': 'Sin riesgo', ninguno: 'Sin riesgo' }
-        if (mapR[lvl]) next.push({ kind: 'risk', value: mapR[lvl] })
-        continue
-      }
-      if (['alto','medio','mediano','bajo','sin riesgo','ninguno'].includes(k)) {
-        const mapR: Record<string, string> = { alto: 'Alto', medio: 'Medio', mediano: 'Medio', bajo: 'Bajo', 'sin riesgo': 'Sin riesgo', ninguno: 'Sin riesgo' }
-        next.push({ kind: 'risk', value: mapR[k] })
-        continue
-      }
-    }
-    if (next.length) {
-      setAdvFilters((prev) => {
-        const exists = (f: { kind: 'status'|'risk'|'delay'; value: string }) => prev.some((p) => p.kind === f.kind && p.value === f.value)
-        return [...prev, ...next.filter((f) => !exists(f))]
-      })
-      setFilterInput('')
-    }
-  }
+  }, [items, search])
 
   return (
     <section className="p-6">
@@ -143,89 +73,52 @@ export default function Gantt() {
         </div>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => { setAdvFilters([]) }}
-          className={`rounded-full border px-3 py-1 text-xs ${advFilters.length === 0 ? 'border-red-300 bg-red-50 text-red-700' : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'}`}
-        >
-          Todos
-        </button>
-        {advFilters.map((f, i) => (
-          <span key={i} className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-            {f.kind === 'status' ? `Estado: ${f.value}` : f.kind === 'risk' ? `Riesgo: ${f.value}` : 'Atraso'}
-            <button onClick={() => setAdvFilters((fs) => fs.filter((_, idx) => idx !== i))} className="rounded-full border border-red-200 bg-white px-1 text-red-700 hover:bg-red-50">×</button>
-          </span>
-        ))}
-        <div className="ml-auto" />
-        <input
-          value={filterInput}
-          onChange={(e) => setFilterInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFilterFromInput() } }}
-          placeholder="Filtrar por estado, riesgo, etc."
-          className="w-72 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-        />
-      </div>
-
       {error ? (<div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>) : null}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="min-w-full divide-y divide-zinc-200">
           <thead className="bg-zinc-50">
             <tr>
-              <Th>Descriptor</Th>
               <Th>Código</Th>
               <Th>Sección</Th>
               <Th>Nombre</Th>
               <Th>Área</Th>
               <Th>Carrera</Th>
-              <Th>Semestre</Th>
-              <Th>Estado</Th>
-              <Th>Riesgo</Th>
+              <Th>Completado %</Th>
               <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Sin resultados</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={7}>Sin resultados</td>
               </tr>
             ) : (
               filtered.map((s) => (
                 <tr key={s.id} className="hover:bg-zinc-50">
-                  <Td>
-                    <DescriptorCell subject={s} />
-                  </Td>
                   <Td>{s.code}</Td>
                   <Td>{s.section}</Td>
                   <Td>{s.name}</Td>
                   <Td>{s.area_name}</Td>
                   <Td>{s.career_name || '-'}</Td>
-                  <Td>{s.semester_name}</Td>
-                  <Td>
-                    <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{mapStatus(s)}</span>
-                  </Td>
-                  <Td>
-                    {(() => {
-                      const r = riskScore(s)
-                      const lvl = r <= 0 ? 'Sin riesgo' : r <= 2 ? 'Bajo' : r <= 4 ? 'Medio' : 'Alto'
-                      const cls = lvl === 'Alto'
-                        ? 'bg-red-50 text-red-700'
-                        : lvl === 'Medio'
-                        ? 'bg-orange-50 text-orange-700'
-                        : lvl === 'Bajo'
-                        ? 'bg-amber-50 text-amber-700'
-                        : 'bg-green-50 text-green-700'
-                      return (
-                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{lvl}</span>
-                      )
-                    })()}
-                  </Td>
+                  <Td>{(() => {
+                    const m = marksMap[s.id]
+                    if (!m || (!m[1] && !m[2] && !m[3])) return '-'
+                    const w = (x?: PhaseMark) => (x === 'rz' ? 100 : x === 'ec' ? 50 : 0)
+                    const pct = Math.round((w(m[1]) + w(m[2]) + w(m[3])) / 3)
+                    return `${pct}%`
+                  })()}</Td>
                   <Td className="text-right">
-                    {/* En vista Gantt no mostramos botones de acción */}
+                    <button
+                      onClick={() => openGantt(s)}
+                      className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
+                    >
+                      Mostrar Gantt
+                    </button>
                   </Td>
                 </tr>
               ))
@@ -233,6 +126,88 @@ export default function Gantt() {
           </tbody>
         </table>
       </div>
+
+      {ganttTarget ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setGanttTarget(null)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-lg border border-zinc-200 bg-white p-4 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold">
+                Actividades · {ganttTarget.name} ({ganttTarget.code}-{ganttTarget.section})
+              </h2>
+              <button
+                onClick={() => setGanttTarget(null)}
+                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
+              >
+                Cerrar
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-auto rounded-md border border-zinc-200 bg-white">
+              <table className="min-w-full divide-y divide-zinc-200">
+                <thead className="bg-zinc-50">
+                  <tr>
+                    <th className="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide bg-red-600 text-white">Actividad</th>
+                    <th className="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide bg-amber-600 text-white">No realizado</th>
+                    <th className="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide bg-blue-700 text-white">En curso</th>
+                    <th className="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide bg-green-600 text-white">Realizado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 bg-white text-sm">
+                  <tr>
+                    <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide bg-red-50 text-red-700 border-t border-red-200">
+                      Fase 1: Formulación de Requerimientos
+                    </td>
+                    <td className="px-4 py-2 text-center bg-amber-50 border-l border-amber-200">
+                      <MarkBtn phase={1} type="nr" active={marks[1] === 'nr'} onSelect={(t) => updateMark(1, t)} />
+                    </td>
+                    <td className="px-4 py-2 text-center bg-blue-50 border-l border-blue-200">
+                      <MarkBtn phase={1} type="ec" active={marks[1] === 'ec'} onSelect={(t) => updateMark(1, t)} />
+                    </td>
+                    <td className="px-4 py-2 text-center bg-green-50 border-l border-green-200">
+                      <MarkBtn phase={1} type="rz" active={marks[1] === 'rz'} onSelect={(t) => updateMark(1, t)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide bg-red-50 text-red-700 border-t border-red-200">
+                      Fase 2: Gestión de Requerimientos
+                    </td>
+                    <td className="px-4 py-2 text-center bg-amber-50 border-l border-amber-200">
+                      <MarkBtn phase={2} type="nr" active={marks[2] === 'nr'} onSelect={(t) => updateMark(2, t)} />
+                    </td>
+                    <td className="px-4 py-2 text-center bg-blue-50 border-l border-blue-200">
+                      <MarkBtn phase={2} type="ec" active={marks[2] === 'ec'} onSelect={(t) => updateMark(2, t)} />
+                    </td>
+                    <td className="px-4 py-2 text-center bg-green-50 border-l border-green-200">
+                      <MarkBtn phase={2} type="rz" active={marks[2] === 'rz'} onSelect={(t) => updateMark(2, t)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide bg-red-50 text-red-700 border-t border-red-200">
+                      Fase 3: Validación de requerimientos
+                    </td>
+                    <td className="px-4 py-2 text-center bg-amber-50 border-l border-amber-200">
+                      <MarkBtn phase={3} type="nr" active={marks[3] === 'nr'} onSelect={(t) => updateMark(3, t)} />
+                    </td>
+                    <td className="px-4 py-2 text-center bg-blue-50 border-l border-blue-200">
+                      <MarkBtn phase={3} type="ec" active={marks[3] === 'ec'} onSelect={(t) => updateMark(3, t)} />
+                    </td>
+                    <td className="px-4 py-2 text-center bg-green-50 border-l border-green-200">
+                      <MarkBtn phase={3} type="rz" active={marks[3] === 'rz'} onSelect={(t) => updateMark(3, t)} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -249,36 +224,27 @@ function Td({ children, className = '' }: { children: any; className?: string })
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
 
-function DescriptorCell({ subject }: { subject: Subject }) {
-  const [items, setItems] = useState<Descriptor[] | null>(null)
-  useEffect(() => {
-    let mounted = true
-    listDescriptorsBySubject(subject.id)
-      .then((data) => {
-        if (!mounted) return
-        const filtered = Array.isArray(data) ? data.filter((d) => d.subject === subject.id) : []
-        setItems(filtered)
-      })
-      .catch(() => { if (mounted) setItems([]) })
-    return () => { mounted = false }
-  }, [subject.id])
-
-  if (items === null) {
-    return <span className="inline-block h-3 w-3 animate-pulse rounded-sm bg-zinc-300" title="Cargando…" />
+function MarkBtn({ phase, type, active, onSelect }: { phase: 1 | 2 | 3; type: PhaseMark; active: boolean; onSelect: (t: PhaseMark) => void }) {
+  const symbol = type === 'nr' ? '×' : type === 'ec' ? '…' : '✓'
+  const classMap: Record<string, string> = {
+    nrIdle: 'border-amber-300 text-amber-600 bg-white hover:bg-amber-50',
+    nrAct: 'border-amber-500 text-white bg-amber-600',
+    ecIdle: 'border-blue-300 text-blue-600 bg-white hover:bg-blue-50',
+    ecAct: 'border-blue-600 text-white bg-blue-700',
+    rzIdle: 'border-green-300 text-green-600 bg-white hover:bg-green-50',
+    rzAct: 'border-green-600 text-white bg-green-600',
   }
-  if (!items.length) {
-    return <span className="text-xs text-zinc-500">-</span>
-  }
-  const last = items[items.length - 1]
+  const cls = type === 'nr' ? (active ? classMap.nrAct : classMap.nrIdle) : type === 'ec' ? (active ? classMap.ecAct : classMap.ecIdle) : (active ? classMap.rzAct : classMap.rzIdle)
   return (
-    <a
-      href={last.file}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-sm font-medium text-red-700 hover:underline"
-      title="ver descriptor"
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={() => onSelect(type)}
+      className={`inline-flex h-6 w-6 items-center justify-center rounded border text-sm font-semibold ${cls}`}
+      title={type === 'nr' ? 'No realizado' : type === 'ec' ? 'En curso' : 'Realizado'}
     >
-      ver descriptor
-    </a>
+      {active ? symbol : ''}
+    </button>
   )
 }
+
