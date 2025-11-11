@@ -10,7 +10,6 @@ export type Company = {
   phone: string
   employees_count: number
   sector: string
-  api_type: 1 | 2 | 3
 }
 
 export async function listCompanies(params?: { search?: string }) {

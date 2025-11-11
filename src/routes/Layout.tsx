@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate, useLocation } from 'react-router'
+ï»¿import { Link, Outlet, useNavigate, useLocation } from 'react-router'
 import { useAuth } from '../store/auth'
 import { useEffect, useState } from 'react'
 import { pathForRole, roleLabelMap } from './roleMap'
@@ -10,7 +10,7 @@ export default function Layout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const location = useLocation()
 
-  // Estado de colapso del Menúº del coordinador con persistencia
+  // Estado de colapso del MenÃº del coordinador con persistencia
   const [coordSidebarCollapsed, setCoordSidebarCollapsed] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('coordSidebarCollapsed')
@@ -62,9 +62,9 @@ export default function Layout() {
             <button
               onClick={() => setMobileNavOpen(true)}
               className="mr-2 inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-50 md:hidden"
-              aria-label="Abrir Menúº"
+              aria-label="Abrir menÃº"
             >
-              â˜°
+              Ã¢ËœÂ°
             </button>
           ) : null}
           <Link to={pathForRole(role)} className="flex items-center gap-2">
@@ -125,7 +125,7 @@ export default function Layout() {
               {role !== 'COORD' && ( <>
               {role === 'ADMIN' && (
                 <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Administración</div>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">AdministraciÃ³n</div>
                   <Link
                     to="/usuarios"
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
@@ -144,11 +144,23 @@ export default function Layout() {
                   >
                     Proceso API
                   </Link>
+                  <Link
+                    to="/empresas"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Empresas
+                  </Link>
+                  <Link
+                    to="/problematicas"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    ProblemÃ¡ticas
+                  </Link>
                 </>
               )}
               {role === 'DAC' && (
                 <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">DepartaMenúo Academico</div>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Departamento AcadÃ©mico</div>
                   <Link
                     to="/asignaturas"
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
@@ -163,11 +175,22 @@ export default function Layout() {
                   </Link>
                 </>
               )}
-              {role === 'DOC' && (
+               {role === 'DOC' && (
+                 <>
+                   <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Docente</div>
+                   <Link
+                     to="/mis-asignaturas"
+                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                   >
+                     Asignaturas
+                   </Link>
+                 </>
+               )}
+              {role === 'DC' && (
                 <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Docente</div>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Director de carrera</div>
                   <Link
-                    to="/mis-asignaturas"
+                    to="/dc/asignaturas"
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
                   >
                     Asignaturas
@@ -175,10 +198,10 @@ export default function Layout() {
                 </>
               )}
               {/* Otros roles/links */}
-              {/* Otros roles/links se agregarÃ¡n luego */}
+              {/* Otros roles/links se agregarÃƒÂ¡n luego */}
               {role === 'VCM' && (
                 <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Vinculación con el medio</div>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">VinculaciÃ³n con el medio</div>
                   <Link
                     to="/vcm/empresas"
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
@@ -189,7 +212,7 @@ export default function Layout() {
                     to="/vcm/problemas"
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
                   >
-                    Problemáticas
+                    ProblemÃ¡ticas
                   </Link>
                   <Link
                     to="/vcm/alcances"
@@ -224,27 +247,29 @@ export default function Layout() {
         <div className="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true">
           <div className="w-64 shrink-0 border-r border-zinc-200 bg-white p-4 shadow-lg">
             <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm font-semibold text-zinc-800">Menúº</div>
+              <div className="text-sm font-semibold text-zinc-800">MenÃº</div>
               <button
                 onClick={() => setMobileNavOpen(false)}
                 className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm hover:bg-zinc-50"
-                aria-label="Cerrar menúº"
+                aria-label="Cerrar menÃº"
               >
-                âœ•
+                Ã¢Å“â€¢
               </button>
             </div>
             <nav className="space-y-1">
               {role === 'ADMIN' && (
                 <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Administración</div>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">AdministraciÃ³n</div>
                   <Link onClick={() => setMobileNavOpen(false)} to="/usuarios" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Usuarios</Link>
                   <Link onClick={() => setMobileNavOpen(false)} to="/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
                   <Link onClick={() => setMobileNavOpen(false)} to="/proceso-api" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Proceso API</Link>
+                  <Link onClick={() => setMobileNavOpen(false)} to="/empresas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Empresas</Link>
+                  <Link onClick={() => setMobileNavOpen(false)} to="/problematicas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">ProblemÃ¡ticas</Link>
                 </>
               )}
               {role === 'DAC' && (
                 <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">DepartaMenúo Academico</div>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Departamento AcadÃ©mico</div>
                   <Link onClick={() => setMobileNavOpen(false)} to="/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
                   <Link onClick={() => setMobileNavOpen(false)} to="/docentes" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Docentes</Link>
                 </>
@@ -253,6 +278,12 @@ export default function Layout() {
                 <>
                   <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Docente</div>
                   <Link onClick={() => setMobileNavOpen(false)} to="/mis-asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
+                </>
+              )}
+              {role === 'DC' && (
+                <>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Director de carrera</div>
+                  <Link onClick={() => setMobileNavOpen(false)} to="/dc/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
                 </>
               )}
               {role === 'COORD' && (
@@ -337,5 +368,9 @@ function IconBell() {
     </svg>
   )
 }
+
+
+
+
 
 
