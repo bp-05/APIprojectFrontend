@@ -775,6 +775,19 @@ function AssignTeacherDialog({ subject, onClose, onAssigned }: { subject: Subjec
 function DescriptorCell({ subject, onChanged }: { subject: Subject; onChanged: () => void }) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Descriptor[] | null>(null)
+  const pollRef = useRef<any>(null)
+
+  async function refreshDescriptors(): Promise<Descriptor[]> {
+    try {
+      const data = await listDescriptorsBySubject(subject.id)
+      const filtered = Array.isArray(data) ? data.filter((d) => d.subject === subject.id) : []
+      setItems(filtered)
+      return filtered
+    } catch {
+      setItems([])
+      return []
+    }
+  }
 
   useEffect(() => {
     let mounted = true
@@ -788,6 +801,39 @@ function DescriptorCell({ subject, onChanged }: { subject: Subject; onChanged: (
       .catch(() => { if (mounted) setItems([]) })
     return () => { mounted = false }
   }, [subject.id])
+
+  // Refresh once when dialog closes (after upload)
+  useEffect(() => {
+    if (!open) {
+      const t = setTimeout(() => { void refreshDescriptors() }, 600)
+      return () => clearTimeout(t)
+    }
+  }, [open])
+
+  // Poll until descriptor is processed
+  useEffect(() => {
+    if (!items || items.length === 0) return
+    const hasPending = items.some((d) => !d.processed_at)
+    if (!hasPending) {
+      if (pollRef.current) { clearInterval(pollRef.current as any); pollRef.current = null }
+      return
+    }
+    if (pollRef.current) return
+    const started = Date.now()
+    pollRef.current = setInterval(async () => {
+      const latest = await refreshDescriptors()
+      const pending = latest.some((d) => !d.processed_at)
+      const timeout = Date.now() - started > 120000
+      if (!pending || timeout) {
+        clearInterval(pollRef.current as any)
+        pollRef.current = null
+        if (!pending) {
+          try { await onChanged() } catch {}
+        }
+      }
+    }, 5000) as any
+    return () => { if (pollRef.current) { clearInterval(pollRef.current as any); pollRef.current = null } }
+  }, [items])
 
   const hasDescriptor = !!items && items.length > 0
   const last: Descriptor | undefined = hasDescriptor ? items![items!.length - 1] : undefined
@@ -850,7 +896,8 @@ function UploadDescriptorDialog({ subject, onClose, onUploaded }: { subject: Sub
     }
     try {
       setLoading(true)
-      const d = await uploadDescriptor(subject.id, file)
+      // Backend actual: firma uploadDescriptor(file, subjectId?)
+      const d = await uploadDescriptor(file, subject.id)
       toast.success('Descriptor subido')
       // Disparar procesamiento asíncrono
       try {
@@ -860,9 +907,13 @@ function UploadDescriptorDialog({ subject, onClose, onUploaded }: { subject: Sub
         // ignorar si falla el disparo; el archivo ya quedó subido
       }
       await onUploaded()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al subir descriptor'
-      setError(msg)
+    } catch (e: any) {
+      // Mostrar mensaje devuelto por el backend si existe
+      const backendMsg =
+        (e?.response?.data && (e.response.data.detail || e.response.data.error)) ||
+        (typeof e?.response?.data === 'string' ? e.response.data : null)
+      const msg = backendMsg || (e instanceof Error ? e.message : 'Error al subir descriptor')
+      setError(String(msg))
     } finally {
       setLoading(false)
     }
