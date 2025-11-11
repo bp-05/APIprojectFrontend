@@ -249,9 +249,7 @@ function AlcanceForm({
           <h2 className="text-sm font-semibold text-zinc-900">
             {initial ? 'Editar alcance' : 'Nuevo alcance'}
           </h2>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">
-            Cerrar
-          </button>
+          {/* Botón Cerrar superior eliminado para unificar formato */}
         </div>
         <form className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 sm:px-6" onSubmit={onSubmit}>
           <Select

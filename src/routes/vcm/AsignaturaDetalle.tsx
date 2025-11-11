@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+Ôªøimport { useEffect, useState } from 'react'
 import { toast } from 'react-hot-toast'
 import { Link, useParams } from 'react-router'
 import { getSubject, type Subject } from '../../api/subjects'
@@ -71,7 +71,7 @@ export default function AsignaturaVCMDetalle() {
         <div>
           <h1 className="text-xl font-semibold">Detalle de asignatura</h1>
           {subject ? (
-            <p className="text-sm text-zinc-600">{subject.name} ó {subject.code}-{subject.section}</p>
+            <p className="text-sm text-zinc-600">{subject.name} ‚Äî {subject.code}-{subject.section}</p>
           ) : null}
         </div>
         <Link to="/vcm/asignaturas" className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Volver</Link>
@@ -82,22 +82,22 @@ export default function AsignaturaVCMDetalle() {
       ) : null}
 
       {loading ? (
-        <div className="text-sm text-zinc-600">CargandoÖ</div>
+        <div className="text-sm text-zinc-600">Cargando‚Ä¶</div>
       ) : subject ? (
         <div className="grid grid-cols-1 gap-4">
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <h2 className="mb-2 text-sm font-semibold">Informacion general</h2>
+            <h2 className="mb-2 text-sm font-semibold">Informaci√≥n general</h2>
             <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-              <Item label="Codigo">{subject.code}</Item>
-              <Item label="Seccion">{subject.section}</Item>
+              <Item label="C√≥digo">{subject.code}</Item>
+              <Item label="Secci√≥n">{subject.section}</Item>
               <Item label="Nombre">{subject.name}</Item>
-              <Item label="Docente">{subject.teacher_name || 'ó'}</Item>
+              <Item label="Docente">{subject.teacher_name || '‚Äî'}</Item>
               <Item label="Campus">{subject.campus}</Item>
               <Item label="Jornada">{subject.shift}</Item>
               <Item label="Horas">{String(subject.hours)}</Item>
               <Item label="Semestre">{subject.semester_name ?? String(subject.semester)}</Item>
-              <Item label="Area">{subject.area_name || String(subject.area)}</Item>
-              <Item label="Carrera">{subject.career_name || (subject.career ? String(subject.career) : 'ó')}</Item>
+              <Item label="√Årea">{subject.√Årea_name || String(subject.√Årea)}</Item>
+              <Item label="Carrera">{subject.career_name || (subject.career ? String(subject.career) : '‚Äî')}</Item>
               <Item label="Tipo API">{String(subject.api_type)}</Item>
             </dl>
           </div>
@@ -251,7 +251,7 @@ function RequerimientosSection({ subject, companies, requirements, onChangeRequi
               <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Empresa</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Alternancia</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Cupo</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold text-zinc-600">Accion</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-zinc-600">Acci√≥n</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -274,7 +274,7 @@ function RequerimientosSection({ subject, companies, requirements, onChangeRequi
             <label className="text-xs">
               <span className="mb-1 block">Empresa</span>
               <select value={String(newReqCompany || '')} onChange={(e) => setNewReqCompany(Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm">
-                <option value="" disabled>SeleccioneÖ</option>
+                <option value="" disabled>Seleccione‚Ä¶</option>
                 {companies.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -337,7 +337,7 @@ function TiposProyectoSection({ subject, companies, scopes }: { subject: Subject
             <tr key={a.id}>
               <td className="px-3 py-2 text-sm">{companiesById.get(a.company)?.name || `Empresa #${a.company}`}</td>
               <td className="px-3 py-2 text-sm">{a.has_value_or_research_project ? 'Si' : 'No'}</td>
-              <td className="px-3 py-2 text-sm">{a.benefits_from_student || 'ó'}</td>
+              <td className="px-3 py-2 text-sm">{a.benefits_from_student || '‚Äî'}</td>
             </tr>
           ))}
         </tbody>
@@ -390,7 +390,7 @@ function AlternanceSection({ subjectId, value, form, onChangeForm, onSaved }: {
       </div>
       <div className="mt-3 text-right">
         <button onClick={save} disabled={saving} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
-          {saving ? 'GuardandoÖ' : value ? 'Actualizar' : 'Crear'}
+          {saving ? 'Guardando‚Ä¶' : value ? 'Actualizar' : 'Crear'}
         </button>
       </div>
     </div>
@@ -466,16 +466,16 @@ function PosibleContraparteSection() {
             <tr>
               <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Empresa</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Sector</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">InterÈs</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold text-zinc-600">AcciÛn</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Inter√©s</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-zinc-600">Acci√≥n</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {items.map((p) => (
               <tr key={p.id}>
                 <td className="px-3 py-2 text-sm">{p.company_name}</td>
-                <td className="px-3 py-2 text-sm">{p.sector || 'ó'}</td>
-                <td className="px-3 py-2 text-sm">{p.interest_collaborate ? 'SÌ' : 'No'}</td>
+                <td className="px-3 py-2 text-sm">{p.sector || '‚Äî'}</td>
+                <td className="px-3 py-2 text-sm">{p.interest_collaborate ? 'S√≠' : 'No'}</td>
                 <td className="px-3 py-2 text-right text-sm">
                   <button onClick={() => { setEditing(p); setOpen(true) }} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Editar</button>
                 </td>
@@ -499,7 +499,7 @@ function YesNo({ label, value, onChange }: { label: string; value: boolean; onCh
       <div className="flex items-center gap-4">
         <label className="inline-flex items-center gap-2">
           <input type="radio" name={name} checked={value === true} onChange={() => onChange(true)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />
-          <span>SÌ</span>
+          <span>S√≠</span>
         </label>
         <label className="inline-flex items-center gap-2">
           <input type="radio" name={name} checked={value === false} onChange={() => onChange(false)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />
@@ -561,13 +561,13 @@ function ProspectDialog({ initial, onClose, onSaved }: { initial?: Prospect; onC
             <input value={form.sector} onChange={(e) => update('sector', e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
           </label>
 
-          <YesNo label="øLa sede ha trabajado anteriormente con esta contraparte?" value={form.worked_before} onChange={(v) => update('worked_before', v)} />
-          <YesNo label="øLa contraparte tiene interÈs de participar con INACAP de manera colaborativa?" value={form.interest_collaborate} onChange={(v) => update('interest_collaborate', v)} />
-          <YesNo label="øEl estudiante puede desarrollar actividades asociadas a los aprendizajes esperados?" value={form.can_develop_activities} onChange={(v) => update('can_develop_activities', v)} />
-          <YesNo label="øCuenta con proyecto para diseÒo/desarrollo (si corresponde)?" value={form.willing_design_project} onChange={(v) => update('willing_design_project', v)} />
+          <YesNo label="¬øLa sede ha trabajado anteriormente con esta contraparte?" value={form.worked_before} onChange={(v) => update('worked_before', v)} />
+          <YesNo label="¬øLa contraparte tiene inter√©s de participar con INACAP de manera colaborativa?" value={form.interest_collaborate} onChange={(v) => update('interest_collaborate', v)} />
+          <YesNo label="¬øEl estudiante puede desarrollar actividades asociadas a los aprendizajes esperados?" value={form.can_develop_activities} onChange={(v) => update('can_develop_activities', v)} />
+          <YesNo label="¬øCuenta con proyecto para dise√±o/desarrollo (si corresponde)?" value={form.willing_design_project} onChange={(v) => update('willing_design_project', v)} />
 
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-zinc-800">Tipo de interacciÛn</span>
+            <span className="mb-1 block font-medium text-zinc-800">Tipo de interacci√≥n</span>
             <select value={form.interaction_type} onChange={(e) => update('interaction_type', e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
               <option value="">Seleccionar</option>
               <option value="Virtual">Virtual</option>
@@ -576,17 +576,17 @@ function ProspectDialog({ initial, onClose, onSaved }: { initial?: Prospect; onC
             </select>
           </label>
 
-          <YesNo label="Si recibe estudiantes en alternancia (Tipo 3), øcuenta con un Maestro GuÌa?" value={form.has_guide} onChange={(v) => update('has_guide', v)} />
-          <YesNo label="øPuede recibir estudiantes en alternancia (nivel 3) durante el semestre?" value={form.can_receive_alternance} onChange={(v) => update('can_receive_alternance', v)} />
+          <YesNo label="Si recibe estudiantes en alternancia (Tipo 3), ¬øcuenta con un Maestro Gu√≠a?" value={form.has_guide} onChange={(v) => update('has_guide', v)} />
+          <YesNo label="¬øPuede recibir estudiantes en alternancia (nivel 3) durante el semestre?" value={form.can_receive_alternance} onChange={(v) => update('can_receive_alternance', v)} />
 
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-zinc-800">N∞ estudiantes alternancia (nivel 3)</span>
+            <span className="mb-1 block font-medium text-zinc-800">N¬∞ estudiantes alternancia (nivel 3)</span>
             <input value={quotaStr} onChange={(e) => setQuotaStr(e.target.value.replace(/[^0-9]/g, ''))} disabled={!form.can_receive_alternance} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
           </label>
 
           <div className="col-span-full mt-2 flex items-center justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
-            <button type="submit" disabled={saving} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{saving ? 'GuardandoÖ' : 'Guardar'}</button>
+            <button type="submit" disabled={saving} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{saving ? 'Guardando‚Ä¶' : 'Guardar'}</button>
           </div>
         </form>
       </div>
@@ -600,24 +600,65 @@ function ProspectDialog({ initial, onClose, onSaved }: { initial?: Prospect; onC
 function PosiblesContrapartesSeleccion({ subjectId }: { subjectId: number }) {
   type ProspectDisplay = { id: string; company_name: string; sector?: string; interest_collaborate?: boolean }
   const [prospects, setProspects] = useState<ProspectDisplay[]>([])
+  const [dbForSubject, setDbForSubject] = useState<ProspectDisplay[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('vcm_posibles_contrapartes')
-      const arr = raw ? JSON.parse(raw) : []
-      const list: ProspectDisplay[] = Array.isArray(arr)
-        ? arr.map((p: any) => ({ id: String(p.id), company_name: String(p.company_name || ''), sector: p.sector || '', interest_collaborate: !!p.interest_collaborate }))
-        : []
-      setProspects(list)
-    } catch { setProspects([]) }
-    try {
-      const rawSel = localStorage.getItem('vcm_subject_prospects')
-      const map = rawSel ? JSON.parse(rawSel) : {}
-      const curr = map && typeof map === 'object' ? (map[String(subjectId)] || []) : []
-      setSelected(Array.isArray(curr) ? curr.map(String) : [])
-    } catch { setSelected([]) }
+    async function loadLists() {
+      // Unir DB + Local (evitando duplicados por nombre)
+      try {
+        // Local
+        const raw = localStorage.getItem('vcm_posibles_contrapartes')
+        const arr = raw ? JSON.parse(raw) : []
+        const localList: ProspectDisplay[] = Array.isArray(arr)
+          ? arr.map((p: any) => ({ id: String(p.id), company_name: String(p.company_name || ''), sector: p.sector || '', interest_collaborate: !!p.interest_collaborate }))
+          : []
+
+        // DB
+        let dbReqs: CompanyRequirement[] = []
+        try { dbReqs = await listCompanyRequirements() } catch {}
+        // Consultamos empresas para resolver nombres
+        let compsLocal: Company[] = []
+        try { compsLocal = await listCompanies() } catch { compsLocal = [] }
+        const byId = new Map(compsLocal.map((c) => [c.id, c]))
+        const dbList: ProspectDisplay[] = (dbReqs || []).map((r) => ({
+          id: `db:${r.id}`,
+          company_name: byId.get(r.company)?.name || `Empresa #${r.company}`,
+          sector: r.sector || '',
+          interest_collaborate: !!r.interest_collaborate,
+        }))
+
+        // Guardar tambi√©n los de esta asignatura para mostrarlos como seleccionados
+        const dbChosen: ProspectDisplay[] = (dbReqs || [])
+          .filter((r) => Number(r.subject) === Number(subjectId))
+          .map((r) => ({
+            id: `db:${r.id}`,
+            company_name: byId.get(r.company)?.name || `Empresa #${r.company}`,
+            sector: r.sector || '',
+            interest_collaborate: !!r.interest_collaborate,
+          }))
+        setDbForSubject(dbChosen)
+
+        const merged: ProspectDisplay[] = [...dbList]
+        for (const p of localList) {
+          const key = (p.company_name || '').trim().toLowerCase()
+          if (!merged.some((d) => (d.company_name || '').trim().toLowerCase() === key)) merged.push(p)
+        }
+        setProspects(merged)
+      } catch {
+        setProspects([])
+      }
+
+      // Seleccionados persistidos (solo ids locales)
+      try {
+        const rawSel = localStorage.getItem('vcm_subject_prospects')
+        const map = rawSel ? JSON.parse(rawSel) : {}
+        const curr = map && typeof map === 'object' ? (map[String(subjectId)] || []) : []
+        setSelected(Array.isArray(curr) ? curr.map(String) : [])
+      } catch { setSelected([]) }
+    }
+    loadLists()
   }, [subjectId])
 
   function toggle(id: string) {
@@ -644,16 +685,25 @@ function PosiblesContrapartesSeleccion({ subjectId }: { subjectId: number }) {
         <button onClick={() => setOpen(true)} className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">Seleccionar posibles contrapartes</button>
       </div>
       {(() => {
-        const chosen = prospects.filter((p) => selected.includes(p.id))
-        return chosen.length ? (
+        // Unir seleccionadas locales + las que est√°n en base para esta asignatura
+        const localChosen = prospects.filter((p) => selected.includes(p.id))
+        const mergedChosen: ProspectDisplay[] = [...dbForSubject]
+        for (const p of localChosen) {
+          const key = (p.company_name || '').trim().toLowerCase()
+          if (!mergedChosen.some((d) => (d.company_name || '').trim().toLowerCase() === key)) mergedChosen.push(p)
+        }
+        return mergedChosen.length ? (
           <div className="flex flex-wrap gap-2">
-            {chosen.map((p) => (
+            {mergedChosen.map((p) => (
               <span
                 key={p.id}
                 className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-0.5 text-xs text-zinc-700"
                 title={p.company_name}
               >
                 {p.company_name}
+                {p.id.startsWith('db:') ? (
+                  <span className="ml-1 rounded bg-white/70 px-1 text-[10px] text-zinc-600">en base</span>
+                ) : null}
               </span>
             ))}
           </div>
@@ -667,25 +717,29 @@ function PosiblesContrapartesSeleccion({ subjectId }: { subjectId: number }) {
           <div className="w-full max-w-xl rounded-xl bg-white shadow-lg ring-1 ring-black/5 max-h-[calc(100vh-4rem)] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-3">
               <h3 className="text-sm font-semibold text-zinc-900">Seleccionar posibles contrapartes</h3>
-              <button onClick={() => setOpen(false)} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+              {/* Cerrar superior eliminado: usamos botones inferiores */}
             </div>
             <div className="p-4">
               {prospects.length === 0 ? (
-                <div className="text-sm text-zinc-600">No hay posibles contrapartes. Cree algunas en "Posible contraparte".</div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm text-zinc-600">No hay posibles contrapartes. Cree algunas en "Posible contraparte".</div>
+                  <Link to="/vcm/posible-contraparte" className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Ir a Posible contraparte</Link>
+                </div>
               ) : (
                 <ul className="max-h-80 overflow-y-auto rounded-md border border-zinc-200">
                   {prospects.map((p) => (
                     <li key={p.id} className="flex items-center justify-between border-b border-zinc-100 px-3 py-2 last:border-b-0">
                       <div>
                         <div className="text-sm text-zinc-900">{p.company_name}</div>
-                        <div className="text-xs text-zinc-600">{p.sector || 'ó'}</div>
+                        <div className="text-xs text-zinc-600">{p.sector || '‚Äî'}</div>
                       </div>
                       <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600" />
                     </li>
                   ))}
                 </ul>
               )}
-              <div className="mt-3 text-right">
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <button onClick={() => setOpen(false)} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
                 <button onClick={save} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Guardar</button>
               </div>
             </div>
@@ -695,3 +749,6 @@ function PosiblesContrapartesSeleccion({ subjectId }: { subjectId: number }) {
     </div>
   )
 }
+
+
+

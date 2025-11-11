@@ -1,0 +1,150 @@
+import { useEffect, useRef, useState } from 'react'
+import { toast } from 'react-hot-toast'
+import { listCompanies, type Company } from '../../api/companies'
+import { listSubjectCodeSections, type BasicSubject, createCompanyRequirement } from '../../api/subjects'
+
+type Prospect = {
+  id: string
+  company_name: string
+  sector: string
+  interest_collaborate: boolean
+  responsible_name?: string
+  // Campos opcionales que pueden venir desde otras vistas
+  worked_before?: boolean
+  can_develop_activities?: boolean
+  willing_design_project?: boolean
+  interaction_type?: string
+  has_guide?: boolean
+  can_receive_alternance?: boolean
+  alternance_students_quota?: number | null
+}
+
+function getProspects(): Prospect[] {
+  try {
+    const raw = localStorage.getItem('vcm_posibles_contrapartes')
+    const arr = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(arr)) return []
+    return arr.map((p: any) => ({
+      id: String(p.id ?? crypto.randomUUID()),
+      company_name: String(p.company_name ?? ''),
+      sector: String(p.sector ?? ''),
+      interest_collaborate: !!p.interest_collaborate,
+      responsible_name: typeof p.responsible_name === 'string' ? p.responsible_name : undefined,
+      worked_before: !!p.worked_before,
+      can_develop_activities: !!p.can_develop_activities,
+      willing_design_project: !!p.willing_design_project,
+      interaction_type: typeof p.interaction_type === 'string' ? p.interaction_type : '',
+      has_guide: !!p.has_guide,
+      can_receive_alternance: !!p.can_receive_alternance,
+      alternance_students_quota:
+        typeof p.alternance_students_quota === 'number' || p.alternance_students_quota === null
+          ? p.alternance_students_quota
+          : null,
+    }))
+  } catch {
+    return []
+  }
+}
+
+export default function PosibleContraparte() {
+  const [items, setItems] = useState<Prospect[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [viewing, setViewing] = useState<Prospect | null>(null)
+  const [assigningId, setAssigningId] = useState<string | null>(null)
+  const [assignName, setAssignName] = useState('')
+
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [subjects, setSubjects] = useState<BasicSubject[]>([])
+
+  // Form edición/creación
+  const [editing, setEditing] = useState<Prospect | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editSector, setEditSector] = useState('')
+  const [editSubjectId, setEditSubjectId] = useState<number>(0)
+  const [editInterest, setEditInterest] = useState(false)
+  const [editWorkedBefore, setEditWorkedBefore] = useState(false)
+  const [editCanDevelopActivities, setEditCanDevelopActivities] = useState(false)
+  const [editWillingDesignProject, setEditWillingDesignProject] = useState(false)
+  const [editInteractionType, setEditInteractionType] = useState('')
+  const [editHasGuide, setEditHasGuide] = useState(false)
+  const [editCanReceiveAlternance, setEditCanReceiveAlternance] = useState(false)
+  const [editQuotaStr, setEditQuotaStr] = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    ;(async () => {
+      try {
+        setItems(getProspects())
+        const comps = await listCompanies()
+        setCompanies(comps)
+        try {
+          const subs = await listSubjectCodeSections()
+          setSubjects(subs)
+        } catch {}
+      } catch (e) {
+        // no es crítico para listar
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [])
+
+  function openAssign(p: Prospect) {
+    setAssigningId(p.id)
+    const candidate = companies.find(
+      (c) => c.name.trim().toLowerCase() === p.company_name.trim().toLowerCase(),
+    )
+    setAssignName(candidate?.spys_responsible_name?.trim() || '')
+  }
+
+  function saveAssign() {
+    const name = assignName.trim()
+    try {
+      const arr = getProspects()
+      const idx = arr.findIndex((x) => x.id === assigningId)
+      if (idx >= 0) {
+        arr[idx] = { ...arr[idx], responsible_name: name }
+        localStorage.setItem('vcm_posibles_contrapartes', JSON.stringify(arr))
+        setItems(arr)
+        toast.success('Responsable asignado')
+      }
+    } finally {
+      setAssigningId(null)
+      setAssignName('')
+    }
+  }
+
+  function openEdit(p: Prospect) {
+    setEditing(p)
+    setEditName(p.company_name || '')
+    setEditSector(p.sector || '')
+    setEditInterest(!!p.interest_collaborate)
+    setEditSubjectId(0)
+    setEditWorkedBefore(!!p.worked_before)
+    setEditCanDevelopActivities(!!p.can_develop_activities)
+    setEditWillingDesignProject(!!p.willing_design_project)
+    setEditInteractionType(p.interaction_type || '')
+    setEditHasGuide(!!p.has_guide)
+    setEditCanReceiveAlternance(!!p.can_receive_alternance)
+    setEditQuotaStr(
+      typeof p.alternance_students_quota === 'number' ? String(p.alternance_students_quota) : ''
+    )
+  }
+
+  function openCreate() {
+    const p: Prospect = {
+      id: crypto.randomUUID(),
+      company_name: '',
+      sector: '',
+      interest_collaborate: false,
+    }
+    setEditing(p)
+    setEditName('')
+    setEditSector('')
+    setEditInterest(false)
+    setEditSubjectId(0)
+    setEditWorkedBefore(false)
+    setEditCanDevelopActivities(false)

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { listSubjects, type Subject } from '../../api/subjects'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { listSubjects, type Subject, listCompanyRequirements, type CompanyRequirement } from '../../api/subjects'
+import { listCompanies, type Company } from '../../api/companies'
 import { useNavigate } from 'react-router'
 
 export default function DocentesVCM() {
@@ -9,13 +10,21 @@ export default function DocentesVCM() {
   const [loading, setLoading] = useState(false)
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [subjectProspects, setSubjectProspects] = useState<Record<number, string[]>>({})
-  // selection of posibles contrapartes ahora va en el detalle
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [requirements, setRequirements] = useState<CompanyRequirement[]>([])
+  // selección de posibles contrapartes ahora va en el detalle
 
   async function load() {
     setLoading(true)
     try {
-      const subs = await listSubjects()
+      const [subs, comps, reqs] = await Promise.all([
+        listSubjects(),
+        listCompanies().catch(() => [] as Company[]),
+        listCompanyRequirements().catch(() => [] as CompanyRequirement[]),
+      ])
       setItems(subs)
+      setCompanies(comps)
+      setRequirements(reqs)
       setProspects(loadProspects())
       setSubjectProspects(loadSubjectProspects())
     } finally {
@@ -82,12 +91,24 @@ export default function DocentesVCM() {
                   <Td>{s.career_name || '—'}</Td>
                   <Td>
                     {(() => {
+                      // Solo mostrar las contrapartes seleccionadas en Asignatura (localStorage)
+                      // Resolver nombres tanto para ids locales como para ids de BD (prefijo 'db:')
                       const ids = subjectProspects[s.id] || []
                       if (!ids.length) return '—'
-                      const names = ids
-                        .map((id) => prospects.find((p) => p.id === id)?.company_name || `#${id}`)
-                        .filter(Boolean)
-                      return names.length ? names.join(', ') : '—'
+                      const byCompanyId = new Map(companies.map((c) => [c.id, c]))
+                      const byReqId = new Map(requirements.map((r) => [r.id, r]))
+                      const names = ids.map((id) => {
+                        if (id.startsWith('db:')) {
+                          const rid = Number(id.slice(3))
+                          const req = byReqId.get(rid)
+                          if (req && req.subject === s.id) {
+                            return byCompanyId.get(req.company)?.name
+                          }
+                          return undefined
+                        }
+                        return prospects.find((p) => p.id === id)?.company_name
+                      }).filter(Boolean) as string[]
+                      return names.length ? Array.from(new Set(names)).join(', ') : '—'
                     })()}
                   </Td>
                   <Td className="text-right">
@@ -142,10 +163,3 @@ function loadSubjectProspects(): Record<number, string[]> {
     return {}
   }
 }
-
-
-
-
-
-
-
