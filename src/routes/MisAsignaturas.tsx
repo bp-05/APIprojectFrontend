@@ -29,10 +29,12 @@ export default function MisAsignaturas() {
     load()
   }, [])
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo<Subject[]>(() => {
     if (!search) return items
     const q = search.toLowerCase()
-    return items.filter((s) => [s.code, s.section, s.name, s.campus].some((v) => String(v || '').toLowerCase().includes(q)))
+    return items.filter((s) =>
+      [s.code, s.section, s.name, s.campus].some((v) => String(v || '').toLowerCase().includes(q))
+    )
   }, [items, search])
 
   async function openManage(subject: Subject) {
@@ -94,7 +96,7 @@ export default function MisAsignaturas() {
                 <td className="p-4 text-sm text-zinc-600" colSpan={8}>Sin resultados</td>
               </tr>
             ) : (
-              filtered.map((s) => (
+              filtered.map((s: Subject) => (
                 <Fragment key={s.id}>
                   <tr className="hover:bg-zinc-50">
                     <Td>
@@ -115,11 +117,11 @@ export default function MisAsignaturas() {
                       </button>
                     </Td>
                   </tr>
-                  {managing?.id === s.id ? (
+                  {managing && managing.id === s.id ? (
                     <tr>
                       <td className="bg-zinc-50 p-4" colSpan={7}>
                         <ManageSubjectPanel
-                          subject={managing}
+                          subject={managing!}
                           units={units}
                           selectedUnit={selectedUnit}
                           onSelectUnit={setSelectedUnit}
@@ -144,7 +146,7 @@ export default function MisAsignaturas() {
       {managing ? (
         <div className="rounded-lg border border-zinc-200 bg-white p-4">
           <ManageSubjectPanel
-            subject={managing}
+            subject={managing!}
             units={units}
             selectedUnit={selectedUnit}
             onSelectUnit={setSelectedUnit}
