@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import {
@@ -97,15 +97,15 @@ export default function Empresas() {
               <Th>Correo</Th>
               <Th>Sector</Th>
               <Th>Teléfono</Th>
-              <Th>API</Th>
+              
               <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin resultados</td></tr>
             ) : (
               filtered.map((c) => (
                 <tr key={c.id} className="hover:bg-zinc-50">
@@ -113,7 +113,7 @@ export default function Empresas() {
                   <Td>{c.email}</Td>
                   <Td>{c.sector}</Td>
                   <Td>{c.phone}</Td>
-                  <Td>Tipo {c.api_type}</Td>
+                  
                   <Td className="text-right">
                     <button
                       onClick={() => openEdit(c)}
@@ -176,7 +176,6 @@ function CompanyForm({
     phone: initial?.phone || '',
     employees_count: initial?.employees_count || 0,
     sector: initial?.sector || '',
-    api_type: (initial?.api_type as any) || 1,
   })
   const [saving, setSaving] = useState(false)
   const [employeesStr, setEmployeesStr] = useState<string>(String(initial?.employees_count ?? 0))
@@ -262,20 +261,7 @@ function CompanyForm({
               className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
             />
           </label>
-          <Select
-            label="Tipo API"
-            value={String(form.api_type)}
-            onChange={(v) => {
-              const n = parseInt(v, 10)
-              const val = (n === 2 || n === 3) ? (n as 2 | 3) : (1 as 1)
-              update('api_type', val as 1 | 2 | 3)
-            }}
-            options={[
-              { value: '1', label: 'Tipo 1' },
-              { value: '2', label: 'Tipo 2' },
-              { value: '3', label: 'Tipo 3' },
-            ]}
-          />
+          
 
           <div className="col-span-full mt-2 flex items-center justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">
@@ -352,3 +338,4 @@ function Select({
     </label>
   )
 }
+

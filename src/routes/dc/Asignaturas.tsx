@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, type Subject } from '../../api/subjects'
 
-export default function DC() {
+export default function DCAsignaturas() {
   const [items, setItems] = useState<Subject[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,8 +38,8 @@ export default function DC() {
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Director de carrera</h1>
-          <p className="text-sm text-zinc-600">Asignaturas visibles para tu rol</p>
+          <h1 className="text-xl font-semibold">Asignaturas</h1>
+          <p className="text-sm text-zinc-600">Listado para Director de carrera</p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -121,3 +121,4 @@ function phaseLabel(v: string) {
   }
   return map[v] || v
 }
+

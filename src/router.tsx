@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router'
+﻿import { createBrowserRouter } from 'react-router'
 import Layout from './routes/Layout'
 import Login from './routes/Login'
 import ErrorPage from './routes/ErrorPage'
@@ -26,6 +26,7 @@ import AsignaturaCoordDetalle from './routes/coord/AsignaturaDetalle'
 import EmpresaDetalle from './routes/coord/EmpresaDetalle'
 import DocentesCoord from './routes/coord/Docentes'
 import ProcesoAPI from './routes/ProcesoAPI'
+import DCAsignaturas from './routes/dc/Asignaturas'
 import EstadoCoord from './routes/coord/Estado'
 import Gantt from './routes/coord/Gantt'
 import Reportes from './routes/coord/Reportes'
@@ -56,7 +57,9 @@ export const router = createBrowserRouter([
       { path: 'proceso-api', loader: requireRoleLoader('ADMIN'), element: <ProcesoAPI /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
       { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <Empresas /> },
-      { path: 'vcm/problemas', loader: requireRoleLoader('VCM'), element: <Problemas /> },
+      { path: 'empresas', loader: requireRoleLoader('ADMIN'), element: <Empresas /> },
+      
+      { path: 'problematicas', loader: requireRoleLoader('ADMIN'), element: <Problemas /> },
       { path: 'vcm/alcances', loader: requireRoleLoader('VCM'), element: <Alcances /> },
       { path: 'vcm/asignaturas', loader: requireRoleLoader('VCM'), element: <DocentesVCM /> },
       { path: 'vcm/asignaturas/:id', loader: requireRoleLoader('VCM'), element: <AsignaturaVCMDetalle /> },
@@ -64,6 +67,7 @@ export const router = createBrowserRouter([
       { path: 'dac', loader: requireRoleLoader('DAC'), element: <DAC /> },
       { path: 'docentes', loader: requireRoleLoader('DAC'), element: <Docentes /> },
       { path: 'dc', loader: requireRoleLoader('DC'), element: <DC /> },
+      { path: 'dc/asignaturas', loader: requireRoleLoader('DC'), element: <DCAsignaturas /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
       { path: 'mis-asignaturas', loader: requireRoleLoader('DOC'), element: <MisAsignaturas /> },
       { path: 'coord', loader: requireRoleLoader('COORD'), element: <COORD /> },
@@ -85,3 +89,4 @@ export const router = createBrowserRouter([
 ])
 
 export default router
+
