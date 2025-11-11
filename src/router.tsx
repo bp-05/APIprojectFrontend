@@ -57,6 +57,7 @@ export const router = createBrowserRouter([
       { path: 'proceso-api', loader: requireRoleLoader('ADMIN'), element: <ProcesoAPI /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
       { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <Empresas /> },
+      { path: 'vcm/problemas', loader: requireRoleLoader('VCM'), element: <Problemas /> },
       { path: 'empresas', loader: requireRoleLoader('ADMIN'), element: <Empresas /> },
       
       { path: 'problematicas', loader: requireRoleLoader('ADMIN'), element: <Problemas /> },
