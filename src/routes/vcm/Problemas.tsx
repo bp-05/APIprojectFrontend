@@ -255,7 +255,7 @@ function ProblemForm({
       <div className="w-full max-w-3xl rounded-xl bg-white shadow-lg ring-1 ring-black/5 max-h-[calc(100vh-4rem)] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-3">
           <h2 className="text-sm font-semibold text-zinc-900">{initial ? 'Editar problemática' : 'Nueva problemática'}</h2>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+          {/* Botón Cerrar superior eliminado para unificar formato */}
         </div>
         <form className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 sm:px-6" onSubmit={onSubmit}>
           <Select

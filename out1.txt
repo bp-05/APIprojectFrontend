@@ -1,0 +1,220 @@
+import { useEffect, useMemo, useState, useRef } from 'react'
+import { createSubject, deleteSubject, listSubjects, updateSubject, type Subject, listAreas, listSemesters, type Area, type SemesterLevel, uploadDescriptor, processDescriptor, type Descriptor, listDescriptorsBySubject, listCareers, type Career, getDescriptor } from '../api/subjects'
+import { listDocentes, type User as AppUser } from '../api/users'
+import { nameCase } from '../lib/strings'
+import { toast } from 'react-hot-toast'
+
+export default function Asignaturas() {
+  const [items, setItems] = useState<Subject[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [createMode, setCreateMode] = useState<'none' | 'choose' | 'manual' | 'auto'>('none')
+  const [editing, setEditing] = useState<Subject | null>(null)
+  const [viewing, setViewing] = useState<Subject | null>(null)
+  const [autoPolling, setAutoPolling] = useState(false)
+  const [autoUntil, setAutoUntil] = useState<number | null>(null)
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await listSubjects()
+      setItems(data)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al cargar asignaturas'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  useEffect(() => {
+    if (!autoPolling || !autoUntil) return
+    const tick = setInterval(() => {
+      if (Date.now() > autoUntil) {
+        setAutoPolling(false)
+        setAutoUntil(null)
+        clearInterval(tick)
+        return
+      }
+      load()
+    }, 10000)
+    return () => clearInterval(tick)
+  }, [autoPolling, autoUntil])
+
+  const filtered = useMemo(() => {
+    if (!search) return items
+    const q = search.toLowerCase()
+    return items.filter((s) =>
+      [
+        s.code,
+        s.section,
+        s.name,
+        s.campus,
+        s.area_name || '',
+        s.career_name || '',
+        s.semester_name || '',
+      ].some((v) => String(v || '').toLowerCase().includes(q))
+    )
+  }, [items, search])
+
+  async function onDelete(s: Subject) {
+    if (!confirm(`¿Eliminar asignatura ${s.code}-${s.section}?`)) return
+    await deleteSubject(s.id)
+    toast.success('Asignatura eliminada')
+    await load()
+  }
+
+  return (
+    <section className="p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Asignaturas</h1>
+          <p className="text-sm text-zinc-600">Gestión de asignaturas (solo entidad principal)</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por código, sección o nombre…"
+            className="w-72 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+          <button
+            onClick={() => setCreateMode('choose')}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+          >
+            Nueva asignatura
+          </button>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      {autoPolling ? (
+        <div className="mb-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+          Procesando descriptor… actualizando la lista automáticamente cada 10 segundos.
+        </div>
+      ) : null}
+
+      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+        <table className="min-w-full divide-y divide-zinc-200">
+          <thead className="bg-zinc-50">
+            <tr>
+              <Th>Descriptor</Th>
+              <Th>Código</Th>
+              <Th>Sección</Th>
+              <Th>Nombre</Th>
+              <Th>Área</Th>
+              <Th>Carrera</Th>
+              <Th>Docente</Th>
+              <Th className="text-right">Acciones</Th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100 bg-white">
+            {loading ? (
+              <tr>
+                <td className="p-4 text-sm text-zinc-600" colSpan={6}>Cargando…</td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td className="p-4 text-sm text-zinc-600" colSpan={6}>Sin resultados</td>
+              </tr>
+            ) : (
+              filtered.map((s) => (
+                <tr key={s.id} className="hover:bg-zinc-50">
+                  <Td>
+                    <DescriptorCell subject={s} onChanged={load} />
+                  </Td>
+                  <Td>{s.code}</Td>
+                  <Td>{s.section}</Td>
+                  <Td>{s.name}</Td>
+                  <Td>{s.area_name}</Td>
+                  <Td>
+                    {s.career ? (
+                      s.career_name || '-'
+                    ) : (
+                      <AssignCareerButton subject={s} onAssigned={load} />
+                    )}
+                  </Td>
+                  <Td>
+                    {s.teacher ? (
+                      s.teacher_name || '-'
+                    ) : (
+                      <AssignButton subject={s} onAssigned={load} />
+                    )}
+                  </Td>
+                  <Td className="text-right">
+                    <button
+                      onClick={() => setViewing(s)}
+                      className="mr-2 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
+                    >
+                      Ver
+                    </button>
+                    <button
+                      onClick={() => setEditing(s)}
+                      className="mr-2 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => onDelete(s)}
+                      className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
+                    >
+                      Eliminar
+                    </button>
+                  </Td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {createMode === 'choose' ? (
+        <CreateSubjectModeDialog
+          onManual={() => setCreateMode('manual')}
+          onAuto={() => setCreateMode('auto')}
+          onClose={() => setCreateMode('none')}
+        />
+      ) : null}
+
+      {createMode === 'manual' ? (
+        <CreateSubjectDialog
+          onClose={() => setCreateMode('none')}
+          onCreated={async () => {
+            setCreateMode('none')
+            await load()
+          }}
+        />
+      ) : null}
+
+      {createMode === 'auto' ? (
+        <UploadDescriptorAutoDialog
+          onClose={() => setCreateMode('none')}
+          onUploaded={async () => {
+            setCreateMode('none')
+            await load()
+            toast.success('Asignatura creada desde descriptor')
+          }}
+        />
+      ) : null}
+
+      {editing ? (
+        <EditSubjectDialog
+          subject={editing}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null)
+            await load()
+          }}
+        />
+      ) : null}
+
+      {viewing ? (

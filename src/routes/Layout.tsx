@@ -137,7 +137,7 @@ export default function Layout() {
               {/* Otros roles/links se agregarán luego */}
               {role === 'VCM' && (
                 <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Vinculacion con el medio</div>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Vinculación con el medio</div>
                   <Link
                     to="/vcm/empresas"
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
@@ -148,7 +148,7 @@ export default function Layout() {
                     to="/vcm/problemas"
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
                   >
-                    Problematicas
+                    Problemáticas
                   </Link>
                   <Link
                     to="/vcm/alcances"

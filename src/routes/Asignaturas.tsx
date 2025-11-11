@@ -255,7 +255,7 @@ function ViewSubjectDialog({ subject, onClose }: { subject: Subject; onClose: ()
       <div className="w-full max-w-2xl rounded-lg bg-white p-5 shadow-lg">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">Detalle de asignatura</h2>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+          {/* Botón Cerrar superior eliminado para unificar formato */}
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {rows.map(([k, v]) => (
@@ -264,6 +264,9 @@ function ViewSubjectDialog({ subject, onClose }: { subject: Subject; onClose: ()
               <div className="mt-1 text-sm text-zinc-800">{String(v ?? '-')}</div>
             </div>
           ))}
+        </div>
+        <div className="mt-4 text-right">
+          <button onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cerrar</button>
         </div>
       </div>
     </div>
