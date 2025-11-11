@@ -96,7 +96,7 @@ export default function AsignaturaVCMDetalle() {
               <Item label="Jornada">{subject.shift}</Item>
               <Item label="Horas">{String(subject.hours)}</Item>
               <Item label="Semestre">{subject.semester_name ?? String(subject.semester)}</Item>
-              <Item label="Área">{subject.Área_name || String(subject.Área)}</Item>
+              <Item label="Área">{subject.area_name || String(subject.area)}</Item>
               <Item label="Carrera">{subject.career_name || (subject.career ? String(subject.career) : '—')}</Item>
               <Item label="Tipo API">{String(subject.api_type)}</Item>
             </dl>

@@ -183,7 +183,7 @@ export type CompanyRequirement = {
   interest_collaborate: boolean
   can_develop_activities: boolean
   willing_design_project: boolean
-  interaction_type: string
+  interaction_type: string[]
   has_guide: boolean
   can_receive_alternance: boolean
   alternance_students_quota: number | null

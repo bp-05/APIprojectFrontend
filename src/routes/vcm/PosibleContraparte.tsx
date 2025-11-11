@@ -16,6 +16,7 @@ type Prospect = {
   worked_before?: boolean
   can_develop_activities?: boolean
   willing_design_project?: boolean
+  interaction_types?: string[]
   interaction_type?: string
   has_guide?: boolean
   can_receive_alternance?: boolean
@@ -39,6 +40,11 @@ function loadProspects(): Prospect[] {
       worked_before: !!p.worked_before,
       can_develop_activities: !!p.can_develop_activities,
       willing_design_project: !!p.willing_design_project,
+      interaction_types: Array.isArray(p.interaction_types)
+        ? (p.interaction_types as any[]).map((x) => String(x)).filter(Boolean)
+        : (typeof p.interaction_type === 'string' && p.interaction_type
+            ? [String(p.interaction_type)]
+            : []),
       interaction_type: typeof p.interaction_type === 'string' ? p.interaction_type : '',
       has_guide: !!p.has_guide,
       can_receive_alternance: !!p.can_receive_alternance,
@@ -77,7 +83,7 @@ export default function PosibleContraparte() {
   const [editWorkedBefore, setEditWorkedBefore] = useState(false)
   const [editCanDevelopActivities, setEditCanDevelopActivities] = useState(false)
   const [editWillingDesignProject, setEditWillingDesignProject] = useState(false)
-  const [editInteractionType, setEditInteractionType] = useState('')
+  const [editInteractionTypes, setEditInteractionTypes] = useState<string[]>([])
   const [editHasGuide, setEditHasGuide] = useState(false)
   const [editCanReceiveAlternance, setEditCanReceiveAlternance] = useState(false)
   const [editQuotaStr, setEditQuotaStr] = useState('')
@@ -107,7 +113,14 @@ export default function PosibleContraparte() {
           worked_before: !!r.worked_before,
           can_develop_activities: !!r.can_develop_activities,
           willing_design_project: !!r.willing_design_project,
-          interaction_type: r.interaction_type || 'virtual',
+          interaction_types: Array.isArray((r as any).interaction_type)
+            ? ((r as any).interaction_type as string[])
+            : (typeof (r as any).interaction_type === 'string' && (r as any).interaction_type
+                ? [String((r as any).interaction_type)]
+                : []),
+          interaction_type: Array.isArray((r as any).interaction_type)
+            ? String(((r as any).interaction_type as string[])[0] || '')
+            : String((r as any).interaction_type || ''),
           has_guide: !!r.has_guide,
           can_receive_alternance: !!r.can_receive_alternance,
           alternance_students_quota: typeof r.alternance_students_quota === 'number' ? r.alternance_students_quota : 0,
@@ -163,7 +176,9 @@ export default function PosibleContraparte() {
     setEditWorkedBefore(!!p.worked_before)
     setEditCanDevelopActivities(!!p.can_develop_activities)
     setEditWillingDesignProject(!!p.willing_design_project)
-    setEditInteractionType(p.interaction_type || '')
+    setEditInteractionTypes((p.interaction_types && p.interaction_types.length > 0)
+      ? p.interaction_types.slice()
+      : (p.interaction_type ? [p.interaction_type] : []))
     setEditHasGuide(!!p.has_guide)
     setEditCanReceiveAlternance(!!p.can_receive_alternance)
     setEditQuotaStr(typeof p.alternance_students_quota === 'number' ? String(p.alternance_students_quota) : '')
@@ -185,7 +200,7 @@ export default function PosibleContraparte() {
     setEditWorkedBefore(false)
     setEditCanDevelopActivities(false)
     setEditWillingDesignProject(false)
-    setEditInteractionType('')
+    setEditInteractionTypes([])
     setEditHasGuide(false)
     setEditCanReceiveAlternance(false)
     setEditQuotaStr('')
@@ -202,7 +217,9 @@ export default function PosibleContraparte() {
       setEditWorkedBefore(!!existing.worked_before)
       setEditCanDevelopActivities(!!existing.can_develop_activities)
       setEditWillingDesignProject(!!existing.willing_design_project)
-      setEditInteractionType(existing.interaction_type || '')
+      setEditInteractionTypes((existing.interaction_types && existing.interaction_types.length > 0)
+        ? existing.interaction_types.slice()
+        : (existing.interaction_type ? [existing.interaction_type] : []))
       setEditHasGuide(!!existing.has_guide)
       setEditCanReceiveAlternance(!!existing.can_receive_alternance)
       setEditQuotaStr(typeof existing.alternance_students_quota === 'number' ? String(existing.alternance_students_quota) : '')
@@ -230,7 +247,8 @@ export default function PosibleContraparte() {
       worked_before: !!editWorkedBefore,
       can_develop_activities: !!editCanDevelopActivities,
       willing_design_project: !!editWillingDesignProject,
-      interaction_type: editInteractionType,
+      interaction_types: editInteractionTypes.slice(),
+      interaction_type: editInteractionTypes[0] || '',
       has_guide: !!editHasGuide,
       can_receive_alternance: !!editCanReceiveAlternance,
       alternance_students_quota: editCanReceiveAlternance && editQuotaStr !== '' ? Math.max(0, parseInt(editQuotaStr || '0', 10) || 0) : null,
@@ -247,12 +265,12 @@ export default function PosibleContraparte() {
           interest_collaborate: !!record.interest_collaborate,
           can_develop_activities: !!record.can_develop_activities,
           willing_design_project: !!record.willing_design_project,
-          interaction_type: record.interaction_type || 'virtual',
+          interaction_type: record.interaction_types || [],
           has_guide: !!record.has_guide,
           can_receive_alternance: !!record.can_receive_alternance,
           alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
         }
-        const updated = await updateCompanyRequirement(editing.requirement_id, payload)
+        const updated = await updateCompanyRequirement(editing.requirement_id, payload as any)
         const updatedRow: Prospect = {
           ...record,
           id: `db:${updated.id}`,
@@ -310,12 +328,12 @@ export default function PosibleContraparte() {
             interest_collaborate: !!record.interest_collaborate,
             can_develop_activities: !!record.can_develop_activities,
             willing_design_project: !!record.willing_design_project,
-            interaction_type: (record.interaction_type ? record.interaction_type : 'virtual'),
+            interaction_type: record.interaction_types || [],
             has_guide: !!record.has_guide,
             can_receive_alternance: !!record.can_receive_alternance,
             alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
           }
-          const created = await createCompanyRequirement(payload)
+          const created = await createCompanyRequirement(payload as any)
           // Reemplazar local por la fila de BD
           const dbRow: Prospect = {
             id: `db:${created.id}`,
@@ -326,7 +344,14 @@ export default function PosibleContraparte() {
             worked_before: !!created.worked_before,
             can_develop_activities: !!created.can_develop_activities,
             willing_design_project: !!created.willing_design_project,
-            interaction_type: created.interaction_type || 'virtual',
+            interaction_types: Array.isArray((created as any).interaction_type)
+              ? ((created as any).interaction_type as string[])
+              : (typeof (created as any).interaction_type === 'string' && (created as any).interaction_type
+                  ? [String((created as any).interaction_type)]
+                  : []),
+            interaction_type: Array.isArray((created as any).interaction_type)
+              ? String(((created as any).interaction_type as string[])[0] || '')
+              : String((created as any).interaction_type || ''),
             has_guide: !!created.has_guide,
             can_receive_alternance: !!created.can_receive_alternance,
             alternance_students_quota: typeof created.alternance_students_quota === 'number' ? created.alternance_students_quota : 0,
@@ -473,7 +498,7 @@ export default function PosibleContraparte() {
                 <Item label="Trabajó anteriormente"><YesNoPill value={!!viewing.worked_before} /></Item>
                 <Item label="Puede desarrollar actividades"><YesNoPill value={!!viewing.can_develop_activities} /></Item>
                 <Item label="Tiene proyecto para diseño"><YesNoPill value={!!viewing.willing_design_project} /></Item>
-                <Item label="Tipo de interacción">{labelInteractionType(viewing.interaction_type) || '—'}</Item>
+                <Item label="Tipo de interacción">{labelInteractionTypes(viewing.interaction_types) || '—'}</Item>
                 <Item label="Cuenta con Maestro Guía"><YesNoPill value={!!viewing.has_guide} /></Item>
                 <Item label="Puede recibir alternancia"><YesNoPill value={!!viewing.can_receive_alternance} /></Item>
                 <Item label="Cupos alternancia (nivel 3)">{viewing.can_receive_alternance ? (viewing.alternance_students_quota ?? '—') : '—'}</Item>
@@ -514,15 +539,31 @@ export default function PosibleContraparte() {
               <YesNoChoice label="¿Puede el estudiante desarrollar actividades asociadas a los aprendizajes esperados?" value={editCanDevelopActivities} onChange={setEditCanDevelopActivities} />
               <YesNoChoice label="¿La contraparte estaría dispuesta a diseñar con un docente de INACAP un PROYECTO atingente a los aprendizajes?" value={editWillingDesignProject} onChange={setEditWillingDesignProject} />
 
-              <label className="mb-3 block text-sm">
+              <div className="mb-3 text-sm">
                 <span className="mb-1 block font-medium text-zinc-800">¿Qué tipo de interacción puede tener el estudiante con la contraparte?</span>
-                <select value={editInteractionType} onChange={(e) => setEditInteractionType(e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
-                  <option value="">Seleccionar</option>
-                  <option value="virtual">Virtual</option>
-                  <option value="onsite_company">Presencial en la empresa</option>
-                  <option value="onsite_inacap">Presencial en INACAP</option>
-                </select>
-              </label>
+                <div className="flex items-center gap-6">
+                  {[
+                    { key: 'virtual', label: 'Virtual' },
+                    { key: 'onsite_company', label: 'Presencial en la empresa' },
+                    { key: 'onsite_inacap', label: 'Presencial en INACAP' },
+                  ].map((opt) => (
+                    <label key={opt.key} className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600"
+                        checked={editInteractionTypes.includes(opt.key)}
+                        onChange={(e) => {
+                          setEditInteractionTypes((prev) => {
+                            if (e.target.checked) return [...prev, opt.key]
+                            return prev.filter((v) => v !== opt.key)
+                          })
+                        }}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
               <YesNoChoice label="Si la contraparte recibe estudiantes en alternancia (Tipo 3), ¿cuenta con un Maestro Guía?" value={editHasGuide} onChange={setEditHasGuide} />
               <YesNoChoice label="¿La contraparte puede recibir a estudiantes en alternancia (nivel 3) durante el semestre?" value={editCanReceiveAlternance} onChange={(v) => { setEditCanReceiveAlternance(v); if (!v) setEditQuotaStr('') }} />
@@ -581,13 +622,17 @@ function YesNoPill({ value }: { value: boolean }) {
   )
 }
 
-function labelInteractionType(v?: string) {
-  switch (v) {
-    case 'virtual': return 'Virtual'
-    case 'onsite_company': return 'Presencial en la empresa'
-    case 'onsite_inacap': return 'Presencial en INACAP'
-    default: return v || ''
+function labelInteractionTypes(v?: string[]) {
+  const map = (key: string) => {
+    switch (key) {
+      case 'virtual': return 'Virtual'
+      case 'onsite_company': return 'Presencial en la empresa'
+      case 'onsite_inacap': return 'Presencial en INACAP'
+      default: return key
+    }
   }
+  if (!Array.isArray(v) || v.length === 0) return ''
+  return v.map(map).join(', ')
 }
 
 function YesNoChoice({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
