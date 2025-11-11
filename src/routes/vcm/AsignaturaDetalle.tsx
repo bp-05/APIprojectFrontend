@@ -1,4 +1,5 @@
-ï»¿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { toast } from 'react-hot-toast'
 import { Link, useParams } from 'react-router'
 import { getSubject, type Subject } from '../../api/subjects'
 import { listCompanies, listEngagementScopes, listProblemStatements, type Company, type CompanyEngagementScope, type ProblemStatement } from '../../api/companies'
@@ -70,7 +71,7 @@ export default function AsignaturaVCMDetalle() {
         <div>
           <h1 className="text-xl font-semibold">Detalle de asignatura</h1>
           {subject ? (
-            <p className="text-sm text-zinc-600">{subject.name} â€” {subject.code}-{subject.section}</p>
+            <p className="text-sm text-zinc-600">{subject.name} — {subject.code}-{subject.section}</p>
           ) : null}
         </div>
         <Link to="/vcm/asignaturas" className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Volver</Link>
@@ -81,7 +82,7 @@ export default function AsignaturaVCMDetalle() {
       ) : null}
 
       {loading ? (
-        <div className="text-sm text-zinc-600">Cargandoâ€¦</div>
+        <div className="text-sm text-zinc-600">Cargando…</div>
       ) : subject ? (
         <div className="grid grid-cols-1 gap-4">
           <div className="rounded-lg border border-zinc-200 bg-white p-4">
@@ -90,13 +91,13 @@ export default function AsignaturaVCMDetalle() {
               <Item label="Codigo">{subject.code}</Item>
               <Item label="Seccion">{subject.section}</Item>
               <Item label="Nombre">{subject.name}</Item>
-              <Item label="Docente">{subject.teacher_name || 'â€”'}</Item>
+              <Item label="Docente">{subject.teacher_name || '—'}</Item>
               <Item label="Campus">{subject.campus}</Item>
               <Item label="Jornada">{subject.shift}</Item>
               <Item label="Horas">{String(subject.hours)}</Item>
               <Item label="Semestre">{subject.semester_name ?? String(subject.semester)}</Item>
               <Item label="Area">{subject.area_name || String(subject.area)}</Item>
-              <Item label="Carrera">{subject.career_name || (subject.career ? String(subject.career) : 'â€”')}</Item>
+              <Item label="Carrera">{subject.career_name || (subject.career ? String(subject.career) : '—')}</Item>
               <Item label="Tipo API">{String(subject.api_type)}</Item>
             </dl>
           </div>
@@ -273,7 +274,7 @@ function RequerimientosSection({ subject, companies, requirements, onChangeRequi
             <label className="text-xs">
               <span className="mb-1 block">Empresa</span>
               <select value={String(newReqCompany || '')} onChange={(e) => setNewReqCompany(Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm">
-                <option value="" disabled>Seleccioneâ€¦</option>
+                <option value="" disabled>Seleccione…</option>
                 {companies.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -336,7 +337,7 @@ function TiposProyectoSection({ subject, companies, scopes }: { subject: Subject
             <tr key={a.id}>
               <td className="px-3 py-2 text-sm">{companiesById.get(a.company)?.name || `Empresa #${a.company}`}</td>
               <td className="px-3 py-2 text-sm">{a.has_value_or_research_project ? 'Si' : 'No'}</td>
-              <td className="px-3 py-2 text-sm">{a.benefits_from_student || 'â€”'}</td>
+              <td className="px-3 py-2 text-sm">{a.benefits_from_student || '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -389,7 +390,7 @@ function AlternanceSection({ subjectId, value, form, onChangeForm, onSaved }: {
       </div>
       <div className="mt-3 text-right">
         <button onClick={save} disabled={saving} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
-          {saving ? 'Guardandoâ€¦' : value ? 'Actualizar' : 'Crear'}
+          {saving ? 'Guardando…' : value ? 'Actualizar' : 'Crear'}
         </button>
       </div>
     </div>
@@ -465,16 +466,16 @@ function PosibleContraparteSection() {
             <tr>
               <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Empresa</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Sector</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">InterÃ©s</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold text-zinc-600">AcciÃ³n</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Interés</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-zinc-600">Acción</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {items.map((p) => (
               <tr key={p.id}>
                 <td className="px-3 py-2 text-sm">{p.company_name}</td>
-                <td className="px-3 py-2 text-sm">{p.sector || 'â€”'}</td>
-                <td className="px-3 py-2 text-sm">{p.interest_collaborate ? 'SÃ­' : 'No'}</td>
+                <td className="px-3 py-2 text-sm">{p.sector || '—'}</td>
+                <td className="px-3 py-2 text-sm">{p.interest_collaborate ? 'Sí' : 'No'}</td>
                 <td className="px-3 py-2 text-right text-sm">
                   <button onClick={() => { setEditing(p); setOpen(true) }} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Editar</button>
                 </td>
@@ -498,7 +499,7 @@ function YesNo({ label, value, onChange }: { label: string; value: boolean; onCh
       <div className="flex items-center gap-4">
         <label className="inline-flex items-center gap-2">
           <input type="radio" name={name} checked={value === true} onChange={() => onChange(true)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />
-          <span>SÃ­</span>
+          <span>Sí</span>
         </label>
         <label className="inline-flex items-center gap-2">
           <input type="radio" name={name} checked={value === false} onChange={() => onChange(false)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />
@@ -560,13 +561,13 @@ function ProspectDialog({ initial, onClose, onSaved }: { initial?: Prospect; onC
             <input value={form.sector} onChange={(e) => update('sector', e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
           </label>
 
-          <YesNo label="Â¿La sede ha trabajado anteriormente con esta contraparte?" value={form.worked_before} onChange={(v) => update('worked_before', v)} />
-          <YesNo label="Â¿La contraparte tiene interÃ©s de participar con INACAP de manera colaborativa?" value={form.interest_collaborate} onChange={(v) => update('interest_collaborate', v)} />
-          <YesNo label="Â¿El estudiante puede desarrollar actividades asociadas a los aprendizajes esperados?" value={form.can_develop_activities} onChange={(v) => update('can_develop_activities', v)} />
-          <YesNo label="Â¿Cuenta con proyecto para diseÃ±o/desarrollo (si corresponde)?" value={form.willing_design_project} onChange={(v) => update('willing_design_project', v)} />
+          <YesNo label="¿La sede ha trabajado anteriormente con esta contraparte?" value={form.worked_before} onChange={(v) => update('worked_before', v)} />
+          <YesNo label="¿La contraparte tiene interés de participar con INACAP de manera colaborativa?" value={form.interest_collaborate} onChange={(v) => update('interest_collaborate', v)} />
+          <YesNo label="¿El estudiante puede desarrollar actividades asociadas a los aprendizajes esperados?" value={form.can_develop_activities} onChange={(v) => update('can_develop_activities', v)} />
+          <YesNo label="¿Cuenta con proyecto para diseño/desarrollo (si corresponde)?" value={form.willing_design_project} onChange={(v) => update('willing_design_project', v)} />
 
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-zinc-800">Tipo de interacciÃ³n</span>
+            <span className="mb-1 block font-medium text-zinc-800">Tipo de interacción</span>
             <select value={form.interaction_type} onChange={(e) => update('interaction_type', e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
               <option value="">Seleccionar</option>
               <option value="Virtual">Virtual</option>
@@ -575,17 +576,17 @@ function ProspectDialog({ initial, onClose, onSaved }: { initial?: Prospect; onC
             </select>
           </label>
 
-          <YesNo label="Si recibe estudiantes en alternancia (Tipo 3), Â¿cuenta con un Maestro GuÃ­a?" value={form.has_guide} onChange={(v) => update('has_guide', v)} />
-          <YesNo label="Â¿Puede recibir estudiantes en alternancia (nivel 3) durante el semestre?" value={form.can_receive_alternance} onChange={(v) => update('can_receive_alternance', v)} />
+          <YesNo label="Si recibe estudiantes en alternancia (Tipo 3), ¿cuenta con un Maestro Guía?" value={form.has_guide} onChange={(v) => update('has_guide', v)} />
+          <YesNo label="¿Puede recibir estudiantes en alternancia (nivel 3) durante el semestre?" value={form.can_receive_alternance} onChange={(v) => update('can_receive_alternance', v)} />
 
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-zinc-800">NÂ° estudiantes alternancia (nivel 3)</span>
+            <span className="mb-1 block font-medium text-zinc-800">N° estudiantes alternancia (nivel 3)</span>
             <input value={quotaStr} onChange={(e) => setQuotaStr(e.target.value.replace(/[^0-9]/g, ''))} disabled={!form.can_receive_alternance} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
           </label>
 
           <div className="col-span-full mt-2 flex items-center justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
-            <button type="submit" disabled={saving} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{saving ? 'Guardandoâ€¦' : 'Guardar'}</button>
+            <button type="submit" disabled={saving} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{saving ? 'Guardando…' : 'Guardar'}</button>
           </div>
         </form>
       </div>
@@ -677,7 +678,7 @@ function PosiblesContrapartesSeleccion({ subjectId }: { subjectId: number }) {
                     <li key={p.id} className="flex items-center justify-between border-b border-zinc-100 px-3 py-2 last:border-b-0">
                       <div>
                         <div className="text-sm text-zinc-900">{p.company_name}</div>
-                        <div className="text-xs text-zinc-600">{p.sector || 'â€”'}</div>
+                        <div className="text-xs text-zinc-600">{p.sector || '—'}</div>
                       </div>
                       <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600" />
                     </li>
