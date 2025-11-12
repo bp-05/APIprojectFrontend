@@ -14,6 +14,7 @@ export default function AsignaturasCoord() {
   const [advFilters, setAdvFilters] = useState<Array<{ kind: 'status' | 'risk' | 'delay'; value: string }>>([])
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [cycleVersion, setCycleVersion] = useState(0)
   // Overlay de estado local por proyecto (hasta que backend exponga estado)
   const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
@@ -51,6 +52,18 @@ export default function AsignaturasCoord() {
 
   useEffect(() => {
     load()
+  }, [])
+
+  // Escuchar cambios del ciclo (fases) locales
+  useEffect(() => {
+    function onCycleCustom() { setCycleVersion((v) => v + 1) }
+    function onCycleStorage(e: StorageEvent) { if (e.key === 'coordSubjectCycle') setCycleVersion((v) => v + 1) }
+    window.addEventListener('coordSubjectCycleChanged', onCycleCustom as any)
+    window.addEventListener('storage', onCycleStorage)
+    return () => {
+      window.removeEventListener('coordSubjectCycleChanged', onCycleCustom as any)
+      window.removeEventListener('storage', onCycleStorage)
+    }
   }, [])
   function mapStatus(s: any): ProjectState {
     const local = localStatus[s.id]?.status
@@ -90,12 +103,22 @@ export default function AsignaturasCoord() {
     return { delayed: over > 0, days: over }
   }
 
+  // Lectura de ciclo local (fase actual)
+  type LocalCycle = { phase: 'Fase 1' | 'Fase 2' | 'Fase 3'; start?: string; end?: string }
+  function readLocalCycle(): Record<number, LocalCycle> {
+    try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} as any }
+  }
+  const localCycleMap = useMemo(() => readLocalCycle(), [cycleVersion])
+
   const filtered = useMemo(() => {
     let arr = items
     const f = (searchParams.get('filter') || '').toLowerCase()
     if (f) {
       if (['borrador','enviada','observada','aprobada'].includes(f)) {
         arr = arr.filter((s) => mapStatus(s).toLowerCase() === f)
+      } else if (['fase1','fase2','fase3'].includes(f)) {
+        const target = f === 'fase1' ? 'Fase 1' : f === 'fase2' ? 'Fase 2' : 'Fase 3'
+        arr = arr.filter((s: any) => (localCycleMap as any)[s.id]?.phase === target)
       } else if (f === 'atraso') {
         arr = arr.filter((s) => mapStatus(s) === 'Observada')
       } else if (f === 'riesgo') {
@@ -137,7 +160,7 @@ export default function AsignaturasCoord() {
       [s.code, s.section, s.name, s.campus, s.area_name || '', s.career_name || '', s.semester_name || '']
         .some((v) => String(v || '').toLowerCase().includes(q))
     )
-  }, [items, search, searchParams, advFilters])
+  }, [items, search, searchParams, advFilters, cycleVersion])
 
   function openView(s: Subject) {
     navigate(`/coord/asignaturas/${s.id}`)
@@ -281,7 +304,19 @@ export default function AsignaturasCoord() {
                   <Td>{s.career_name || '-'}</Td>
                   <Td>{s.semester_name}</Td>
                   <Td>
-                    <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{mapStatus(s)}</span>
+                    {(() => {
+                      const st = mapStatus(s)
+                      const cls = st === 'Aprobada'
+                        ? 'bg-green-50 text-green-700'
+                        : st === 'Observada'
+                        ? 'bg-amber-50 text-amber-700'
+                        : st === 'Enviada'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-zinc-100 text-zinc-700'
+                      return (
+                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{st}</span>
+                      )
+                    })()}
                   </Td>
                   <Td>
                     {(() => {
@@ -304,7 +339,28 @@ export default function AsignaturasCoord() {
                       onClick={() => openView(s)}
                       className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                     >
-                      {(() => { const a = atrasoInfo(s); return a.delayed ? 'Ver m\u00E1s \u00B7 Atraso ' + a.days + ' d\u00EDas' : 'Ver m\u00E1s'})()}
+                      {(() => {
+                        return 'Ver más'
+                          try {
+                            const raw = localStorage.getItem('coordSubjectCycle')
+                            const lc = raw ? JSON.parse(raw) : {}
+                            const entry = lc?.[s.id]
+                            if (!entry) return null
+                            const ph = entry?.phase
+                            const dates = ph && entry?.phases ? entry.phases[ph] : { start: entry?.start, end: entry?.end }
+                            const m = (txt: string | undefined) => {
+                              if (!txt) return null; const m = /^([0-3]?\d)-([0-1]?\d)-(\d{4})$/.exec(txt.trim()); if (!m) return null; const d = Number(m[1]); const mo = Number(m[2]); const y = Number(m[3]); const dt = new Date(y, mo - 1, d); return isNaN(dt.getTime()) ? null : dt
+                            }
+                            const a = m(dates?.start); const b = m(dates?.end); if (!a || !b) return null
+                            const today = new Date(); const t = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+                            const daysBetween = (A: Date, B: Date) => Math.max(0, Math.round((B.getTime() - A.getTime()) / (1000*60*60*24)))
+                            const total = Math.max(1, daysBetween(a, b)); const used = Math.max(0, daysBetween(a, t))
+                            return Math.round((used / total) * 100)
+                          } catch { return null }
+                        ''
+                        if (p != null) return `Ver m\u00E1s \u00B7 Atraso ${p}%`
+                        const a = atrasoInfo(s); return a.delayed ? 'Ver m\u00E1s \u00B7 Atraso ' + a.days + ' d\u00EDas' : 'Ver m\u00E1s'
+                      })()}
                     </button>
                       <Link to={`/coord/estado?id=${s.id}`} className="ml-2 inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-50">Ver estado</Link>
                   </Td>
