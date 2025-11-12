@@ -9,7 +9,7 @@ import VCM from './routes/roles/VCM'
 import DAC from './routes/roles/DAC'
 import DC from './routes/roles/DC'
 import DOC from './routes/roles/DOC'
-import COORD from './routes/roles/COORD'
+import COORD_DASH from './routes/roles/COORD_Dashboard'
 import Profile from './routes/Profile'
 import Usuarios from './routes/Usuarios'
 import Asignaturas from './routes/Asignaturas'
@@ -71,7 +71,7 @@ export const router = createBrowserRouter([
       { path: 'dc/asignaturas', loader: requireRoleLoader('DC'), element: <DCAsignaturas /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
       { path: 'mis-asignaturas', loader: requireRoleLoader('DOC'), element: <MisAsignaturas /> },
-      { path: 'coord', loader: requireRoleLoader('COORD'), element: <COORD /> },
+      { path: 'coord', loader: requireRoleLoader('COORD'), element: <COORD_DASH /> },
       { path: 'coord/asignaturas', loader: requireRoleLoader('COORD'), element: <AsignaturasCoord /> },
       { path: 'coord/asignaturas/:id', loader: requireRoleLoader('COORD'), element: <AsignaturaCoordDetalle /> },
       { path: 'coord/asignaturas/:id/empresa/:companyId', loader: requireRoleLoader('COORD'), element: <EmpresaDetalle /> },

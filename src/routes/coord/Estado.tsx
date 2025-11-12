@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react'
+﻿import { useEffect, useMemo, useState, useRef } from 'react'
 import { listSubjects, type Subject } from '../../api/subjects'
 import { useSearchParams, Link } from 'react-router'
 
@@ -45,7 +45,10 @@ export default function EstadoCoord() {
 
   function saveCycle(next: Record<number, { phase: 'Fase 1' | 'Fase 2' | 'Fase 3'; start?: string; end?: string }>) {
     setLocalCycle(next)
-    try { localStorage.setItem('coordSubjectCycle', JSON.stringify(next)) } catch {}
+    try {
+      localStorage.setItem('coordSubjectCycle', JSON.stringify(next))
+      window.dispatchEvent(new Event('coordSubjectCycleChanged'))
+    } catch {}
   }
 
   async function load() {
@@ -83,6 +86,19 @@ export default function EstadoCoord() {
     if (!s?.career_name) score += 1
     if (!s?.area_name) score += 1
     return score
+  }
+
+  function phaseOf(s: Subject) {
+    const local = localCycle[s.id]?.phase
+    return local || (s as any)?.phase || '-'
+  }
+
+  function phaseLabel(p?: string | null) {
+    const v = String(p || '').toLowerCase()
+    if (v === 'fase 1') return 'Fase 1: Formulación de Requerimientos'
+    if (v === 'fase 2') return 'Fase 2: Gestión de Requerimientos'
+    if (v === 'fase 3') return 'Fase 3: Validación de requerimientos'
+    return p || '-'
   }
 
   function statusLabel(st: ProjectState) {
@@ -123,7 +139,7 @@ export default function EstadoCoord() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={'Buscar por código, sección o nombre'}
+              placeholder={'Buscar por cÃ³digo, secciÃ³n o nombre'}
               className="w-72 max-w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
             />
           )}
@@ -142,13 +158,13 @@ export default function EstadoCoord() {
               <Th>Nombre</Th>
               <Th>Área</Th>
               <Th>Estado</Th>
-              <Th>Riesgo</Th>
+              <Th>Fase</Th>
               <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargandoâ€¦</td></tr>
             ) : filtered.length === 0 ? (
               <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Sin resultados</td></tr>
             ) : (
@@ -158,15 +174,39 @@ export default function EstadoCoord() {
                   <Td>{s.section}</Td>
                   <Td>{s.name}</Td>
                   <Td>{s.area_name}</Td>
-                  <Td><span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{statusLabel(mapStatus(s))}</span></Td>
-                  <Td>{(() => { const r = riskScore(s); const lvl = r <= 0 ? '' : r <= 2 ? 'Bajo' : r <= 4 ? 'Medio' : 'Alto'; return r > 0 ? (<span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{lvl}</span>) : (<span className="text-xs text-zinc-500">—</span>) })()}</Td>
+                  <Td>
+                    {(() => {
+                      const st = mapStatus(s)
+                      const colorCls = st === 'Aprobada'
+                        ? 'border-green-200 bg-green-50 text-green-700'
+                        : st === 'Observada'
+                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                        : st === 'Enviada'
+                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                        : 'border-zinc-300 bg-zinc-50 text-zinc-700'
+                      return (
+                        <select
+                          value={st}
+                          onChange={(e) => setStatus(s.id, e.target.value as ProjectState)}
+                          className={`rounded-md px-2 py-1 text-xs outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10 ${colorCls}`}
+                          title="Editar estado"
+                        >
+                          <option value="Borrador">Borrador</option>
+                          <option value="Enviada">Enviada</option>
+                          <option value="Observada">Observada</option>
+                          <option value="Aprobada">Aprobada</option>
+                        </select>
+                      )
+                    })()}
+                  </Td>
+                  <Td><span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{phaseLabel(phaseOf(s))}</span></Td>
                   <Td className="text-right">
                     <div className="flex flex-col items-end gap-1">
                       <button
                         onClick={() => { const cur = mapStatus(s); setEditTarget({ id: s.id, state: cur }); setEditSelection(cur) }}
                         className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                       >
-                        Editar estado
+                        Ver información
                       </button>
                       <button
                         onClick={() => {
@@ -193,72 +233,33 @@ export default function EstadoCoord() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setEditTarget(null)}>
           <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">Editar estado del proyecto</h2>
+              <h2 className="text-base font-semibold">Información adicional</h2>
               <button onClick={() => setEditTarget(null)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
             </div>
-            <div className="mb-4">
-              <label className="mb-1 block text-xs font-medium text-zinc-700">Estado</label>
-              <select
-                value={editSelection}
-                onChange={(e) => setEditSelection(e.target.value as ProjectState)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-              >
-                <option value="Borrador">Borrador</option>
-                <option value="Enviada">Enviada</option>
-                <option value="Observada">Observada</option>
-                <option value="Aprobada">Aprobada</option>
-              </select>
-            </div>
             <div className="mb-4 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Información adicional</div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const id = editTarget?.id
-                    if (id != null) {
-                      setCycleTarget({ id })
-                      const c = localCycle[id]
-                      setPhaseSel(c?.phase || 'Fase 1')
-                      setStartText(c?.start || '')
-                      setEndText(c?.end || '')
-                      setEditTarget(null)
-                    }
-                  }}
-                  className="text-xs font-medium text-red-700 hover:underline"
-                >
-                  Ir
-                </button>
-              </div>
               {(() => {
                 const id = editTarget?.id
                 const info = id != null ? localCycle[id] : undefined
                 return (
                   <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                    <div>
-                      <dt className="text-xs text-zinc-500">Fase</dt>
-                      <dd className="font-medium text-zinc-800">{info?.phase || '—'}</dd>
+                    <div className="sm:col-span-2">
+                      <dt className="text-xs text-zinc-500">Fase del proyecto</dt>
+                      <dd className="font-medium text-zinc-800">{phaseLabel(info?.phase)}</dd>
                     </div>
                     <div>
                       <dt className="text-xs text-zinc-500">Fecha de inicio</dt>
-                      <dd className="font-medium text-zinc-800">{info?.start || '—'}</dd>
+                      <dd className="font-medium text-zinc-800">{info?.start || '-'}</dd>
                     </div>
                     <div>
                       <dt className="text-xs text-zinc-500">Fecha límite</dt>
-                      <dd className="font-medium text-zinc-800">{info?.end || '—'}</dd>
+                      <dd className="font-medium text-zinc-800">{info?.end || '-'}</dd>
                     </div>
                   </dl>
                 )
               })()}
             </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setEditTarget(null)} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cancelar</button>
-              <button
-                onClick={() => { if (editTarget) { setStatus(editTarget.id, editSelection); setEditTarget(null) } }}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
-              >
-                Guardar
-              </button>
+            <div className="flex justify-end">
+              <button onClick={() => setEditTarget(null)} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cerrar</button>
             </div>
           </div>
         </div>
@@ -274,9 +275,9 @@ export default function EstadoCoord() {
             <div className="mb-3">
               <label className="mb-1 block text-xs font-medium text-zinc-700">Fase del proyecto</label>
               <select value={phaseSel} onChange={(e) => setPhaseSel(e.target.value as any)} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
-                <option>Fase 1</option>
-                <option>Fase 2</option>
-                <option>Fase 3</option>
+                <option value="Fase 1">Fase 1: Formulación de Requerimientos</option>
+                <option value="Fase 2">Fase 2: Gestión de Requerimientos</option>
+                <option value="Fase 3">Fase 3: Validación de requerimientos</option>
               </select>
             </div>
             <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -336,7 +337,7 @@ function formatDateMask(input: string) {
     return digits
   }
   if (digits.length <= 4) {
-    // Evita guion de arrastre cuando hay exactamente 2 o 4 dígitos
+    // Evita guion de arrastre cuando hay exactamente 2 o 4 dÃ­gitos
     return digits.slice(0, 2) + '-' + digits.slice(2)
   }
   return digits.slice(0, 2) + '-' + digits.slice(2, 4) + '-' + digits.slice(4)
@@ -353,3 +354,10 @@ function Th({ children, className = '' }: { children: any; className?: string })
 function Td({ children, className = '' }: { children: any; className?: string }) {
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
+
+
+
+
+
+
+
