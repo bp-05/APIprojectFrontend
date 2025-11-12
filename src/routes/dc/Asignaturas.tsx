@@ -6,6 +6,7 @@ export default function DCAsignaturas() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<Subject | null>(null)
 
   async function load() {
     setLoading(true)
@@ -33,6 +34,28 @@ export default function DCAsignaturas() {
         .some((v) => String(v || '').toLowerCase().includes(q))
     )
   }, [items, search])
+
+  if (selected) {
+    return (
+      <section className="p-6">
+        <div className="relative rounded-lg border border-zinc-200 bg-white p-4">
+          <button
+            className="absolute right-3 top-3 rounded-md border border-zinc-300 bg-white px-3 py-1 text-sm hover:border-zinc-400 hover:bg-zinc-50"
+            onClick={() => setSelected(null)}
+          >
+            Cerrar
+          </button>
+          <div className="mb-4 pr-24">
+            <h2 className="text-lg font-semibold text-zinc-900">{selected.name}</h2>
+            <p className="text-sm text-zinc-600">{selected.code}-{selected.section} · {selected.semester_name}</p>
+          </div>
+          <div className="text-sm text-zinc-700">
+            <p>Panel de gestión de la asignatura. Aquí agregaremos funcionalidades.</p>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="p-6">
@@ -80,7 +103,11 @@ export default function DCAsignaturas() {
               </tr>
             ) : (
               filtered.map((s) => (
-                <tr key={s.id}>
+                <tr
+                  key={s.id}
+                  onClick={() => setSelected(s)}
+                  className="cursor-pointer transition-colors hover:bg-zinc-50"
+                >
                   <Td>{s.code}</Td>
                   <Td>{s.section}</Td>
                   <Td>{s.name}</Td>

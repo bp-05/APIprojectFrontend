@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState, Fragment, useRef, useLayoutEffect } from 'react'
 import type React from 'react'
-import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit } from '../api/subjects'
+import { toast } from 'react-hot-toast'
+import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor } from '../api/subjects'
 
 export default function MisAsignaturas() {
   const [items, setItems] = useState<Subject[]>([])
@@ -177,6 +178,19 @@ function Td({ children, className = '' }: { children: any; className?: string })
 
 function DescriptorCellDoc({ subject }: { subject: Subject }) {
   const [items, setItems] = useState<Descriptor[] | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  async function refresh() {
+    try {
+      const data = await listDescriptorsBySubject(subject.id)
+      const filtered = Array.isArray(data) ? data.filter((d) => d.subject === subject.id) : []
+      setItems(filtered)
+    } catch {
+      setItems([])
+    }
+  }
   useEffect(() => {
     let mounted = true
     listDescriptorsBySubject(subject.id)
@@ -193,7 +207,51 @@ function DescriptorCellDoc({ subject }: { subject: Subject }) {
     return <span className="inline-block h-3 w-3 animate-pulse rounded-sm bg-zinc-300" title="Cargando…" />
   }
   if (!items.length) {
-    return <span className="text-xs text-zinc-500">—</span>
+    return (
+      <>
+        <input
+          ref={fileInputRef as any}
+          type="file"
+          accept="application/pdf,.pdf"
+          onChange={async (e) => {
+            const f = e.target.files?.[0] || null
+            if (!f) return
+            const name = f.name.toLowerCase()
+            if (!name.endsWith('.pdf')) { return }
+            try {
+              setUploading(true)
+              setUploadError(null)
+              const d = await uploadDescriptor(f, subject.id)
+              toast.success('Descriptor subido')
+              try { await processDescriptor(d.id); toast.success('Procesamiento iniciado') } catch {}
+              await refresh()
+            } catch (e: any) {
+              const backendMsg =
+                (e?.response?.data && (e.response.data.detail || e.response.data.error || e.response.data.file)) ||
+                (typeof e?.response?.data === 'string' ? e.response.data : null)
+              const msg = backendMsg || (e instanceof Error ? e.message : 'Error al subir descriptor')
+              setUploadError(String(msg))
+              toast.error(String(msg))
+            } finally {
+              setUploading(false)
+              try { if (fileInputRef.current) fileInputRef.current.value = '' } catch {}
+            }
+          }}
+          className="hidden"
+        />
+        {uploadError ? (
+          <div className="mb-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">{uploadError}</div>
+        ) : null}
+        <button
+          onClick={() => (fileInputRef as any)?.current?.click()}
+          disabled={uploading}
+          className="inline-flex items-center rounded-md border border-dashed border-zinc-400 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
+          title="Subir descriptor (PDF)"
+        >
+          {uploading ? 'Subiendo…' : 'Subir descriptor'}
+        </button>
+      </>
+    )
   }
   const last = items[items.length - 1]
   return (
