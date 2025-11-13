@@ -1,12 +1,119 @@
-import { useEffect, useMemo, useState } from 'react'
-import { listSubjects, type Subject } from '../../api/subjects'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useLocation } from 'react-router'
+import { toast } from 'react-hot-toast'
+import {
+  getSubject,
+  listAreas,
+  listCareers,
+  listSemesters,
+  listSubjects,
+  updateSubject,
+  type Area,
+  type Career,
+  type SemesterLevel,
+  type Subject,
+} from '../../api/subjects'
+import { listDocentes, type User as Teacher } from '../../api/users'
+
+type PanelMode = 'list' | 'view' | 'edit'
+
+type SubjectFormValues = {
+  code: string
+  section: string
+  name: string
+  campus: string
+  shift: string
+  hours: string
+  api_type: string
+  area: string
+  semester: string
+  teacher: string
+  career: string
+}
+
+function createEmptyFormValues(): SubjectFormValues {
+  return {
+    code: '',
+    section: '',
+    name: '',
+    campus: '',
+    shift: '',
+    hours: '',
+    api_type: '1',
+    area: '',
+    semester: '',
+    teacher: '',
+    career: '',
+  }
+}
+
+function subjectToFormValues(subject: Subject): SubjectFormValues {
+  return {
+    code: subject.code || '',
+    section: subject.section || '',
+    name: subject.name || '',
+    campus: subject.campus || '',
+    shift: subject.shift || '',
+    hours: subject.hours ? String(subject.hours) : '',
+    api_type: subject.api_type ? String(subject.api_type) : '1',
+    area: subject.area ? String(subject.area) : '',
+    semester: subject.semester ? String(subject.semester) : '',
+    teacher: subject.teacher ? String(subject.teacher) : '',
+    career: subject.career ? String(subject.career) : '',
+  }
+}
+
+function validateForm(values: SubjectFormValues) {
+  if (!values.code.trim()) return 'El codigo es obligatorio'
+  if (!values.section.trim()) return 'La seccion es obligatoria'
+  if (!values.name.trim()) return 'El nombre es obligatorio'
+  if (!values.campus.trim()) return 'El campus es obligatorio'
+  if (!values.area) return 'Debes seleccionar un area'
+  if (!values.semester) return 'Debes seleccionar un semestre'
+  const hoursNumber = Number(values.hours)
+  if (!values.hours || Number.isNaN(hoursNumber) || hoursNumber <= 0) return 'Horas invalidas'
+  if (!values.api_type) return 'Debes indicar el tipo de API'
+  return null
+}
+
+function buildUpdatePayload(values: SubjectFormValues): Partial<Subject> {
+  const payload: Partial<Subject> = {
+    code: values.code.trim(),
+    section: values.section.trim(),
+    name: values.name.trim(),
+    campus: values.campus.trim(),
+    shift: values.shift.trim(),
+    hours: Number(values.hours),
+    api_type: Number(values.api_type),
+    area: values.area ? Number(values.area) : undefined,
+    semester: values.semester ? Number(values.semester) : undefined,
+    teacher: values.teacher ? Number(values.teacher) : null,
+    career: values.career ? Number(values.career) : null,
+  }
+  return payload
+}
 
 export default function DCAsignaturas() {
+  const location = useLocation()
   const [items, setItems] = useState<Subject[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [mode, setMode] = useState<PanelMode>('list')
   const [selected, setSelected] = useState<Subject | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
+
+  const [areas, setAreas] = useState<Area[]>([])
+  const [semesters, setSemesters] = useState<SemesterLevel[]>([])
+  const [careers, setCareers] = useState<Career[]>([])
+  const [teachers, setTeachers] = useState<Teacher[]>([])
+  const [metaLoading, setMetaLoading] = useState(false)
+  const [metaError, setMetaError] = useState<string | null>(null)
+
+  const [formValues, setFormValues] = useState<SubjectFormValues>(createEmptyFormValues())
+  const [formError, setFormError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -26,6 +133,37 @@ export default function DCAsignaturas() {
     load()
   }, [])
 
+  useEffect(() => {
+    async function loadMeta() {
+      setMetaLoading(true)
+      setMetaError(null)
+      try {
+        const [areasData, semestersData, careersData, teachersData] = await Promise.all([
+          listAreas(),
+          listSemesters(),
+          listCareers(),
+          listDocentes(),
+        ])
+        setAreas(areasData)
+        setSemesters(semestersData)
+        setCareers(careersData)
+        setTeachers(teachersData)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'No se pudieron cargar los catalogos'
+        setMetaError(msg)
+      } finally {
+        setMetaLoading(false)
+      }
+    }
+    loadMeta()
+  }, [])
+
+  useEffect(() => {
+    if (mode === 'edit' && selected) {
+      setFormValues(subjectToFormValues(selected))
+    }
+  }, [mode, selected])
+
   const filtered = useMemo(() => {
     if (!search) return items
     const q = search.toLowerCase()
@@ -35,25 +173,115 @@ export default function DCAsignaturas() {
     )
   }, [items, search])
 
-  if (selected) {
+  const handleFormChange = (field: keyof SubjectFormValues, value: string) => {
+    setFormError(null)
+    setFormValues((prev) => {
+      if (field === 'area') {
+        return { ...prev, area: value, career: '' }
+      }
+      return { ...prev, [field]: value }
+    })
+  }
+
+  const resetToList = () => {
+    setMode('list')
+    setSelected(null)
+    setDetailError(null)
+    setFormError(null)
+    setFormValues(createEmptyFormValues())
+  }
+
+  useEffect(() => {
+    setMode('list')
+    setSelected(null)
+    setDetailError(null)
+    setFormError(null)
+    setFormValues(createEmptyFormValues())
+  }, [location.key])
+
+  const cancelToView = () => {
+    setFormError(null)
+    if (selected) {
+      setMode('view')
+    } else {
+      resetToList()
+    }
+  }
+
+  async function handleSelect(subject: Subject) {
+    setSelected(subject)
+    setMode('view')
+    setDetailError(null)
+    setDetailLoading(true)
+    try {
+      const detail = await getSubject(subject.id)
+      setSelected(detail)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo obtener la asignatura'
+      setDetailError(msg)
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const handleEditClick = () => {
+    if (!selected) return
+    setMode('edit')
+    setFormError(null)
+    setFormValues(subjectToFormValues(selected))
+  }
+
+  async function handleSubmitEdit() {
+    if (!selected) return
+    const validation = validateForm(formValues)
+    if (validation) {
+      setFormError(validation)
+      return
+    }
+    setSaving(true)
+    setFormError(null)
+    try {
+      await updateSubject(selected.id, buildUpdatePayload(formValues))
+      const detail = await getSubject(selected.id)
+      toast.success('Asignatura actualizada')
+      await load()
+      setSelected(detail)
+      setMode('view')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo actualizar la asignatura'
+      setFormError(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (mode === 'view' && selected) {
     return (
-      <section className="p-6">
-        <div className="relative rounded-lg border border-zinc-200 bg-white p-4">
-          <button
-            className="absolute right-3 top-3 rounded-md border border-zinc-300 bg-white px-3 py-1 text-sm hover:border-zinc-400 hover:bg-zinc-50"
-            onClick={() => setSelected(null)}
-          >
-            Cerrar
-          </button>
-          <div className="mb-4 pr-24">
-            <h2 className="text-lg font-semibold text-zinc-900">{selected.name}</h2>
-            <p className="text-sm text-zinc-600">{selected.code}-{selected.section} · {selected.semester_name}</p>
-          </div>
-          <div className="text-sm text-zinc-700">
-            <p>Panel de gestión de la asignatura. Aquí agregaremos funcionalidades.</p>
-          </div>
-        </div>
-      </section>
+      <SubjectDetailView
+        subject={selected}
+        loading={detailLoading}
+        error={detailError}
+        onClose={resetToList}
+        onEdit={handleEditClick}
+      />
+    )
+  }
+
+  if (mode === 'edit' && selected) {
+    return (
+      <SubjectFormView
+        values={formValues}
+        onChange={handleFormChange}
+        onSubmit={handleSubmitEdit}
+        onCancel={cancelToView}
+        areas={areas}
+        semesters={semesters}
+        careers={careers}
+        teachers={teachers}
+        loading={saving}
+        metaLoading={metaLoading}
+        error={formError || metaError}
+      />
     )
   }
 
@@ -68,7 +296,7 @@ export default function DCAsignaturas() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por código, sección o nombre…"
+            placeholder="Buscar por codigo, seccion o nombre"
             className="w-72 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
           />
         </div>
@@ -82,10 +310,10 @@ export default function DCAsignaturas() {
         <table className="min-w-full divide-y divide-zinc-200">
           <thead className="bg-zinc-50">
             <tr>
-              <Th>Código</Th>
-              <Th>Sección</Th>
+              <Th>Codigo</Th>
+              <Th>Seccion</Th>
               <Th>Nombre</Th>
-              <Th>Área</Th>
+              <Th>Area</Th>
               <Th>Carrera</Th>
               <Th>Docente</Th>
               <Th>Semestre</Th>
@@ -95,7 +323,7 @@ export default function DCAsignaturas() {
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Cargando...</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
@@ -105,7 +333,7 @@ export default function DCAsignaturas() {
               filtered.map((s) => (
                 <tr
                   key={s.id}
-                  onClick={() => setSelected(s)}
+                  onClick={() => handleSelect(s)}
                   className="cursor-pointer transition-colors hover:bg-zinc-50"
                 >
                   <Td>{s.code}</Td>
@@ -126,6 +354,291 @@ export default function DCAsignaturas() {
   )
 }
 
+function SubjectDetailView({
+  subject,
+  loading,
+  error,
+  onClose,
+  onEdit,
+}: {
+  subject: Subject
+  loading: boolean
+  error: string | null
+  onClose: () => void
+  onEdit: () => void
+}) {
+  return (
+    <section className="p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-900">{subject.name}</h1>
+          <p className="text-sm text-zinc-600">
+            {subject.code}-{subject.section} - {subject.semester_name || 'Sin semestre asignado'}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:border-zinc-400"
+        >
+          Cerrar
+        </button>
+      </div>
+      <div className="rounded-lg border border-zinc-200 bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-zinc-900">Información de la asignatura</h2>
+          <button
+            onClick={onEdit}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+          >
+            Editar
+          </button>
+        </div>
+        {loading ? (
+          <div className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+            Actualizando informacion...
+          </div>
+        ) : null}
+        {error ? (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        ) : null}
+        <dl className="grid gap-4 sm:grid-cols-2">
+          <DetailRow label="ID interno" value={subject.id} />
+          <DetailRow label="Codigo" value={subject.code} />
+          <DetailRow label="Seccion" value={subject.section} />
+          <DetailRow label="Campus" value={subject.campus || '-'} />
+          <DetailRow label="Jornada" value={subject.shift || '-'} />
+          <DetailRow label="Horas" value={subject.hours} />
+          <DetailRow label="Tipo API" value={subject.api_type} />
+          <DetailRow label="Fase" value={phaseLabel(subject.phase)} />
+          <DetailRow label="Area" value={subject.area_name || '-'} />
+          <DetailRow label="Carrera" value={subject.career_name || '-'} />
+          <DetailRow label="Docente" value={subject.teacher_name || '-'} />
+          <DetailRow label="Semestre" value={subject.semester_name || '-'} />
+        </dl>
+      </div>
+    </section>
+  )
+}
+
+function SubjectFormView({
+  values,
+  onChange,
+  onSubmit,
+  onCancel,
+  areas,
+  semesters,
+  careers,
+  teachers,
+  loading,
+  metaLoading,
+  error,
+}: {
+  values: SubjectFormValues
+  onChange: (field: keyof SubjectFormValues, value: string) => void
+  onSubmit: () => void | Promise<void>
+  onCancel: () => void
+  areas: Area[]
+  semesters: SemesterLevel[]
+  careers: Career[]
+  teachers: Teacher[]
+  loading: boolean
+  metaLoading: boolean
+  error: string | null
+}) {
+  const availableCareers = useMemo(() => {
+    if (!values.area) return careers
+    return careers.filter((career) => String(career.area) === values.area)
+  }, [values.area, careers])
+
+  return (
+    <section className="p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Editar asignatura</h1>
+          <p className="text-sm text-zinc-600">Actualiza los datos principales de la asignatura seleccionada.</p>
+        </div>
+        <button
+          onClick={onCancel}
+          className="text-sm font-medium text-red-600 hover:text-red-700"
+        >
+          ← Volver
+        </button>
+      </div>
+
+      {metaLoading ? (
+        <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+          Cargando catalogos...
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      <form
+        className="rounded-lg border border-zinc-200 bg-white p-6"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void onSubmit()
+        }}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Codigo">
+            <input
+              value={values.code}
+              onChange={(e) => onChange('code', e.target.value)}
+              placeholder="API101"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </FormField>
+          <FormField label="Seccion">
+            <input
+              value={values.section}
+              onChange={(e) => onChange('section', e.target.value)}
+              placeholder="01"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </FormField>
+          <FormField label="Nombre">
+            <input
+              value={values.name}
+              onChange={(e) => onChange('name', e.target.value)}
+              placeholder="Nombre de la asignatura"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </FormField>
+          <FormField label="Campus">
+            <input
+              value={values.campus}
+              onChange={(e) => onChange('campus', e.target.value)}
+              placeholder="Casa Central"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </FormField>
+          <FormField label="Jornada">
+            <input
+              value={values.shift}
+              onChange={(e) => onChange('shift', e.target.value)}
+              placeholder="Diurna/Vespertina"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </FormField>
+          <FormField label="Horas">
+            <input
+              type="number"
+              min={1}
+              value={values.hours}
+              onChange={(e) => onChange('hours', e.target.value)}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </FormField>
+          <FormField label="Tipo API">
+            <input
+              type="number"
+              min={1}
+              value={values.api_type}
+              onChange={(e) => onChange('api_type', e.target.value)}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </FormField>
+          <FormField label="Area">
+            <select
+              value={values.area}
+              onChange={(e) => onChange('area', e.target.value)}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            >
+              <option value="">Selecciona un area</option>
+              {areas.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Carrera">
+            <select
+              value={values.career}
+              onChange={(e) => onChange('career', e.target.value)}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            >
+              <option value="">Sin carrera asignada</option>
+              {availableCareers.map((career) => (
+                <option key={career.id} value={career.id}>
+                  {career.name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Semestre">
+            <select
+              value={values.semester}
+              onChange={(e) => onChange('semester', e.target.value)}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            >
+              <option value="">Selecciona un semestre</option>
+              {semesters.map((semester) => (
+                <option key={semester.id} value={semester.id}>
+                  {semester.name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Docente">
+            <select
+              value={values.teacher}
+              onChange={(e) => onChange('teacher', e.target.value)}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            >
+              <option value="">Sin docente asignado</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {`${teacher.first_name} ${teacher.last_name}`.trim() || teacher.email}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:border-zinc-400"
+            disabled={loading}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-70"
+          >
+            {loading ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      </form>
+    </section>
+  )
+}
+
+function FormField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1 text-sm text-zinc-700">
+      <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
+  const display = value === undefined || value === null || value === '' ? '-' : value
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{label}</div>
+      <div className="text-sm text-zinc-900">{display}</div>
+    </div>
+  )
+}
+
 function Th({ children, className = '' }: { children: any; className?: string }) {
   return (
     <th className={`px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-600 ${className}`}>
@@ -141,11 +654,10 @@ function Td({ children, className = '' }: { children: any; className?: string })
 function phaseLabel(v: string) {
   const map: Record<string, string> = {
     inicio: 'Inicio',
-    formulacion: 'Formulación',
-    gestion: 'Gestión',
-    validacion: 'Validación',
+    formulacion: 'Formulacion',
+    gestion: 'Gestion',
+    validacion: 'Validacion',
     completado: 'Completado',
   }
   return map[v] || v
 }
-
