@@ -2,20 +2,32 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router'
 import { toast } from 'react-hot-toast'
 import {
+  createSubjectCompetency,
   getSubject,
   listAreas,
   listCareers,
   listSemesters,
+  listSubjectCompetencies,
   listSubjects,
   updateSubject,
+  updateSubjectCompetency,
   type Area,
   type Career,
   type SemesterLevel,
   type Subject,
+  type SubjectCompetency,
 } from '../../api/subjects'
 import { listDocentes, type User as Teacher } from '../../api/users'
 
 type PanelMode = 'list' | 'view' | 'edit'
+
+type CompetencySlot = {
+  id: number | null
+  number: number
+  description: string
+}
+
+const COMPETENCY_SLOTS = 5
 
 type SubjectFormValues = {
   code: string
@@ -45,6 +57,18 @@ function createEmptyFormValues(): SubjectFormValues {
     teacher: '',
     career: '',
   }
+}
+
+function createCompetencySlots(data?: SubjectCompetency[]): CompetencySlot[] {
+  return Array.from({ length: COMPETENCY_SLOTS }, (_, idx) => {
+    const number = idx + 1
+    const existing = data?.find((item) => Number(item.number) === number)
+    return {
+      id: existing?.id ?? null,
+      number,
+      description: existing?.description ?? '',
+    }
+  })
 }
 
 function subjectToFormValues(subject: Subject): SubjectFormValues {
@@ -115,6 +139,11 @@ export default function DCAsignaturas() {
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const [competencySlots, setCompetencySlots] = useState<CompetencySlot[]>(() => createCompetencySlots())
+  const [competenciesLoading, setCompetenciesLoading] = useState(false)
+  const [competenciesError, setCompetenciesError] = useState<string | null>(null)
+  const [savingCompetencies, setSavingCompetencies] = useState(false)
+
   async function load() {
     setLoading(true)
     setError(null)
@@ -126,6 +155,21 @@ export default function DCAsignaturas() {
       setError(msg)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadSubjectCompetencies(subjectId: number) {
+    setCompetenciesLoading(true)
+    setCompetenciesError(null)
+    try {
+      const data = await listSubjectCompetencies(subjectId)
+      setCompetencySlots(createCompetencySlots(data))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudieron cargar las competencias tecnicas'
+      setCompetenciesError(msg)
+      setCompetencySlots(createCompetencySlots())
+    } finally {
+      setCompetenciesLoading(false)
     }
   }
 
@@ -164,6 +208,11 @@ export default function DCAsignaturas() {
     }
   }, [mode, selected])
 
+  useEffect(() => {
+    if (!selected) return
+    void loadSubjectCompetencies(selected.id)
+  }, [selected?.id])
+
   const filtered = useMemo(() => {
     if (!search) return items
     const q = search.toLowerCase()
@@ -183,20 +232,52 @@ export default function DCAsignaturas() {
     })
   }
 
+  const handleCompetencyChange = (number: number, value: string) => {
+    setCompetencySlots((prev) => prev.map((slot) => (slot.number === number ? { ...slot, description: value } : slot)))
+  }
+
+  async function handleSaveCompetencies() {
+    if (!selected) return
+    const normalized = competencySlots.map((slot) => ({ ...slot, description: slot.description.trim() }))
+    const filled = normalized.filter((slot) => slot.description.length > 0)
+    if (filled.length === 0) {
+      toast.error('Debes registrar al menos una competencia tecnica')
+      return
+    }
+    setSavingCompetencies(true)
+    try {
+      const operations = normalized
+        .filter((slot) => slot.description.length > 0)
+        .map((slot) =>
+          slot.id
+            ? updateSubjectCompetency(slot.id, { description: slot.description })
+            : createSubjectCompetency({ subject: selected.id, number: slot.number, description: slot.description })
+        )
+      await Promise.all(operations)
+      toast.success('Competencias guardadas')
+      await loadSubjectCompetencies(selected.id)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudieron guardar las competencias'
+      toast.error(msg)
+    } finally {
+      setSavingCompetencies(false)
+    }
+  }
+
   const resetToList = () => {
     setMode('list')
     setSelected(null)
     setDetailError(null)
     setFormError(null)
     setFormValues(createEmptyFormValues())
+    setCompetencySlots(createCompetencySlots())
+    setCompetenciesError(null)
+    setCompetenciesLoading(false)
+    setSavingCompetencies(false)
   }
 
   useEffect(() => {
-    setMode('list')
-    setSelected(null)
-    setDetailError(null)
-    setFormError(null)
-    setFormValues(createEmptyFormValues())
+    resetToList()
   }, [location.key])
 
   const cancelToView = () => {
@@ -213,6 +294,9 @@ export default function DCAsignaturas() {
     setMode('view')
     setDetailError(null)
     setDetailLoading(true)
+    setCompetencySlots(createCompetencySlots())
+    setCompetenciesError(null)
+    setSavingCompetencies(false)
     try {
       const detail = await getSubject(subject.id)
       setSelected(detail)
@@ -263,6 +347,12 @@ export default function DCAsignaturas() {
         error={detailError}
         onClose={resetToList}
         onEdit={handleEditClick}
+        competencySlots={competencySlots}
+        competenciesLoading={competenciesLoading}
+        competenciesError={competenciesError}
+        onCompetencyChange={handleCompetencyChange}
+        onSaveCompetencies={handleSaveCompetencies}
+        savingCompetencies={savingCompetencies}
       />
     )
   }
@@ -360,12 +450,24 @@ function SubjectDetailView({
   error,
   onClose,
   onEdit,
+  competencySlots,
+  competenciesLoading,
+  competenciesError,
+  onCompetencyChange,
+  onSaveCompetencies,
+  savingCompetencies,
 }: {
   subject: Subject
   loading: boolean
   error: string | null
   onClose: () => void
   onEdit: () => void
+  competencySlots: CompetencySlot[]
+  competenciesLoading: boolean
+  competenciesError: string | null
+  onCompetencyChange: (number: number, value: string) => void
+  onSaveCompetencies: () => void | Promise<void>
+  savingCompetencies: boolean
 }) {
   return (
     <section className="p-6 space-y-4">
@@ -385,7 +487,7 @@ function SubjectDetailView({
       </div>
       <div className="rounded-lg border border-zinc-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-zinc-900">Información de la asignatura</h2>
+          <h2 className="text-base font-semibold text-zinc-900">Informacion de la asignatura</h2>
           <button
             onClick={onEdit}
             className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
@@ -416,7 +518,71 @@ function SubjectDetailView({
           <DetailRow label="Semestre" value={subject.semester_name || '-'} />
         </dl>
       </div>
+      <SubjectCompetenciesPanel
+        slots={competencySlots}
+        loading={competenciesLoading}
+        error={competenciesError}
+        onChange={onCompetencyChange}
+        onSaveAll={onSaveCompetencies}
+        saving={savingCompetencies}
+      />
     </section>
+  )
+}
+
+function SubjectCompetenciesPanel({
+  slots,
+  loading,
+  error,
+  onChange,
+  onSaveAll,
+  saving,
+}: {
+  slots: CompetencySlot[]
+  loading: boolean
+  error: string | null
+  onChange: (number: number, value: string) => void
+  onSaveAll: () => void | Promise<void>
+  saving: boolean
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-6">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-zinc-900">Competencias tecnicas</h2>
+        <p className="text-sm text-zinc-500">Minimo 1 y maximo 5 competencias por asignatura.</p>
+      </div>
+      {loading ? (
+        <div className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+          Cargando competencias...
+        </div>
+      ) : null}
+      {error ? (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
+      <div className="space-y-3">
+        {slots.map((slot) => (
+          <div key={slot.number} className="rounded-md border border-dashed border-zinc-300 bg-white/70 p-3 shadow-sm">
+            <textarea
+              value={slot.description}
+              onChange={(e) => onChange(slot.number, e.target.value)}
+              placeholder="Ingresa la competencia tecnica"
+              className="h-24 w-full resize-none border-none bg-transparent text-sm text-zinc-800 outline-none focus:outline-none"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={() => {
+            void onSaveAll()
+          }}
+          disabled={loading || saving}
+          className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+        >
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -661,3 +827,5 @@ function phaseLabel(v: string) {
   }
   return map[v] || v
 }
+
+

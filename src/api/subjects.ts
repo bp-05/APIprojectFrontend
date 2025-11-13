@@ -158,6 +158,19 @@ export async function listSubjectCompetencies(subjectId: number) {
   return data
 }
 
+export async function createSubjectCompetency(payload: Omit<SubjectCompetency, 'id'>) {
+  const { data } = await http.post<SubjectCompetency>(`/subject-competencies/`, payload)
+  return data
+}
+
+export async function updateSubjectCompetency(
+  id: number,
+  payload: Partial<Omit<SubjectCompetency, 'id' | 'subject' | 'number'>>
+) {
+  const { data } = await http.patch<SubjectCompetency>(`/subject-competencies/${id}/`, payload)
+  return data
+}
+
 export type CompanyBoundaryCondition = {
   id: number
   subject: number
