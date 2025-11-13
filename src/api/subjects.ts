@@ -198,6 +198,26 @@ export async function listBoundaryConditions() {
   return data
 }
 
+export async function getBoundaryConditionBySubject(subjectId: number) {
+  const { data } = await http.get<CompanyBoundaryCondition[]>(`/boundary-conditions/`, {
+    params: { subject: subjectId },
+  })
+  return data?.[0] ?? null
+}
+
+export async function createBoundaryCondition(payload: Omit<CompanyBoundaryCondition, 'id'>) {
+  const { data } = await http.post<CompanyBoundaryCondition>(`/boundary-conditions/`, payload)
+  return data
+}
+
+export async function updateBoundaryCondition(
+  id: number,
+  payload: Partial<Omit<CompanyBoundaryCondition, 'id' | 'subject'>>
+) {
+  const { data } = await http.patch<CompanyBoundaryCondition>(`/boundary-conditions/${id}/`, payload)
+  return data
+}
+
 export type CompanyRequirement = {
   id: number
   sector: string
