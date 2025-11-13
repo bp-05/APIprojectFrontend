@@ -7,6 +7,8 @@ export type User = {
   last_name: string
   role: string
   is_active: boolean
+  area?: number | null
+  career?: number | null
 }
 
 export async function listUsers(query?: string) {
@@ -21,6 +23,8 @@ export async function createUser(
     is_active?: boolean
     password: string
     password2: string
+    area?: number | null
+    career?: number | null
   }
 ) {
   const { data } = await http.post<User>(`/users/`, payload)

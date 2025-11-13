@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createUser, deleteUser, listUsers, updateUser, type User } from '../api/users'
+import { listAreas, listCareers, type Area, type Career } from '../api/subjects'
 import { toast } from 'react-hot-toast'
 import { listRoles as fetchRoles } from '../api/roles'
 import { nameCase } from '../lib/strings'
@@ -13,6 +14,9 @@ export default function Usuarios() {
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
+  const [areas, setAreas] = useState<Area[]>([])
+  const [careers, setCareers] = useState<Career[]>([])
+  const [metaLoading, setMetaLoading] = useState(false)
   const { user: me } = useAuth()
 
   async function load() {
@@ -32,6 +36,24 @@ export default function Usuarios() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+    setMetaLoading(true)
+    Promise.all([listAreas(), listCareers()])
+      .then(([areasData, careersData]) => {
+        if (!mounted) return
+        setAreas(areasData)
+        setCareers(careersData)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setMetaLoading(false)
+      })
+    return () => {
+      mounted = false
+    }
   }, [])
 
   const filtered = useMemo(() => {
@@ -159,6 +181,9 @@ export default function Usuarios() {
             setShowCreate(false)
             await load()
           }}
+          areas={areas}
+          careers={careers}
+          metaLoading={metaLoading}
         />
       ) : null}
 
@@ -170,6 +195,9 @@ export default function Usuarios() {
             setEditing(null)
             await load()
           }}
+          areas={areas}
+          careers={careers}
+          metaLoading={metaLoading}
         />
       ) : null}
     </section>
@@ -184,7 +212,21 @@ function Th({ children, className = '' }: { children: any; className?: string })
   )
 }
 
-function EditUserDialog({ user, onClose, onSaved }: { user: User; onClose: () => void; onSaved: () => void }) {
+function EditUserDialog({
+  user,
+  onClose,
+  onSaved,
+  areas,
+  careers,
+  metaLoading,
+}: {
+  user: User
+  onClose: () => void
+  onSaved: () => void
+  areas: Area[]
+  careers: Career[]
+  metaLoading: boolean
+}) {
   const [firstName, setFirstName] = useState(user.first_name || '')
   const [lastName, setLastName] = useState(user.last_name || '')
   const [role, setRole] = useState<string>(user.role || '')
@@ -195,6 +237,8 @@ function EditUserDialog({ user, onClose, onSaved }: { user: User; onClose: () =>
   const [password2, setPassword2] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedArea, setSelectedArea] = useState<string>(user.area ? String(user.area) : '')
+  const [selectedCareer, setSelectedCareer] = useState<string>(user.career ? String(user.career) : '')
 
   useEffect(() => {
     let mounted = true
@@ -207,6 +251,15 @@ function EditUserDialog({ user, onClose, onSaved }: { user: User; onClose: () =>
       mounted = false
     }
   }, [])
+
+  useEffect(() => {
+    if (role !== 'DC') {
+      setSelectedArea('')
+      setSelectedCareer('')
+    }
+  }, [role])
+
+  const isDirector = role === 'DC'
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -233,6 +286,12 @@ function EditUserDialog({ user, onClose, onSaved }: { user: User; onClose: () =>
         last_name: lastName,
         role,
         is_active: active,
+        ...(isDirector
+          ? {
+              area: selectedArea ? Number(selectedArea) : null,
+              career: selectedCareer ? Number(selectedCareer) : null,
+            }
+          : { area: null, career: null }),
         ...(password ? { password, password2 } : {}),
       })
       toast.success('Usuario actualizado')
@@ -285,6 +344,42 @@ function EditUserDialog({ user, onClose, onSaved }: { user: User; onClose: () =>
               ))}
             </select>
           </div>
+          {isDirector ? (
+            <>
+              <div className="col-span-2">
+                <label className="mb-1 block text-xs font-medium text-zinc-700">Area (opcional)</label>
+                <select
+                  value={selectedArea}
+                  onChange={(e) => setSelectedArea(e.target.value)}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                  disabled={metaLoading && areas.length === 0}
+                >
+                  <option value="">{metaLoading && areas.length === 0 ? 'Cargando areas...' : 'Sin area asignada'}</option>
+                  {areas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="mb-1 block text-xs font-medium text-zinc-700">Carrera (opcional)</label>
+                <select
+                  value={selectedCareer}
+                  onChange={(e) => setSelectedCareer(e.target.value)}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                  disabled={metaLoading && careers.length === 0}
+                >
+                  <option value="">{metaLoading && careers.length === 0 ? 'Cargando carreras...' : 'Sin carrera asignada'}</option>
+                  {careers.map((career) => (
+                    <option key={career.id} value={career.id}>
+                      {career.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : null}
           <div className="col-span-2 flex items-center gap-2">
             <input id="active-edit" type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
             <label htmlFor="active-edit" className="text-xs text-zinc-700">Activo</label>
@@ -321,7 +416,19 @@ function Td({ children, className = '' }: { children: any; className?: string })
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
 
-function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateUserDialog({
+  onClose,
+  onCreated,
+  areas,
+  careers,
+  metaLoading,
+}: {
+  onClose: () => void
+  onCreated: () => void
+  areas: Area[]
+  careers: Career[]
+  metaLoading: boolean
+}) {
   const [email, setEmail] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -333,6 +440,8 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
   const [password2, setPassword2] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedArea, setSelectedArea] = useState<string>('')
+  const [selectedCareer, setSelectedCareer] = useState<string>('')
 
   useEffect(() => {
     let mounted = true
@@ -347,6 +456,15 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
       mounted = false
     }
   }, [])
+
+  useEffect(() => {
+    if (role !== 'DC') {
+      setSelectedArea('')
+      setSelectedCareer('')
+    }
+  }, [role])
+
+  const isDirector = role === 'DC'
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -376,6 +494,12 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         is_active: active,
         password,
         password2,
+        ...(isDirector
+          ? {
+              area: selectedArea ? Number(selectedArea) : null,
+              career: selectedCareer ? Number(selectedCareer) : null,
+            }
+          : { area: null, career: null }),
       })
       toast.success('Usuario creado')
       await onCreated()
@@ -427,6 +551,42 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
               ))}
             </select>
           </div>
+          {isDirector ? (
+            <>
+              <div className="col-span-2">
+                <label className="mb-1 block text-xs font-medium text-zinc-700">Area (opcional)</label>
+                <select
+                  value={selectedArea}
+                  onChange={(e) => setSelectedArea(e.target.value)}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                  disabled={metaLoading && areas.length === 0}
+                >
+                  <option value="">{metaLoading && areas.length === 0 ? 'Cargando areas...' : 'Sin area asignada'}</option>
+                  {areas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="mb-1 block text-xs font-medium text-zinc-700">Carrera (opcional)</label>
+                <select
+                  value={selectedCareer}
+                  onChange={(e) => setSelectedCareer(e.target.value)}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                  disabled={metaLoading && careers.length === 0}
+                >
+                  <option value="">{metaLoading && careers.length === 0 ? 'Cargando carreras...' : 'Sin carrera asignada'}</option>
+                  {careers.map((career) => (
+                    <option key={career.id} value={career.id}>
+                      {career.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : null}
           <div className="col-span-2 flex items-center gap-2">
             <input id="active" type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
             <label htmlFor="active" className="text-xs text-zinc-700">Activo</label>
