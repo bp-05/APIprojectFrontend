@@ -62,9 +62,9 @@ export default function Layout() {
             <button
               onClick={() => setMobileNavOpen(true)}
               className="mr-2 inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-50 md:hidden"
-              aria-label="Abrir menú"
+              aria-label="Abrir men�"
             >
-              â˜°
+              ☰
             </button>
           ) : null}
           <Link to={pathForRole(role)} className="flex items-center gap-2">
@@ -188,7 +188,7 @@ export default function Layout() {
                )}
               {role === 'DC' && (
                 <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Director de carrera</div>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Director de area/carrera</div>
                   <Link
                     to="/dc/asignaturas"
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
@@ -198,7 +198,7 @@ export default function Layout() {
                 </>
               )}
               {/* Otros roles/links */}
-              {/* Otros roles/links se agregarÃ¡n luego */}
+              {/* Otros roles/links se agregarán luego */}
               {role === 'VCM' && (
                 <>
                   <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Vinculación con el medio</div>
@@ -253,7 +253,7 @@ export default function Layout() {
                 className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm hover:bg-zinc-50"
                 aria-label="Cerrar menú"
               >
-                âœ•
+                ✕
               </button>
             </div>
             <nav className="space-y-1">
@@ -282,7 +282,7 @@ export default function Layout() {
               )}
               {role === 'DC' && (
                 <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Director de carrera</div>
+                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Director de area/carrera</div>
                   <Link onClick={() => setMobileNavOpen(false)} to="/dc/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
                 </>
               )}
@@ -368,6 +368,8 @@ function IconBell() {
     </svg>
   )
 }
+
+
 
 
 

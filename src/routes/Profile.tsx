@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import http from '../lib/http'
 import { toast } from 'react-hot-toast'
 import { useAuth } from '../store/auth'
+import { getArea, getCareer } from '../api/subjects'
 
 export default function Profile() {
-  const { user, loadMe } = useAuth()
+  const { user, loadMe, role } = useAuth()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  const [areaName, setAreaName] = useState<string | null>(null)
+  const [careerName, setCareerName] = useState<string | null>(null)
 
   // Password section
   const [oldPassword, setOldPassword] = useState('')
@@ -32,6 +35,45 @@ export default function Profile() {
       setEmail(user.email || '')
     }
   }, [user])
+
+  const isDirector = role === 'DC'
+
+  useEffect(() => {
+    let active = true
+    async function loadExtras() {
+      if (!isDirector || !user) {
+        if (active) {
+          setAreaName(null)
+          setCareerName(null)
+        }
+        return
+      }
+      try {
+        if (user.area) {
+          const area = await getArea(user.area)
+          if (active) setAreaName(area.name)
+        } else if (active) {
+          setAreaName(null)
+        }
+      } catch {
+        if (active) setAreaName(null)
+      }
+      try {
+        if (user.career) {
+          const career = await getCareer(user.career)
+          if (active) setCareerName(career.name)
+        } else if (active) {
+          setCareerName(null)
+        }
+      } catch {
+        if (active) setCareerName(null)
+      }
+    }
+    loadExtras()
+    return () => {
+      active = false
+    }
+  }, [isDirector, user])
 
   // Edición de datos básicos deshabilitada por ahora (solo lectura)
 
@@ -86,6 +128,22 @@ export default function Profile() {
               {email || '-'}
             </div>
           </div>
+          {isDirector && user?.area ? (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-zinc-800">Area asignada</label>
+              <div className="block w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-900 shadow-sm">
+                {areaName || 'Cargando...'}
+              </div>
+            </div>
+          ) : null}
+          {isDirector && user?.career ? (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-zinc-800">Carrera asignada</label>
+              <div className="block w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-900 shadow-sm">
+                {careerName || 'Cargando...'}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

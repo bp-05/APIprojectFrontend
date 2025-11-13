@@ -38,7 +38,7 @@ export default function DC() {
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Director de carrera</h1>
+          <h1 className="text-xl font-semibold">Director de area/carrera</h1>
           <p className="text-sm text-zinc-600">Asignaturas visibles para tu rol</p>
         </div>
         <div className="flex items-center gap-2">
@@ -121,3 +121,4 @@ function phaseLabel(v: string) {
   }
   return map[v] || v
 }
+

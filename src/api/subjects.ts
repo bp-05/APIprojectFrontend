@@ -98,10 +98,14 @@ export async function listDescriptorsBySubject(subjectId: number) {
   return data
 }
 
-
 export type Area = { id: number; name: string }
 export async function listAreas() {
   const { data } = await http.get<Area[]>(`/areas/`)
+  return data
+}
+
+export async function getArea(id: number) {
+  const { data } = await http.get<Area>(`/areas/${id}/`)
   return data
 }
 
@@ -114,6 +118,11 @@ export async function listSemesters() {
 export type Career = { id: number; name: string; area: number; area_name?: string }
 export async function listCareers() {
   const { data } = await http.get<Career[]>(`/careers/`)
+  return data
+}
+
+export async function getCareer(id: number) {
+  const { data } = await http.get<Career>(`/careers/${id}/`)
   return data
 }
 
@@ -267,3 +276,4 @@ export async function updateAlternance(id: number, payload: Partial<Omit<Api3Alt
   const { data } = await http.patch<Api3Alternance>(`/alternances/${id}/`, payload)
   return data
 }
+

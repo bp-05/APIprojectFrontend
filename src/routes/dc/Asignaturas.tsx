@@ -380,7 +380,7 @@ export default function DCAsignaturas() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Asignaturas</h1>
-          <p className="text-sm text-zinc-600">Listado para Director de carrera</p>
+          <p className="text-sm text-zinc-600">Listado para Director de area/carrera</p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -827,5 +827,6 @@ function phaseLabel(v: string) {
   }
   return map[v] || v
 }
+
 
 

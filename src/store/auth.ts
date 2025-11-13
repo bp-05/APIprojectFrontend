@@ -17,6 +17,8 @@ type AuthState = {
 
 export type UserRole = 'ADMIN' | 'VCM' | 'DAC' | 'DC' | 'DOC' | 'COORD'
 export type MeResponse = {
+  area: number | null
+  career: number | null
   id: number
   username: string
   email: string
@@ -69,3 +71,4 @@ export const useAuth = create<AuthState>((set) => ({
     set({ accessToken: null, refreshToken: null, isAuthenticated: false, user: null, role: null })
   },
 }))
+
