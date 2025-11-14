@@ -195,6 +195,12 @@ export default function Layout() {
                   >
                     Asignaturas
                   </Link>
+                  <Link
+                    to="/dc/empresas"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Empresas
+                  </Link>
                 </>
               )}
               {/* Otros roles/links */}
@@ -284,6 +290,7 @@ export default function Layout() {
                 <>
                   <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Director de area/carrera</div>
                   <Link onClick={() => setMobileNavOpen(false)} to="/dc/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
+                  <Link onClick={() => setMobileNavOpen(false)} to="/dc/empresas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Empresas</Link>
                 </>
               )}
               {role === 'COORD' && (

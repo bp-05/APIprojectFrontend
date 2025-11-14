@@ -16,6 +16,7 @@ import Asignaturas from './routes/Asignaturas'
 import Docentes from './routes/Docentes'
 import MisAsignaturas from './routes/MisAsignaturas'
 import Empresas from './routes/vcm/Empresas'
+import DCEmpresas from './routes/dc/Empresas'
 import Problemas from './routes/vcm/Problemas'
 import Alcances from './routes/vcm/Alcances'
 import DocentesVCM from './routes/vcm/Docentes'
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
       { path: 'docentes', loader: requireRoleLoader('DAC'), element: <Docentes /> },
       { path: 'dc', loader: requireRoleLoader('DC'), element: <DC /> },
       { path: 'dc/asignaturas', loader: requireRoleLoader('DC'), element: <DCAsignaturas /> },
+      { path: 'dc/empresas', loader: requireRoleLoader('DC'), element: <DCEmpresas /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
       { path: 'mis-asignaturas', loader: requireRoleLoader('DOC'), element: <MisAsignaturas /> },
       { path: 'coord', loader: requireRoleLoader('COORD'), element: <COORD_DASH /> },
