@@ -23,7 +23,10 @@ export default function EstadoCoord() {
   const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
   })
-  const [localCycle, setLocalCycle] = useState<Record<number, { phase: 'Fase 1' | 'Fase 2' | 'Fase 3'; start?: string; end?: string }>>(() => {
+  type PhaseName = 'Fase 1' | 'Fase 2' | 'Fase 3'
+  type PhaseDates = { start?: string; end?: string }
+  type LocalCycleEntry = { phase: PhaseName; start?: string; end?: string; phases?: Record<PhaseName, PhaseDates> }
+  const [localCycle, setLocalCycle] = useState<Record<number, LocalCycleEntry>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} }
   })
   function saveLocalStatus(next: Record<number, LocalStatus>) {
@@ -43,7 +46,7 @@ export default function EstadoCoord() {
     })
   }
 
-  function saveCycle(next: Record<number, { phase: 'Fase 1' | 'Fase 2' | 'Fase 3'; start?: string; end?: string }>) {
+  function saveCycle(next: Record<number, LocalCycleEntry>) {
     setLocalCycle(next)
     try {
       localStorage.setItem('coordSubjectCycle', JSON.stringify(next))
@@ -212,9 +215,11 @@ export default function EstadoCoord() {
                         onClick={() => {
                           setCycleTarget({ id: s.id })
                           const c = localCycle[s.id]
-                          setPhaseSel(c?.phase || 'Fase 1')
-                          setStartText(c?.start || '')
-                          setEndText(c?.end || '')
+                          const ph = (c?.phase || 'Fase 1') as PhaseName
+                          setPhaseSel(ph)
+                          const dates = c?.phases?.[ph] || { start: c?.start, end: c?.end }
+                          setStartText(dates?.start || '')
+                          setEndText(dates?.end || '')
                         }}
                         className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                       >
@@ -248,11 +253,11 @@ export default function EstadoCoord() {
                     </div>
                     <div>
                       <dt className="text-xs text-zinc-500">Fecha de inicio</dt>
-                      <dd className="font-medium text-zinc-800">{info?.start || '-'}</dd>
+                      <dd className="font-medium text-zinc-800">{(() => { const ph = (info?.phase as any); const cur = ph && (info as any)?.phases ? (info as any).phases[ph] : { start: (info as any)?.start }; return cur?.start || '-' })()}</dd>
                     </div>
                     <div>
                       <dt className="text-xs text-zinc-500">Fecha límite</dt>
-                      <dd className="font-medium text-zinc-800">{info?.end || '-'}</dd>
+                      <dd className="font-medium text-zinc-800">{(() => { const ph = (info?.phase as any); const cur = ph && (info as any)?.phases ? (info as any).phases[ph] : { end: (info as any)?.end }; return cur?.end || '-' })()}</dd>
                     </div>
                   </dl>
                 )
@@ -274,7 +279,20 @@ export default function EstadoCoord() {
             </div>
             <div className="mb-3">
               <label className="mb-1 block text-xs font-medium text-zinc-700">Fase del proyecto</label>
-              <select value={phaseSel} onChange={(e) => setPhaseSel(e.target.value as any)} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
+              <select
+                value={phaseSel}
+                onChange={(e) => {
+                  const next = e.target.value as PhaseName
+                  setPhaseSel(next)
+                  if (cycleTarget) {
+                    const c = localCycle[cycleTarget.id]
+                    const dates = c?.phases?.[next] || { start: c?.start, end: c?.end }
+                    setStartText(dates?.start || '')
+                    setEndText(dates?.end || '')
+                  }
+                }}
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+              >
                 <option value="Fase 1">Fase 1: Formulación de Requerimientos</option>
                 <option value="Fase 2">Fase 2: Gestión de Requerimientos</option>
                 <option value="Fase 3">Fase 3: Validación de requerimientos</option>
@@ -313,9 +331,13 @@ export default function EstadoCoord() {
               <button
                 onClick={() => {
                   if (!cycleTarget) return
+                  const prev = localCycle[cycleTarget.id] || { phase: phaseSel } as LocalCycleEntry
+                  const prevPhases = { ...(prev.phases || {}) } as Record<PhaseName, PhaseDates>
+                  prevPhases[phaseSel] = { start: startText || undefined, end: endText || undefined }
+                  const nextEntry: LocalCycleEntry = { phase: phaseSel, phases: prevPhases }
                   saveCycle({
                     ...localCycle,
-                    [cycleTarget.id]: { phase: phaseSel, start: startText, end: endText },
+                    [cycleTarget.id]: nextEntry,
                   })
                   setCycleTarget(null)
                 }}

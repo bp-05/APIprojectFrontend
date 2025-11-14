@@ -121,7 +121,7 @@ export default function COORD_DASH() {
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
   }, [items])
-  const topRisk = useMemo(() => allRisk.slice(0, 5), [allRisk])
+  const topRisk = useMemo(() => allRisk.slice(0, 1), [allRisk])
   const [showMoreRisk, setShowMoreRisk] = useState(false)
 
   useEffect(() => {
@@ -160,14 +160,27 @@ export default function COORD_DASH() {
   }, [active, filters])
 
   // Lectura de fechas de ciclo locales (desde "Editar ciclo")
-  type LocalCycle = { phase: 'Fase 1' | 'Fase 2' | 'Fase 3'; start?: string; end?: string }
+  type LocalCycle = { phase: 'Fase 1' | 'Fase 2' | 'Fase 3'; start?: string; end?: string; phases?: Record<'Fase 1' | 'Fase 2' | 'Fase 3', { start?: string; end?: string }> }
   function readLocalCycle(): Record<number, LocalCycle> {
     try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} as any }
   }
   const localCycleMap = useMemo(() => readLocalCycle(), [cycleVersion])
+  const phaseKpi = useMemo(() => {
+    const res: Record<'Fase 1' | 'Fase 2' | 'Fase 3', number> = { 'Fase 1': 0, 'Fase 2': 0, 'Fase 3': 0 }
+    for (const s of items as any[]) {
+      const p = (localCycleMap as any)[s.id]?.phase as 'Fase 1' | 'Fase 2' | 'Fase 3' | undefined
+      if (p === 'Fase 1' || p === 'Fase 2' || p === 'Fase 3') res[p] = (res[p] || 0) + 1
+    }
+    return res
+  }, [items, localCycleMap])
+
+  useEffect(() => {
+    try { (window as any).phaseKpi = phaseKpi } catch {}
+  }, [phaseKpi])
   function startDateLabel(subjectId: number) {
     const c = (localCycleMap as any)[subjectId] as LocalCycle | undefined
-    const iso = c?.start
+    const ph = c?.phase
+    const iso = ph && c?.phases ? c.phases[ph]?.start : c?.start
     if (!iso) return '-'
     const d = new Date(iso)
     if (isNaN(d.getTime())) return '-'
@@ -206,14 +219,14 @@ export default function COORD_DASH() {
   return (
     <section className="p-6">
       <div className="mb-6 mt-2 text-center">
-        <h1 className="text-2xl font-bold">Panel de Coordinador</h1>
+        <h1 className="text-2xl">Panel de Coordinador</h1>
       </div>
       {/* KPI Cards */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard title="Borrador" value={kpi.Borrador} tone="zinc" linkTo="/coord/asignaturas?filter=borrador" />
-        <KpiCard title="Enviada" value={kpi.Enviada} tone="blue" linkTo="/coord/asignaturas?filter=enviada" />
-        <KpiCard title="Observada" value={kpi.Observada} tone="amber" linkTo="/coord/asignaturas?filter=observada" />
-        <KpiCard title="Aprobada" value={kpi.Aprobada} tone="green" linkTo="/coord/asignaturas?filter=aprobada" />
+        <KpiCard title="Fase 1: Formulación de requerimientos" value={phaseKpi['Fase 1']} tone="zinc" linkTo="/coord/asignaturas?filter=fase1" />
+        <KpiCard title="Fase 2: Gestión de Requerimientos" value={phaseKpi['Fase 2']} tone="blue" linkTo="/coord/asignaturas?filter=fase2" />
+        <KpiCard title="Fase 3: Validación de requerimientos" value={phaseKpi['Fase 3']} tone="amber" linkTo="/coord/asignaturas?filter=fase3" />
+        <KpiCard title="Proyectos Completados" value={kpi.Aprobada} tone="green" linkTo="/coord/asignaturas?filter=aprobada" />
       </div>
 
       {/* KPIs avanzados */}
@@ -270,8 +283,8 @@ export default function COORD_DASH() {
       </div>
 
       <div className="mb-4 flex items-center justify-end gap-2">
-        <button onClick={exportCsv} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (CSV)</button>
-        <button onClick={exportPdf} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (PDF)</button>
+        <button onClick={exportCsvPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (CSV)</button>
+        <button onClick={exportPdfPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (PDF)</button>
       </div>
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
@@ -427,6 +440,53 @@ function exportPdf() {
         <tr><td>Borrador</td><td>${(window as any).kpi?.Borrador ?? ''}</td></tr>
         <tr><td>Enviada</td><td>${(window as any).kpi?.Enviada ?? ''}</td></tr>
         <tr><td>Observada</td><td>${(window as any).kpi?.Observada ?? ''}</td></tr>
+        <tr><td>Aprobada</td><td>${(window as any).kpi?.Aprobada ?? ''}</td></tr>
+        <tr><td>% con atraso</td><td>${(window as any).delayedPct ?? ''}%</td></tr>
+        <tr><td>Tiempo de ciclo promedio (días)</td><td>${(window as any).avgCycleDays ?? '-'}</td></tr>
+      </tbody>
+    </table>
+    <script>window.onload = () => setTimeout(() => window.print(), 300)</script>
+  </body></html>`
+  w.document.open()
+  w.document.write(html)
+  w.document.close()
+}
+
+function exportCsvPhases() {
+  const rows = [
+    ['Métrica', 'Valor'],
+    ['Fase 1: Formulación de requerimientos', String((window as any).phaseKpi?.['Fase 1'] ?? '')],
+    ['Fase 2: Gestión de Requerimientos', String((window as any).phaseKpi?.['Fase 2'] ?? '')],
+    ['Fase 3: Validación de requerimientos', String((window as any).phaseKpi?.['Fase 3'] ?? '')],
+    ['Aprobada', String((window as any).kpi?.Aprobada ?? '')],
+    ['% con atraso', String((window as any).delayedPct ?? '')],
+    ['Tiempo de ciclo promedio (días)', String((window as any).avgCycleDays ?? '')],
+  ]
+  const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `kpis_coordinador_${new Date().toISOString().slice(0,10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportPdfPhases() {
+  const w = window.open('', '_blank')
+  if (!w) return
+  const d = new Date()
+  const html = `<!doctype html><html><head><meta charset="utf-8" /><title>KPIs Coordinador</title>
+    <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;padding:24px;color:#111} h1{font-size:20px;margin:0 0 12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ddd;padding:8px;text-align:left} th{background:#f5f5f5}</style>
+  </head><body>
+    <h1>KPIs Coordinador</h1>
+    <div>Fecha: ${d.toLocaleString()}</div>
+    <table style="margin-top:12px">
+      <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
+      <tbody>
+        <tr><td>Fase 1: Formulación de requerimientos</td><td>${(window as any).phaseKpi?.['Fase 1'] ?? ''}</td></tr>
+        <tr><td>Fase 2: Gestión de Requerimientos</td><td>${(window as any).phaseKpi?.['Fase 2'] ?? ''}</td></tr>
+        <tr><td>Fase 3: Validación de requerimientos</td><td>${(window as any).phaseKpi?.['Fase 3'] ?? ''}</td></tr>
         <tr><td>Aprobada</td><td>${(window as any).kpi?.Aprobada ?? ''}</td></tr>
         <tr><td>% con atraso</td><td>${(window as any).delayedPct ?? ''}%</td></tr>
         <tr><td>Tiempo de ciclo promedio (días)</td><td>${(window as any).avgCycleDays ?? '-'}</td></tr>
