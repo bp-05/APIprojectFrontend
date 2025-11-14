@@ -18,7 +18,7 @@ import MisAsignaturas from './routes/MisAsignaturas'
 import Empresas from './routes/vcm/Empresas'
 import Problemas from './routes/vcm/Problemas'
 import Alcances from './routes/vcm/Alcances'
-import DocentesVCM from './routes/vcm/Docentes'
+import AsignaturasVCM from './routes/vcm/Asignaturas'
 import AsignaturaVCMDetalle from './routes/vcm/AsignaturaDetalle'
 import PosibleContraparte from './routes/vcm/PosibleContraparte'
 import AsignaturasCoord from './routes/coord/Asignaturas'
@@ -62,9 +62,9 @@ export const router = createBrowserRouter([
       
       { path: 'problematicas', loader: requireRoleLoader('ADMIN'), element: <Problemas /> },
       { path: 'vcm/alcances', loader: requireRoleLoader('VCM'), element: <Alcances /> },
-      { path: 'vcm/asignaturas', loader: requireRoleLoader('VCM'), element: <DocentesVCM /> },
+      { path: 'vcm/asignaturas', loader: requireRoleLoader('VCM'), element: <AsignaturasVCM /> },
       { path: 'vcm/asignaturas/:id', loader: requireRoleLoader('VCM'), element: <AsignaturaVCMDetalle /> },
-      { path: 'vcm/posible-contraparte', loader: requireRoleLoader('VCM'), element: <PosibleContraparte /> },
+            { path: 'vcm/posible-contraparte', loader: requireRoleLoader('VCM'), element: <PosibleContraparte /> },
       { path: 'dac', loader: requireRoleLoader('DAC'), element: <DAC /> },
       { path: 'docentes', loader: requireRoleLoader('DAC'), element: <Docentes /> },
       { path: 'dc', loader: requireRoleLoader('DC'), element: <DC /> },
@@ -90,4 +90,16 @@ export const router = createBrowserRouter([
 ])
 
 export default router
+
+
+
+
+
+
+
+
+
+
+
+
 

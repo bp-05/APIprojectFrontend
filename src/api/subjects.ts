@@ -1,4 +1,4 @@
-import http from '../lib/http'
+﻿import http from '../lib/http'
 
 export type Subject = {
   id: number
@@ -201,9 +201,14 @@ export async function createCompanyRequirement(payload: Omit<CompanyRequirement,
   return data
 }
 
-export async function updateCompanyRequirement(id: number, payload: Partial<Omit<CompanyRequirement, 'id'>>) {
+
+export async function updateCompanyRequirement(id: number, payload: Partial<CompanyRequirement>) {
   const { data } = await http.patch<CompanyRequirement>(`/company-requirements/${id}/`, payload)
   return data
+}
+
+export async function deleteCompanyRequirement(id: number) {
+  await http.delete(`/company-requirements/${id}/`)
 }
 
 export async function getSubject(id: number) {
@@ -240,8 +245,8 @@ export type Api3Alternance = {
   subject: number
 }
 
-export async function listAlternances() {
-  const { data } = await http.get<Api3Alternance[]>(`/alternances/`)
+export async function listAlternances(params?: { subject?: number }) {
+  const { data } = await http.get<Api3Alternance[]>(`/alternances/`, { params })
   return data
 }
 
@@ -254,3 +259,47 @@ export async function updateAlternance(id: number, payload: Partial<Omit<Api3Alt
   const { data } = await http.patch<Api3Alternance>(`/alternances/${id}/`, payload)
   return data
 }
+
+export type Api2Completion = {
+  id: number
+  project_goal_students: string
+  deliverables_at_end: string
+  company_expected_participation: string
+  other_activities: string
+  subject: number
+}
+
+export async function listApi2Completions(params?: { subject?: number }) {
+  const { data } = await http.get<Api2Completion[]>(`/api2-completions/`, { params })
+  return data
+}
+
+export type Api3Completion = {
+  id: number
+  project_goal_students: string
+  deliverables_at_end: string
+  expected_student_role: string
+  other_activities: string
+  master_guide_expected_support: string
+  subject: number
+}
+
+export async function listApi3Completions(params?: { subject?: number }) {
+  const { data } = await http.get<Api3Completion[]>(`/api3-completions/`, { params })
+  return data
+}
+export async function createBoundaryCondition(payload: Omit<CompanyBoundaryCondition, 'id'>) {
+  const { data } = await http.post<CompanyBoundaryCondition>(`/boundary-conditions/`, payload)
+  return data
+}
+
+export async function updateBoundaryCondition(id: number, payload: Partial<Omit<CompanyBoundaryCondition, 'id'>>) {
+  const { data } = await http.patch<CompanyBoundaryCondition>(`/boundary-conditions/${id}/`, payload)
+  return data
+}
+
+
+
+
+
+

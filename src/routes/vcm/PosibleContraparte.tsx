@@ -22,9 +22,14 @@ type Prospect = {
   can_receive_alternance?: boolean
   alternance_students_quota?: number | null
   // metadatos
+  subject_hint?: number
   source?: 'local' | 'db'
   requirement_id?: number
 }
+
+type SubjectProspects = Record<number, string[]>
+
+const SUBJECT_ASSIGN_KEY = 'vcm_subject_prospects'
 
 function loadProspects(): Prospect[] {
   try {
@@ -61,6 +66,49 @@ function saveProspects(items: Prospect[]) {
   localStorage.setItem(LS_KEY, JSON.stringify(onlyLocal))
 }
 
+function loadSubjectProspects(): SubjectProspects {
+  try {
+    const raw = localStorage.getItem(SUBJECT_ASSIGN_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function persistSubjectProspects(map: SubjectProspects) {
+  localStorage.setItem(SUBJECT_ASSIGN_KEY, JSON.stringify(map))
+  window.dispatchEvent(new CustomEvent('vcm:prospects-updated'))
+}
+
+function subjectsForProspect(pid: string, map: SubjectProspects): number[] {
+  const result: number[] = []
+  for (const [key, ids] of Object.entries(map)) {
+    if ((ids || []).includes(pid)) result.push(Number(key))
+  }
+  return result
+}
+
+function normalizeAssignments(
+  prospectId: string,
+  subjectIds: number[],
+  current: SubjectProspects
+): SubjectProspects {
+  const next: SubjectProspects = {}
+  for (const [key, ids] of Object.entries(current)) {
+    const filtered = (ids || []).filter((id) => id !== prospectId)
+    if (filtered.length) next[Number(key)] = filtered
+  }
+
+  subjectIds
+    .filter((sid) => Number.isFinite(sid) && sid > 0)
+    .forEach((sid) => {
+      const key = Number(sid)
+      next[key] = [...(next[key] || []), prospectId]
+    })
+
+  return next
+}
+
 export default function PosibleContraparte() {
   const [items, setItems] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(false)
@@ -73,12 +121,14 @@ export default function PosibleContraparte() {
 
   const [companies, setCompanies] = useState<Company[]>([])
   const [subjects, setSubjects] = useState<BasicSubject[]>([])
+  const [subjectProspectsMap, setSubjectProspectsMap] = useState<SubjectProspects>(() => loadSubjectProspects())
 
-  // Form edición/creación
+  // Form ediciÃ³n/creaciÃ³n
   const [editing, setEditing] = useState<Prospect | null>(null)
   const [editName, setEditName] = useState('')
   const [editSector, setEditSector] = useState('')
   const [editSubjectId, setEditSubjectId] = useState<number>(0)
+  const [editAssignedSubjects, setEditAssignedSubjects] = useState<number[]>([])
   const [editInterest, setEditInterest] = useState(false)
   const [editWorkedBefore, setEditWorkedBefore] = useState(false)
   const [editCanDevelopActivities, setEditCanDevelopActivities] = useState(false)
@@ -124,6 +174,7 @@ export default function PosibleContraparte() {
           has_guide: !!r.has_guide,
           can_receive_alternance: !!r.can_receive_alternance,
           alternance_students_quota: typeof r.alternance_students_quota === 'number' ? r.alternance_students_quota : 0,
+          subject_hint: r.subject,
           source: 'db',
           requirement_id: r.id,
         }))
@@ -140,6 +191,25 @@ export default function PosibleContraparte() {
   }, [])
 
   useEffect(() => { saveProspects(items) }, [items])
+
+  useEffect(() => {
+    const handler = () => setSubjectProspectsMap(loadSubjectProspects())
+    window.addEventListener('vcm:prospects-updated', handler)
+    return () => window.removeEventListener('vcm:prospects-updated', handler)
+  }, [])
+
+  const closeEditModal = () => {
+    setEditing(null)
+    setEditAssignedSubjects([])
+  }
+
+  function updateSubjectAssignments(prospectId: string, subjectIds: number[]) {
+    setSubjectProspectsMap((prev) => {
+      const next = normalizeAssignments(prospectId, subjectIds, prev)
+      persistSubjectProspects(next)
+      return next
+    })
+  }
 
   function openAssign(p: Prospect) {
     if (p.source === 'db') return // solo lectura para filas de BD
@@ -173,6 +243,14 @@ export default function PosibleContraparte() {
     setEditSector(p.sector || '')
     setEditInterest(!!p.interest_collaborate)
     setEditSubjectId(0)
+    const assigned = subjectsForProspect(p.id, subjectProspectsMap)
+    if (assigned.length) {
+      setEditAssignedSubjects(assigned)
+    } else if (p.subject_hint) {
+      setEditAssignedSubjects([p.subject_hint])
+    } else {
+      setEditAssignedSubjects([])
+    }
     setEditWorkedBefore(!!p.worked_before)
     setEditCanDevelopActivities(!!p.can_develop_activities)
     setEditWillingDesignProject(!!p.willing_design_project)
@@ -197,6 +275,7 @@ export default function PosibleContraparte() {
     setEditSector('')
     setEditInterest(false)
     setEditSubjectId(0)
+    setEditAssignedSubjects([])
     setEditWorkedBefore(false)
     setEditCanDevelopActivities(false)
     setEditWillingDesignProject(false)
@@ -265,7 +344,7 @@ export default function PosibleContraparte() {
           interest_collaborate: !!record.interest_collaborate,
           can_develop_activities: !!record.can_develop_activities,
           willing_design_project: !!record.willing_design_project,
-          interaction_type: record.interaction_types || [],
+          interaction_type: record.interaction_type || "",
           has_guide: !!record.has_guide,
           can_receive_alternance: !!record.can_receive_alternance,
           alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
@@ -280,6 +359,7 @@ export default function PosibleContraparte() {
         if (idx >= 0) arr[idx] = { ...arr[idx], ...updatedRow }
         setItems(idx >= 0 ? arr.slice() : [updatedRow, ...arr])
         toast.success('Requerimiento actualizado')
+          updateSubjectAssignments(updatedRow.id, editAssignedSubjects)
 
         // marcar como modificado durante unos segundos
         const key = `db:${updated.id}`
@@ -295,12 +375,12 @@ export default function PosibleContraparte() {
             return n
           })
         }, 3500)
-      } catch (e: any) {
-        const msg = e?.response?.data ? JSON.stringify(e.response.data) : (e instanceof Error ? e.message : 'No se pudo actualizar en BD')
-        toast.error(msg)
-      } finally {
-        setEditing(null)
-      }
+        } catch (e: any) {
+          const msg = e?.response?.data ? JSON.stringify(e.response.data) : (e instanceof Error ? e.message : 'No se pudo actualizar en BD')
+          toast.error(msg)
+        } finally {
+          closeEditModal()
+        }
       return
     }
 
@@ -308,13 +388,14 @@ export default function PosibleContraparte() {
     if (idx >= 0) {
       arr[idx] = { ...arr[idx], ...record }
       toast.success('Contraparte actualizada')
-    } else {
-      arr.unshift(record)
-      toast.success('Contraparte creada')
-    }
-    setItems(arr)
+      } else {
+        arr.unshift(record)
+        toast.success('Contraparte creada')
+      }
+      setItems(arr)
+      updateSubjectAssignments(record.id, editAssignedSubjects)
 
-    try {
+      try {
       if (editSubjectId) {
         const company = companies.find((c) => c.name.trim().toLowerCase() === record.company_name.trim().toLowerCase())
         if (company) {
@@ -328,15 +409,15 @@ export default function PosibleContraparte() {
             interest_collaborate: !!record.interest_collaborate,
             can_develop_activities: !!record.can_develop_activities,
             willing_design_project: !!record.willing_design_project,
-            interaction_type: record.interaction_types || [],
+            interaction_type: record.interaction_type || "",
             has_guide: !!record.has_guide,
             can_receive_alternance: !!record.can_receive_alternance,
             alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
           }
           const created = await createCompanyRequirement(payload as any)
           // Reemplazar local por la fila de BD
-          const dbRow: Prospect = {
-            id: `db:${created.id}`,
+            const dbRow: Prospect = {
+              id: `db:${created.id}`,
             company_name: company.name,
             sector: created.sector || '',
             interest_collaborate: !!created.interest_collaborate,
@@ -352,39 +433,43 @@ export default function PosibleContraparte() {
             interaction_type: Array.isArray((created as any).interaction_type)
               ? String(((created as any).interaction_type as string[])[0] || '')
               : String((created as any).interaction_type || ''),
-            has_guide: !!created.has_guide,
-            can_receive_alternance: !!created.can_receive_alternance,
-            alternance_students_quota: typeof created.alternance_students_quota === 'number' ? created.alternance_students_quota : 0,
-            source: 'db',
-            requirement_id: created.id,
-          }
-          setItems((prev) => [dbRow, ...prev.filter((p) => p.id !== record.id && (p.company_name || '').trim().toLowerCase() !== record.company_name.trim().toLowerCase())])
-          toast.success('Guardado en base de datos')
+              has_guide: !!created.has_guide,
+              can_receive_alternance: !!created.can_receive_alternance,
+              alternance_students_quota: typeof created.alternance_students_quota === 'number' ? created.alternance_students_quota : 0,
+              subject_hint: created.subject,
+              source: 'db',
+              requirement_id: created.id,
+            }
+            setItems((prev) => [dbRow, ...prev.filter((p) => p.id !== record.id && (p.company_name || '').trim().toLowerCase() !== record.company_name.trim().toLowerCase())])
+            updateSubjectAssignments(record.id, [])
+            updateSubjectAssignments(dbRow.id, editAssignedSubjects)
+            toast.success('Guardado en base de datos')
         } else {
           toast.error('Empresa no encontrada en BD. Crea la empresa primero en "Empresas".')
         }
       }
-    } catch (e: any) {
-      const msg = e?.response?.data ? JSON.stringify(e.response.data) : (e instanceof Error ? e.message : 'No se pudo guardar en BD')
-      toast.error(msg)
-    } finally {
-      setEditing(null)
-    }
+      } catch (e: any) {
+        const msg = e?.response?.data ? JSON.stringify(e.response.data) : (e instanceof Error ? e.message : 'No se pudo guardar en BD')
+        toast.error(msg)
+      } finally {
+        closeEditModal()
+      }
   }
 
   async function onDelete(p: Prospect) {
-    if (!confirm(`¿Eliminar "${p.company_name}"?`)) return
+    if (!confirm(`Â¿Eliminar "${p.company_name}"?`)) return
     if (p.source === 'db') {
-      const sure = confirm('Se eliminará el requerimiento en la base de datos. Esta acción no se puede deshacer. ¿Deseas continuar?')
+      const sure = confirm('Se eliminarÃ¡ el requerimiento en la base de datos. Esta acciÃ³n no se puede deshacer. Â¿Deseas continuar?')
       if (!sure) return
     }
     try {
-      if (p.source === 'db' && p.requirement_id) {
-        await http.delete(`/company-requirements/${p.requirement_id}/`)
-      }
-      const arr = items.filter((x) => x.id !== p.id)
-      setItems(arr)
-      toast.success('Eliminado')
+        if (p.source === 'db' && p.requirement_id) {
+          await http.delete(`/company-requirements/${p.requirement_id}/`)
+        }
+        const arr = items.filter((x) => x.id !== p.id)
+        setItems(arr)
+        updateSubjectAssignments(p.id, [])
+        toast.success('Eliminado')
     } catch (e: any) {
       const msg = e?.response?.data ? JSON.stringify(e.response.data) : (e instanceof Error ? e.message : 'No se pudo eliminar')
       toast.error(msg)
@@ -408,20 +493,20 @@ export default function PosibleContraparte() {
             <tr>
               <Th className="uppercase tracking-wide">Empresa</Th>
               <Th className="uppercase tracking-wide">Sector</Th>
-              <Th className="uppercase tracking-wide">Interés</Th>
+              <Th className="uppercase tracking-wide">InterÃ©s</Th>
               <Th className="uppercase tracking-wide">Responsable</Th>
               <Th className="text-right uppercase tracking-wide">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargandoâ€¦</td></tr>
             ) : rows.length === 0 ? (
               <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin registros</td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.id} className="hover:bg-zinc-50">
-                  <Td>{r.company_name || '—'}
+                  <Td>{r.company_name || 'â€”'}
                     {r.source === 'db' ? (
                       <>
                         <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">en base</span>
@@ -431,13 +516,13 @@ export default function PosibleContraparte() {
                       </>
                     ) : null}
                   </Td>
-                  <Td>{r.sector || '—'}</Td>
+                  <Td>{r.sector || 'â€”'}</Td>
                   <Td><YesNoPill value={!!r.interest_collaborate} /></Td>
                   <Td>
                     {r.responsible_name && r.responsible_name.trim() ? (
                       r.responsible_name
                     ) : (
-                      r.source === 'db' ? '—' : (
+                      r.source === 'db' ? 'â€”' : (
                         <button onClick={() => openAssign(r)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Asignar</button>
                       )
                     )}
@@ -469,7 +554,7 @@ export default function PosibleContraparte() {
               <label className="block text-sm">
                 <span className="mb-1 block font-medium text-zinc-800">Nombre (desde Responsable SPyS en Empresas)</span>
                 <input value={assignName} disabled className="block w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-700" placeholder="No encontrado en Empresas" />
-                {!assignName && (<span className="mt-1 block text-xs text-zinc-600">No se encontró Responsable SPyS para esta empresa. Revise el nombre en Empresas.</span>)}
+                {!assignName && (<span className="mt-1 block text-xs text-zinc-600">No se encontrÃ³ Responsable SPyS para esta empresa. Revise el nombre en Empresas.</span>)}
               </label>
               <div className="mt-4 flex items-center justify-end gap-2">
                 <button onClick={() => { setAssigningId(null); setAssignName('') }} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
@@ -492,16 +577,16 @@ export default function PosibleContraparte() {
             </div>
             <div className="px-6 py-4">
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Item label="Empresa">{viewing.company_name || '—'}</Item>
-                <Item label="Sector">{viewing.sector || '—'}</Item>
-                <Item label="Interés de colaborar"><YesNoPill value={!!viewing.interest_collaborate} /></Item>
-                <Item label="Trabajó anteriormente"><YesNoPill value={!!viewing.worked_before} /></Item>
+                <Item label="Empresa">{viewing.company_name || 'â€”'}</Item>
+                <Item label="Sector">{viewing.sector || 'â€”'}</Item>
+                <Item label="InterÃ©s de colaborar"><YesNoPill value={!!viewing.interest_collaborate} /></Item>
+                <Item label="TrabajÃ³ anteriormente"><YesNoPill value={!!viewing.worked_before} /></Item>
                 <Item label="Puede desarrollar actividades"><YesNoPill value={!!viewing.can_develop_activities} /></Item>
-                <Item label="Tiene proyecto para diseño"><YesNoPill value={!!viewing.willing_design_project} /></Item>
-                <Item label="Tipo de interacción">{labelInteractionTypes(viewing.interaction_types) || '—'}</Item>
-                <Item label="Cuenta con Maestro Guía"><YesNoPill value={!!viewing.has_guide} /></Item>
+                <Item label="Tiene proyecto para diseÃ±o"><YesNoPill value={!!viewing.willing_design_project} /></Item>
+                <Item label="Tipo de interacciÃ³n">{labelInteractionTypes(viewing.interaction_types) || 'â€”'}</Item>
+                <Item label="Cuenta con Maestro GuÃ­a"><YesNoPill value={!!viewing.has_guide} /></Item>
                 <Item label="Puede recibir alternancia"><YesNoPill value={!!viewing.can_receive_alternance} /></Item>
-                <Item label="Cupos alternancia (nivel 3)">{viewing.can_receive_alternance ? (viewing.alternance_students_quota ?? '—') : '—'}</Item>
+                <Item label="Cupos alternancia (nivel 3)">{viewing.can_receive_alternance ? (viewing.alternance_students_quota ?? 'â€”') : 'â€”'}</Item>
               </dl>
             </div>
             <div className="px-6 py-3 border-t flex justify-end">
@@ -530,17 +615,17 @@ export default function PosibleContraparte() {
               </label>
 
               <label className="mb-3 block text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">¿A qué tipo de sector productivo o de servicios responde la contraparte?</span>
+                <span className="mb-1 block font-medium text-zinc-800">Â¿A quÃ© tipo de sector productivo o de servicios responde la contraparte?</span>
                 <input value={editSector} onChange={(e) => setEditSector(e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
               </label>
 
-              <YesNoChoice label="¿La sede ha trabajado anteriormente con esta contraparte?" value={editWorkedBefore} onChange={setEditWorkedBefore} />
-              <YesNoChoice label="¿La contraparte tiene interés de participar con INACAP de manera colaborativa?" value={editInterest} onChange={setEditInterest} />
-              <YesNoChoice label="¿Puede el estudiante desarrollar actividades asociadas a los aprendizajes esperados?" value={editCanDevelopActivities} onChange={setEditCanDevelopActivities} />
-              <YesNoChoice label="¿La contraparte estaría dispuesta a diseñar con un docente de INACAP un PROYECTO atingente a los aprendizajes?" value={editWillingDesignProject} onChange={setEditWillingDesignProject} />
+              <YesNoChoice label="Â¿La sede ha trabajado anteriormente con esta contraparte?" value={editWorkedBefore} onChange={setEditWorkedBefore} />
+              <YesNoChoice label="Â¿La contraparte tiene interÃ©s de participar con INACAP de manera colaborativa?" value={editInterest} onChange={setEditInterest} />
+              <YesNoChoice label="Â¿Puede el estudiante desarrollar actividades asociadas a los aprendizajes esperados?" value={editCanDevelopActivities} onChange={setEditCanDevelopActivities} />
+              <YesNoChoice label="Â¿La contraparte estarÃ­a dispuesta a diseÃ±ar con un docente de INACAP un PROYECTO atingente a los aprendizajes?" value={editWillingDesignProject} onChange={setEditWillingDesignProject} />
 
               <div className="mb-3 text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">¿Qué tipo de interacción puede tener el estudiante con la contraparte?</span>
+                <span className="mb-1 block font-medium text-zinc-800">Â¿QuÃ© tipo de interacciÃ³n puede tener el estudiante con la contraparte?</span>
                 <div className="flex items-center gap-6">
                   {[
                     { key: 'virtual', label: 'Virtual' },
@@ -565,27 +650,58 @@ export default function PosibleContraparte() {
                 </div>
               </div>
 
-              <YesNoChoice label="Si la contraparte recibe estudiantes en alternancia (Tipo 3), ¿cuenta con un Maestro Guía?" value={editHasGuide} onChange={setEditHasGuide} />
-              <YesNoChoice label="¿La contraparte puede recibir a estudiantes en alternancia (nivel 3) durante el semestre?" value={editCanReceiveAlternance} onChange={(v) => { setEditCanReceiveAlternance(v); if (!v) setEditQuotaStr('') }} />
+              <YesNoChoice label="Si la contraparte recibe estudiantes en alternancia (Tipo 3), Â¿cuenta con un Maestro GuÃ­a?" value={editHasGuide} onChange={setEditHasGuide} />
+              <YesNoChoice label="Â¿La contraparte puede recibir a estudiantes en alternancia (nivel 3) durante el semestre?" value={editCanReceiveAlternance} onChange={(v) => { setEditCanReceiveAlternance(v); if (!v) setEditQuotaStr('') }} />
 
               <label className="mb-1 block text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">¿Cuál es el N° de estudiantes que puede recibir en alternancia (nivel 3) por 12 horas o más durante el semestre?</span>
+                <span className="mb-1 block font-medium text-zinc-800">Â¿CuÃ¡l es el NÂ° de estudiantes que puede recibir en alternancia (nivel 3) por 12 horas o mÃ¡s durante el semestre?</span>
                 <input value={editQuotaStr} onChange={(e) => setEditQuotaStr(e.target.value.replace(/[^0-9]/g, ''))} disabled={!editCanReceiveAlternance} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none disabled:cursor-not-allowed disabled:bg-zinc-50 focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
               </label>
 
-              <label className="mb-3 block text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">Asignatura</span>
+                            <label className="mb-3 block text-sm">
+                <span className="mb-1 block font-medium text-zinc-800">Asignatura recomendada</span>
                 <select value={editSubjectId} onChange={(e) => setEditSubjectId(Number(e.target.value) || 0)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
                   <option value={0}>Sin asignar</option>
                   {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>{(s.name || '(sin nombre)') + ` (${s.code}-${s.section})`}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.name ? `${s.name} (${s.code}-${s.section})` : `${s.code}-${s.section}`}
+                    </option>
                   ))}
                 </select>
-                {null}
+                <span className="mt-1 block text-xs text-zinc-600">Esta asignatura se usará al guardar en la base de datos como "Posible contraparte".</span>
               </label>
 
+              <div className="mb-4 text-sm">
+                <span className="mb-2 block font-medium text-zinc-800">Asignaturas vinculadas</span>
+                <div className="max-h-48 overflow-y-auto rounded border border-zinc-200 p-3">
+                  {subjects.map((s) => {
+                    const checked = editAssignedSubjects.includes(s.id)
+                    return (
+                      <label key={s.id} className="mb-1 flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            setEditAssignedSubjects((prev) => {
+                              if (checked) {
+                                return prev.includes(s.id) ? prev : [...prev, s.id]
+                              }
+                              return prev.filter((id) => id !== s.id)
+                            })
+                          }}
+                          className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600"
+                        />
+                        <span>{s.name ? `${s.name} (${s.code}-${s.section})` : `${s.code}-${s.section}`}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <span className="mt-1 block text-xs text-zinc-600">Selecciona todas las asignaturas que podrán usar esta contraparte y que habilitarán alternancia.</span>
+              </div>
+
               <div className="mt-4 flex items-center justify-end gap-2">
-                <button onClick={() => setEditing(null)} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
+                <button onClick={() => closeEditModal()} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
                 <button onClick={saveEdit} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Guardar</button>
               </div>
             </div>
@@ -617,7 +733,7 @@ function YesNoPill({ value }: { value: boolean }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${value ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
       <span className={`h-2 w-2 rounded-full ${value ? 'bg-green-500' : 'bg-red-500'}`} />
-      {value ? 'Sí' : 'No'}
+      {value ? 'SÃ­' : 'No'}
     </span>
   )
 }
@@ -644,7 +760,7 @@ function YesNoChoice({ label, value, onChange }: { label: string; value: boolean
       <div className="flex items-center gap-4">
         <label className="inline-flex items-center gap-2">
           <input type="radio" name={name} checked={value === true} onChange={() => onChange(true)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />
-          <span>Sí</span>
+          <span>SÃ­</span>
         </label>
         <label className="inline-flex items-center gap-2">
           <input type="radio" name={name} checked={value === false} onChange={() => onChange(false)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />
@@ -654,4 +770,10 @@ function YesNoChoice({ label, value, onChange }: { label: string; value: boolean
     </div>
   )
 }
+
+
+
+
+
+
 

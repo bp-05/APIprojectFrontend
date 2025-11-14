@@ -1,4 +1,10 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
+}
+                        if (id.startsWith('dbco:')) {
+                          const cid = Number(id.slice(5))
+                          return byCompanyId.get(cid)?.name
+                        }
+import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, type Subject, listCompanyRequirements, type CompanyRequirement } from '../../api/subjects'
 import { listCompanies, type Company } from '../../api/companies'
 import { useNavigate } from 'react-router'
@@ -12,7 +18,7 @@ export default function DocentesVCM() {
   const [subjectProspects, setSubjectProspects] = useState<Record<number, string[]>>({})
   const [companies, setCompanies] = useState<Company[]>([])
   const [requirements, setRequirements] = useState<CompanyRequirement[]>([])
-  // selección de posibles contrapartes ahora va en el detalle
+  // selecciÃ³n de posibles contrapartes ahora va en el detalle
 
   async function load() {
     setLoading(true)
@@ -64,16 +70,16 @@ export default function DocentesVCM() {
         <table className="min-w-full divide-y divide-zinc-200">
           <thead className="bg-zinc-50">
             <tr>
-              <Th>Código</Th>
+              <Th>CÃ³digo</Th>
               <Th>Nombre</Th>
               <Th>Carrera</Th>
               <Th>Posibles contrapartes</Th>
-              <Th className="text-right">Acción</Th>
+              <Th className="text-right">AcciÃ³n</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargandoâ€¦</td></tr>
             ) : filtered.length === 0 ? (
               <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin resultados</td></tr>
             ) : (
@@ -88,13 +94,13 @@ export default function DocentesVCM() {
                     </button>
                   </Td>
                   <Td>{s.name}</Td>
-                  <Td>{s.career_name || '—'}</Td>
+                  <Td>{s.career_name || 'â€”'}</Td>
                   <Td>
                     {(() => {
                       // Solo mostrar las contrapartes seleccionadas en Asignatura (localStorage)
                       // Resolver nombres tanto para ids locales como para ids de BD (prefijo 'db:')
                       const ids = subjectProspects[s.id] || []
-                      if (!ids.length) return '—'
+                      if (!ids.length) return 'â€”'
                       const byCompanyId = new Map(companies.map((c) => [c.id, c]))
                       const byReqId = new Map(requirements.map((r) => [r.id, r]))
                       const names = ids.map((id) => {
@@ -108,7 +114,7 @@ export default function DocentesVCM() {
                         }
                         return prospects.find((p) => p.id === id)?.company_name
                       }).filter(Boolean) as string[]
-                      return names.length ? Array.from(new Set(names)).join(', ') : '—'
+                      return names.length ? Array.from(new Set(names)).join(', ') : 'â€”'
                     })()}
                   </Td>
                   <Td className="text-right">
@@ -163,3 +169,4 @@ function loadSubjectProspects(): Record<number, string[]> {
     return {}
   }
 }
+
