@@ -883,7 +883,6 @@ function SubjectDetailView({
           <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
         ) : null}
         <dl className="grid gap-4 sm:grid-cols-2">
-          <DetailRow label="ID interno" value={subject.id} />
           <DetailRow label="Codigo" value={subject.code} />
           <DetailRow label="Seccion" value={subject.section} />
           <DetailRow label="Campus" value={subject.campus || '-'} />
