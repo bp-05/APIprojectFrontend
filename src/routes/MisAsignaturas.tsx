@@ -84,7 +84,7 @@ export default function MisAsignaturas() {
                 <Th>Área</Th>
                 <Th>Carrera</Th>
                 <Th>Semestre</Th>
-                <Th className="text-right">Acciones</Th>
+                <Th className="text-right">Proceso API</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 bg-white">
