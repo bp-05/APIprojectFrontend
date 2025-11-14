@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast'
 import {
   createApiType2Completion,
   createApiType3Completion,
+  getAlternanceBySubject,
   createBoundaryCondition,
   createSubjectCompetency,
   getApiType2CompletionBySubject,
@@ -18,10 +19,13 @@ import {
   updateApiType2Completion,
   updateApiType3Completion,
   updateBoundaryCondition,
+  createAlternance,
+  updateAlternance,
   updateSubject,
   updateSubjectCompetency,
   type ApiType2Completion,
   type ApiType3Completion,
+  type Api3Alternance,
   type Area,
   type Career,
   type CompanyBoundaryCondition,
@@ -68,6 +72,15 @@ type Api3Form = {
   expected_student_role: string
   other_activities: string
   master_guide_expected_support: string
+}
+
+type AlternanceForm = {
+  id: number | null
+  student_role: string
+  students_quota: number
+  tutor_name: string
+  tutor_email: string
+  alternance_hours: number
 }
 
 type SubjectFormValues = {
@@ -144,6 +157,17 @@ function createApi3Form(data?: ApiType3Completion | null): Api3Form {
     expected_student_role: data?.expected_student_role ?? '',
     other_activities: data?.other_activities ?? '',
     master_guide_expected_support: data?.master_guide_expected_support ?? '',
+  }
+}
+
+function createAlternanceForm(data?: Api3Alternance | null): AlternanceForm {
+  return {
+    id: data?.id ?? null,
+    student_role: data?.student_role ?? '',
+    students_quota: data?.students_quota ?? 0,
+    tutor_name: data?.tutor_name ?? '',
+    tutor_email: data?.tutor_email ?? '',
+    alternance_hours: data?.alternance_hours ?? 0,
   }
 }
 
@@ -231,6 +255,10 @@ export default function DCAsignaturas() {
   const [api3Loading, setApi3Loading] = useState(false)
   const [api3Error, setApi3Error] = useState<string | null>(null)
   const [api3Saving, setApi3Saving] = useState(false)
+  const [alternanceForm, setAlternanceForm] = useState<AlternanceForm>(createAlternanceForm())
+  const [alternanceLoading, setAlternanceLoading] = useState(false)
+  const [alternanceError, setAlternanceError] = useState<string | null>(null)
+  const [alternanceSaving, setAlternanceSaving] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -306,6 +334,21 @@ export default function DCAsignaturas() {
     }
   }
 
+  async function loadAlternance(subjectId: number) {
+    setAlternanceLoading(true)
+    setAlternanceError(null)
+    try {
+      const data = await getAlternanceBySubject(subjectId)
+      setAlternanceForm(createAlternanceForm(data))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo cargar la alternancia'
+      setAlternanceError(msg)
+      setAlternanceForm(createAlternanceForm())
+    } finally {
+      setAlternanceLoading(false)
+    }
+  }
+
   useEffect(() => {
     load()
   }, [])
@@ -353,8 +396,11 @@ export default function DCAsignaturas() {
       void loadApiType2(selected.id)
       setApi3Form(createApi3Form())
       setApi3Error(null)
+      setAlternanceForm(createAlternanceForm())
+      setAlternanceError(null)
     } else if (selected.api_type === 3) {
       void loadApiType3(selected.id)
+      void loadAlternance(selected.id)
       setApi2Form(createApi2Form())
       setApi2Error(null)
     } else {
@@ -362,6 +408,8 @@ export default function DCAsignaturas() {
       setApi3Form(createApi3Form())
       setApi2Error(null)
       setApi3Error(null)
+      setAlternanceForm(createAlternanceForm())
+      setAlternanceError(null)
     }
   }, [selected?.id, selected?.api_type])
 
@@ -426,6 +474,13 @@ export default function DCAsignaturas() {
 
   const handleApi3Change = (field: keyof Omit<Api3Form, 'id'>, value: string) => {
     setApi3Form((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleAlternanceChange = (field: keyof Omit<AlternanceForm, 'id'>, value: string) => {
+    setAlternanceForm((prev) => ({
+      ...prev,
+      [field]: ['students_quota', 'alternance_hours'].includes(field) ? Number(value) || 0 : value,
+    }))
   }
 
   async function handleSaveCompetencies() {
@@ -562,6 +617,40 @@ export default function DCAsignaturas() {
     }
   }
 
+  async function handleSaveAlternance() {
+    if (!selected) return
+    setAlternanceSaving(true)
+    setAlternanceError(null)
+    try {
+      if (alternanceForm.id) {
+        await updateAlternance(alternanceForm.id, {
+          student_role: alternanceForm.student_role,
+          students_quota: alternanceForm.students_quota,
+          tutor_name: alternanceForm.tutor_name,
+          tutor_email: alternanceForm.tutor_email,
+          alternance_hours: alternanceForm.alternance_hours,
+        })
+      } else {
+        await createAlternance({
+          subject: selected.id,
+          student_role: alternanceForm.student_role,
+          students_quota: alternanceForm.students_quota,
+          tutor_name: alternanceForm.tutor_name,
+          tutor_email: alternanceForm.tutor_email,
+          alternance_hours: alternanceForm.alternance_hours,
+        })
+      }
+      toast.success('Alternancia guardada')
+      await loadAlternance(selected.id)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo guardar la alternancia'
+      toast.error(msg)
+      setAlternanceError(msg)
+    } finally {
+      setAlternanceSaving(false)
+    }
+  }
+
   const resetToList = () => {
     setMode('list')
     setSelected(null)
@@ -584,6 +673,10 @@ export default function DCAsignaturas() {
     setApi3Loading(false)
     setApi2Saving(false)
     setApi3Saving(false)
+    setAlternanceForm(createAlternanceForm())
+    setAlternanceError(null)
+    setAlternanceLoading(false)
+    setAlternanceSaving(false)
   }
 
   useEffect(() => {
@@ -614,8 +707,11 @@ export default function DCAsignaturas() {
     setApi3Form(createApi3Form())
     setApi2Error(null)
     setApi3Error(null)
+    setAlternanceForm(createAlternanceForm())
+    setAlternanceError(null)
     setApi2Loading(subject.api_type === 2)
     setApi3Loading(subject.api_type === 3)
+    setAlternanceLoading(subject.api_type === 3)
     try {
       const detail = await getSubject(subject.id)
       setSelected(detail)
@@ -691,6 +787,12 @@ export default function DCAsignaturas() {
         onApi3Change={handleApi3Change}
         onSaveApi3={handleSaveApi3}
         api3Saving={api3Saving}
+        alternanceForm={alternanceForm}
+        alternanceLoading={alternanceLoading}
+        alternanceError={alternanceError}
+        onAlternanceChange={handleAlternanceChange}
+        onSaveAlternance={handleSaveAlternance}
+        alternanceSaving={alternanceSaving}
       />
     )
   }
@@ -813,6 +915,12 @@ function SubjectDetailView({
   onApi3Change,
   onSaveApi3,
   api3Saving,
+  alternanceForm,
+  alternanceLoading,
+  alternanceError,
+  onAlternanceChange,
+  onSaveAlternance,
+  alternanceSaving,
 }: {
   subject: Subject
   loading: boolean
@@ -847,6 +955,12 @@ function SubjectDetailView({
   onApi3Change: (field: keyof Omit<Api3Form, 'id'>, value: string) => void
   onSaveApi3: () => void | Promise<void>
   api3Saving: boolean
+  alternanceForm: AlternanceForm
+  alternanceLoading: boolean
+  alternanceError: string | null
+  onAlternanceChange: (field: keyof Omit<AlternanceForm, 'id'>, value: string) => void
+  onSaveAlternance: () => void | Promise<void>
+  alternanceSaving: boolean
 }) {
   return (
     <section className="p-6 space-y-4">
@@ -931,6 +1045,16 @@ function SubjectDetailView({
           onChange={onApi3Change}
           onSave={onSaveApi3}
           saving={api3Saving}
+        />
+      ) : null}
+      {subject.api_type === 3 ? (
+        <AlternancePanel
+          form={alternanceForm}
+          loading={alternanceLoading}
+          error={alternanceError}
+          onChange={onAlternanceChange}
+          onSave={onSaveAlternance}
+          saving={alternanceSaving}
         />
       ) : null}
     </section>
@@ -1205,6 +1329,97 @@ function ApiType3Panel({
             />
           </div>
         ))}
+      </div>
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={() => {
+            void onSave()
+          }}
+          disabled={saving || loading}
+          className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+        >
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AlternancePanel({
+  form,
+  loading,
+  error,
+  onChange,
+  onSave,
+  saving,
+}: {
+  form: AlternanceForm
+  loading: boolean
+  error: string | null
+  onChange: (field: keyof Omit<AlternanceForm, 'id'>, value: string) => void
+  onSave: () => void | Promise<void>
+  saving: boolean
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-6">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-zinc-900">Alternancia API 3</h2>
+        <p className="text-sm text-zinc-500">Información del modelo de alternancia para esta asignatura.</p>
+      </div>
+      {loading ? (
+        <div className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+          Cargando alternancia...
+        </div>
+      ) : null}
+      {error ? (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">Rol del estudiante</label>
+          <input
+            value={form.student_role}
+            onChange={(e) => onChange('student_role', e.target.value)}
+            className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">Cupo de estudiantes</label>
+          <input
+            type="number"
+            min={0}
+            value={form.students_quota}
+            onChange={(e) => onChange('students_quota', e.target.value)}
+            className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">Horas de alternancia</label>
+          <input
+            type="number"
+            min={0}
+            value={form.alternance_hours}
+            onChange={(e) => onChange('alternance_hours', e.target.value)}
+            className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">Nombre tutor</label>
+          <input
+            value={form.tutor_name}
+            onChange={(e) => onChange('tutor_name', e.target.value)}
+            className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">Email tutor</label>
+          <input
+            type="email"
+            value={form.tutor_email}
+            onChange={(e) => onChange('tutor_email', e.target.value)}
+            className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
       </div>
       <div className="mt-4 flex justify-end">
         <button

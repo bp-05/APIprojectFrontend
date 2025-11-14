@@ -352,3 +352,8 @@ export async function updateAlternance(id: number, payload: Partial<Omit<Api3Alt
   return data
 }
 
+export async function getAlternanceBySubject(subjectId: number) {
+  const { data } = await http.get<Api3Alternance[]>(`/alternances/`, { params: { subject: subjectId } })
+  return data?.[0] ?? null
+}
+
