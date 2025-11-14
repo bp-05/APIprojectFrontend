@@ -2,8 +2,12 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router'
 import { toast } from 'react-hot-toast'
 import {
+  createApiType2Completion,
+  createApiType3Completion,
   createBoundaryCondition,
   createSubjectCompetency,
+  getApiType2CompletionBySubject,
+  getApiType3CompletionBySubject,
   getBoundaryConditionBySubject,
   getSubject,
   listAreas,
@@ -11,9 +15,13 @@ import {
   listSemesters,
   listSubjectCompetencies,
   listSubjects,
+  updateApiType2Completion,
+  updateApiType3Completion,
   updateBoundaryCondition,
   updateSubject,
   updateSubjectCompetency,
+  type ApiType2Completion,
+  type ApiType3Completion,
   type Area,
   type Career,
   type CompanyBoundaryCondition,
@@ -43,6 +51,23 @@ type BoundaryForm = {
   company_type_description: string
   company_requirements_for_level_2_3: string
   project_minimum_elements: string
+}
+
+type Api2Form = {
+  id: number | null
+  project_goal_students: string
+  deliverables_at_end: string
+  company_expected_participation: string
+  other_activities: string
+}
+
+type Api3Form = {
+  id: number | null
+  project_goal_students: string
+  deliverables_at_end: string
+  expected_student_role: string
+  other_activities: string
+  master_guide_expected_support: string
 }
 
 type SubjectFormValues = {
@@ -98,6 +123,27 @@ function createBoundaryForm(data?: CompanyBoundaryCondition | null): BoundaryFor
     company_type_description: data?.company_type_description ?? '',
     company_requirements_for_level_2_3: data?.company_requirements_for_level_2_3 ?? '',
     project_minimum_elements: data?.project_minimum_elements ?? '',
+  }
+}
+
+function createApi2Form(data?: ApiType2Completion | null): Api2Form {
+  return {
+    id: data?.id ?? null,
+    project_goal_students: data?.project_goal_students ?? '',
+    deliverables_at_end: data?.deliverables_at_end ?? '',
+    company_expected_participation: data?.company_expected_participation ?? '',
+    other_activities: data?.other_activities ?? '',
+  }
+}
+
+function createApi3Form(data?: ApiType3Completion | null): Api3Form {
+  return {
+    id: data?.id ?? null,
+    project_goal_students: data?.project_goal_students ?? '',
+    deliverables_at_end: data?.deliverables_at_end ?? '',
+    expected_student_role: data?.expected_student_role ?? '',
+    other_activities: data?.other_activities ?? '',
+    master_guide_expected_support: data?.master_guide_expected_support ?? '',
   }
 }
 
@@ -177,6 +223,14 @@ export default function DCAsignaturas() {
   const [boundaryLoading, setBoundaryLoading] = useState(false)
   const [boundaryError, setBoundaryError] = useState<string | null>(null)
   const [boundarySaving, setBoundarySaving] = useState(false)
+  const [api2Form, setApi2Form] = useState<Api2Form>(createApi2Form())
+  const [api2Loading, setApi2Loading] = useState(false)
+  const [api2Error, setApi2Error] = useState<string | null>(null)
+  const [api2Saving, setApi2Saving] = useState(false)
+  const [api3Form, setApi3Form] = useState<Api3Form>(createApi3Form())
+  const [api3Loading, setApi3Loading] = useState(false)
+  const [api3Error, setApi3Error] = useState<string | null>(null)
+  const [api3Saving, setApi3Saving] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -222,6 +276,36 @@ export default function DCAsignaturas() {
     }
   }
 
+  async function loadApiType2(subjectId: number) {
+    setApi2Loading(true)
+    setApi2Error(null)
+    try {
+      const data = await getApiType2CompletionBySubject(subjectId)
+      setApi2Form(createApi2Form(data))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo cargar la seccion API 2'
+      setApi2Error(msg)
+      setApi2Form(createApi2Form())
+    } finally {
+      setApi2Loading(false)
+    }
+  }
+
+  async function loadApiType3(subjectId: number) {
+    setApi3Loading(true)
+    setApi3Error(null)
+    try {
+      const data = await getApiType3CompletionBySubject(subjectId)
+      setApi3Form(createApi3Form(data))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo cargar la seccion API 3'
+      setApi3Error(msg)
+      setApi3Form(createApi3Form())
+    } finally {
+      setApi3Loading(false)
+    }
+  }
+
   useEffect(() => {
     load()
   }, [])
@@ -257,11 +341,29 @@ export default function DCAsignaturas() {
     }
   }, [mode, selected])
 
-useEffect(() => {
-  if (!selected) return
-  void loadSubjectCompetencies(selected.id)
-  void loadBoundaryCondition(selected.id)
-}, [selected?.id])
+  useEffect(() => {
+    if (!selected) return
+    void loadSubjectCompetencies(selected.id)
+    void loadBoundaryCondition(selected.id)
+  }, [selected?.id])
+
+  useEffect(() => {
+    if (!selected) return
+    if (selected.api_type === 2) {
+      void loadApiType2(selected.id)
+      setApi3Form(createApi3Form())
+      setApi3Error(null)
+    } else if (selected.api_type === 3) {
+      void loadApiType3(selected.id)
+      setApi2Form(createApi2Form())
+      setApi2Error(null)
+    } else {
+      setApi2Form(createApi2Form())
+      setApi3Form(createApi3Form())
+      setApi2Error(null)
+      setApi3Error(null)
+    }
+  }, [selected?.id, selected?.api_type])
 
   const filtered = useMemo(() => {
     if (!search) return items
@@ -316,6 +418,14 @@ useEffect(() => {
     value: string
   ) => {
     setBoundaryForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleApi2Change = (field: keyof Omit<Api2Form, 'id'>, value: string) => {
+    setApi2Form((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleApi3Change = (field: keyof Omit<Api3Form, 'id'>, value: string) => {
+    setApi3Form((prev) => ({ ...prev, [field]: value }))
   }
 
   async function handleSaveCompetencies() {
@@ -386,6 +496,72 @@ useEffect(() => {
     }
   }
 
+  async function handleSaveApi2() {
+    if (!selected) return
+    setApi2Saving(true)
+    setApi2Error(null)
+    try {
+      if (api2Form.id) {
+        await updateApiType2Completion(api2Form.id, {
+          project_goal_students: api2Form.project_goal_students,
+          deliverables_at_end: api2Form.deliverables_at_end,
+          company_expected_participation: api2Form.company_expected_participation,
+          other_activities: api2Form.other_activities,
+        })
+      } else {
+        await createApiType2Completion({
+          subject: selected.id,
+          project_goal_students: api2Form.project_goal_students,
+          deliverables_at_end: api2Form.deliverables_at_end,
+          company_expected_participation: api2Form.company_expected_participation,
+          other_activities: api2Form.other_activities,
+        })
+      }
+      toast.success('Seccion API 2 guardada')
+      await loadApiType2(selected.id)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo guardar la seccion API 2'
+      toast.error(msg)
+      setApi2Error(msg)
+    } finally {
+      setApi2Saving(false)
+    }
+  }
+
+  async function handleSaveApi3() {
+    if (!selected) return
+    setApi3Saving(true)
+    setApi3Error(null)
+    try {
+      if (api3Form.id) {
+        await updateApiType3Completion(api3Form.id, {
+          project_goal_students: api3Form.project_goal_students,
+          deliverables_at_end: api3Form.deliverables_at_end,
+          expected_student_role: api3Form.expected_student_role,
+          other_activities: api3Form.other_activities,
+          master_guide_expected_support: api3Form.master_guide_expected_support,
+        })
+      } else {
+        await createApiType3Completion({
+          subject: selected.id,
+          project_goal_students: api3Form.project_goal_students,
+          deliverables_at_end: api3Form.deliverables_at_end,
+          expected_student_role: api3Form.expected_student_role,
+          other_activities: api3Form.other_activities,
+          master_guide_expected_support: api3Form.master_guide_expected_support,
+        })
+      }
+      toast.success('Seccion API 3 guardada')
+      await loadApiType3(selected.id)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo guardar la seccion API 3'
+      toast.error(msg)
+      setApi3Error(msg)
+    } finally {
+      setApi3Saving(false)
+    }
+  }
+
   const resetToList = () => {
     setMode('list')
     setSelected(null)
@@ -400,6 +576,14 @@ useEffect(() => {
     setBoundaryError(null)
     setBoundaryLoading(false)
     setBoundarySaving(false)
+    setApi2Form(createApi2Form())
+    setApi3Form(createApi3Form())
+    setApi2Error(null)
+    setApi3Error(null)
+    setApi2Loading(false)
+    setApi3Loading(false)
+    setApi2Saving(false)
+    setApi3Saving(false)
   }
 
   useEffect(() => {
@@ -426,6 +610,12 @@ useEffect(() => {
     setBoundaryForm(createBoundaryForm())
     setBoundaryError(null)
     setBoundaryLoading(true)
+    setApi2Form(createApi2Form())
+    setApi3Form(createApi3Form())
+    setApi2Error(null)
+    setApi3Error(null)
+    setApi2Loading(subject.api_type === 2)
+    setApi3Loading(subject.api_type === 3)
     try {
       const detail = await getSubject(subject.id)
       setSelected(detail)
@@ -489,6 +679,18 @@ useEffect(() => {
         onBoundaryTextChange={handleBoundaryTextChange}
         onSaveBoundary={handleSaveBoundaryCondition}
         boundarySaving={boundarySaving}
+        api2Form={api2Form}
+        api2Loading={api2Loading}
+        api2Error={api2Error}
+        onApi2Change={handleApi2Change}
+        onSaveApi2={handleSaveApi2}
+        api2Saving={api2Saving}
+        api3Form={api3Form}
+        api3Loading={api3Loading}
+        api3Error={api3Error}
+        onApi3Change={handleApi3Change}
+        onSaveApi3={handleSaveApi3}
+        api3Saving={api3Saving}
       />
     )
   }
@@ -599,6 +801,18 @@ function SubjectDetailView({
   onBoundaryTextChange,
   onSaveBoundary,
   boundarySaving,
+  api2Form,
+  api2Loading,
+  api2Error,
+  onApi2Change,
+  onSaveApi2,
+  api2Saving,
+  api3Form,
+  api3Loading,
+  api3Error,
+  onApi3Change,
+  onSaveApi3,
+  api3Saving,
 }: {
   subject: Subject
   loading: boolean
@@ -621,6 +835,18 @@ function SubjectDetailView({
   onBoundaryTextChange: (field: 'company_type_description' | 'company_requirements_for_level_2_3' | 'project_minimum_elements', value: string) => void
   onSaveBoundary: () => void | Promise<void>
   boundarySaving: boolean
+  api2Form: Api2Form
+  api2Loading: boolean
+  api2Error: string | null
+  onApi2Change: (field: keyof Omit<Api2Form, 'id'>, value: string) => void
+  onSaveApi2: () => void | Promise<void>
+  api2Saving: boolean
+  api3Form: Api3Form
+  api3Loading: boolean
+  api3Error: string | null
+  onApi3Change: (field: keyof Omit<Api3Form, 'id'>, value: string) => void
+  onSaveApi3: () => void | Promise<void>
+  api3Saving: boolean
 }) {
   return (
     <section className="p-6 space-y-4">
@@ -688,6 +914,26 @@ function SubjectDetailView({
         onSave={onSaveBoundary}
         saving={boundarySaving}
       />
+      {subject.api_type === 2 ? (
+        <ApiType2Panel
+          form={api2Form}
+          loading={api2Loading}
+          error={api2Error}
+          onChange={onApi2Change}
+          onSave={onSaveApi2}
+          saving={api2Saving}
+        />
+      ) : null}
+      {subject.api_type === 3 ? (
+        <ApiType3Panel
+          form={api3Form}
+          loading={api3Loading}
+          error={api3Error}
+          onChange={onApi3Change}
+          onSave={onSaveApi3}
+          saving={api3Saving}
+        />
+      ) : null}
     </section>
   )
 }
@@ -837,6 +1083,129 @@ function BoundaryConditionPanel({
             placeholder="Describe los elementos minimos"
           />
         </div>
+      </div>
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={() => {
+            void onSave()
+          }}
+          disabled={saving || loading}
+          className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+        >
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ApiType2Panel({
+  form,
+  loading,
+  error,
+  onChange,
+  onSave,
+  saving,
+}: {
+  form: Api2Form
+  loading: boolean
+  error: string | null
+  onChange: (field: keyof Omit<Api2Form, 'id'>, value: string) => void
+  onSave: () => void | Promise<void>
+  saving: boolean
+}) {
+  const fields: Array<{ key: keyof Omit<Api2Form, 'id'>; label: string; placeholder: string }> = [
+    { key: 'project_goal_students', label: 'Objetivo del proyecto para estudiantes', placeholder: 'Describe el objetivo del proyecto' },
+    { key: 'deliverables_at_end', label: 'Entregables', placeholder: 'Lista los entregables finales' },
+    { key: 'company_expected_participation', label: 'Participacion esperada de la empresa', placeholder: 'Describe la participacion de la empresa' },
+    { key: 'other_activities', label: 'Otras actividades', placeholder: 'Indica actividades complementarias' },
+  ]
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-6">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-zinc-900">API Tipo 2</h2>
+        <p className="text-sm text-zinc-500">Completa los campos descriptivos para la API tipo 2.</p>
+      </div>
+      {loading ? (
+        <div className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">Cargando API 2...</div>
+      ) : null}
+      {error ? (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
+      <div className="space-y-3">
+        {fields.map((field) => (
+          <div key={field.key}>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">{field.label}</label>
+            <textarea
+              value={form[field.key]}
+              onChange={(e) => onChange(field.key, e.target.value)}
+              className="h-28 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-800 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+              placeholder={field.placeholder}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={() => {
+            void onSave()
+          }}
+          disabled={saving || loading}
+          className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+        >
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ApiType3Panel({
+  form,
+  loading,
+  error,
+  onChange,
+  onSave,
+  saving,
+}: {
+  form: Api3Form
+  loading: boolean
+  error: string | null
+  onChange: (field: keyof Omit<Api3Form, 'id'>, value: string) => void
+  onSave: () => void | Promise<void>
+  saving: boolean
+}) {
+  const fields: Array<{ key: keyof Omit<Api3Form, 'id'>; label: string; placeholder: string }> = [
+    { key: 'project_goal_students', label: 'Objetivo del proyecto para estudiantes', placeholder: 'Describe el objetivo del proyecto' },
+    { key: 'deliverables_at_end', label: 'Entregables', placeholder: 'Lista los entregables finales' },
+    { key: 'expected_student_role', label: 'Rol esperado del estudiante', placeholder: 'Describe el rol del estudiante' },
+    { key: 'other_activities', label: 'Otras actividades', placeholder: 'Indica actividades complementarias' },
+    { key: 'master_guide_expected_support', label: 'Apoyo esperado de guia maestro', placeholder: 'Describe el apoyo requerido' },
+  ]
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-6">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-zinc-900">API Tipo 3</h2>
+        <p className="text-sm text-zinc-500">Completa los campos descriptivos para la API tipo 3.</p>
+      </div>
+      {loading ? (
+        <div className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">Cargando API 3...</div>
+      ) : null}
+      {error ? (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
+      <div className="space-y-3">
+        {fields.map((field) => (
+          <div key={field.key}>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">{field.label}</label>
+            <textarea
+              value={form[field.key]}
+              onChange={(e) => onChange(field.key, e.target.value)}
+              className="h-28 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-800 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+              placeholder={field.placeholder}
+            />
+          </div>
+        ))}
       </div>
       <div className="mt-4 flex justify-end">
         <button
@@ -1094,4 +1463,3 @@ function phaseLabel(v: string) {
   }
   return map[v] || v
 }
-

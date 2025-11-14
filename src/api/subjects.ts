@@ -248,6 +248,61 @@ export async function updateCompanyRequirement(id: number, payload: Partial<Omit
   return data
 }
 
+export type ApiType2Completion = {
+  id: number
+  subject: number
+  project_goal_students: string
+  deliverables_at_end: string
+  company_expected_participation: string
+  other_activities: string
+}
+
+export async function getApiType2CompletionBySubject(subjectId: number) {
+  const { data } = await http.get<ApiType2Completion[]>(`/api2-completions/`, { params: { subject: subjectId } })
+  return data?.[0] ?? null
+}
+
+export async function createApiType2Completion(payload: Omit<ApiType2Completion, 'id'>) {
+  const { data } = await http.post<ApiType2Completion>(`/api2-completions/`, payload)
+  return data
+}
+
+export async function updateApiType2Completion(
+  id: number,
+  payload: Partial<Omit<ApiType2Completion, 'id' | 'subject'>>
+) {
+  const { data } = await http.patch<ApiType2Completion>(`/api2-completions/${id}/`, payload)
+  return data
+}
+
+export type ApiType3Completion = {
+  id: number
+  subject: number
+  project_goal_students: string
+  deliverables_at_end: string
+  expected_student_role: string
+  other_activities: string
+  master_guide_expected_support: string
+}
+
+export async function getApiType3CompletionBySubject(subjectId: number) {
+  const { data } = await http.get<ApiType3Completion[]>(`/api3-completions/`, { params: { subject: subjectId } })
+  return data?.[0] ?? null
+}
+
+export async function createApiType3Completion(payload: Omit<ApiType3Completion, 'id'>) {
+  const { data } = await http.post<ApiType3Completion>(`/api3-completions/`, payload)
+  return data
+}
+
+export async function updateApiType3Completion(
+  id: number,
+  payload: Partial<Omit<ApiType3Completion, 'id' | 'subject'>>
+) {
+  const { data } = await http.patch<ApiType3Completion>(`/api3-completions/${id}/`, payload)
+  return data
+}
+
 export async function getSubject(id: number) {
   const { data } = await http.get<Subject>(`/subjects/${id}/`)
   return data
