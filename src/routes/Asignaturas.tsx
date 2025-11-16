@@ -850,7 +850,7 @@ function UploadDescriptorDialog({ subject, onClose, onUploaded }: { subject: Sub
     }
     try {
       setLoading(true)
-      const d = await uploadDescriptor(subject.id, file)
+      const d = await uploadDescriptor(file, subject.id)
       toast.success('Descriptor subido')
       // Disparar procesamiento asíncrono
       try {

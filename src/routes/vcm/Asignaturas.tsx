@@ -3,8 +3,6 @@ import { listSubjects, type Subject, listSubjectCodeSections, listCompanyRequire
 import { listCompanies, type Company } from '../../api/companies'
 import { useNavigate } from 'react-router'
 
-type Prospect = { id: string; company_name: string }
-
 export default function AsignaturasVCM() {
   const navigate = useNavigate()
   const [items, setItems] = useState<Subject[]>([])
@@ -75,15 +73,16 @@ export default function AsignaturasVCM() {
               <Th>Código</Th>
               <Th>Nombre</Th>
               <Th>Carrera</Th>
+              <Th>API</Th>
               <Th>Posibles contrapartes</Th>
               <Th className="text-right">Acción</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Cargando…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Sin resultados</td></tr>
             ) : (
               filtered.map((s) => (
                 <tr key={s.id} className="hover:bg-zinc-50">
@@ -97,6 +96,15 @@ export default function AsignaturasVCM() {
                   </Td>
                   <Td>{s.name}</Td>
                   <Td>{s.career_name || '-'}</Td>
+                  <Td>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      s.api_type === 3 ? 'bg-purple-100 text-purple-700' :
+                      s.api_type === 2 ? 'bg-blue-100 text-blue-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>
+                      API {s.api_type || 1}
+                    </span>
+                  </Td>
                   <Td>{renderCounterparts(s)}</Td>
                   <Td className="text-right">
                     <button

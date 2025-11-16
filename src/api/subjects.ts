@@ -187,28 +187,28 @@ export type CompanyRequirement = {
   has_guide: boolean
   can_receive_alternance: boolean
   alternance_students_quota: number | null
-  subject: number
+  subject: number | null
   company: number
 }
 
 export async function listCompanyRequirements() {
-  const { data } = await http.get<CompanyRequirement[]>(`/company-requirements/`)
+  const { data } = await http.get<CompanyRequirement[]>(`/possible-counterparts/`)
   return data
 }
 
 export async function createCompanyRequirement(payload: Omit<CompanyRequirement, 'id'>) {
-  const { data } = await http.post<CompanyRequirement>(`/company-requirements/`, payload)
+  const { data } = await http.post<CompanyRequirement>(`/possible-counterparts/`, payload)
   return data
 }
 
 
 export async function updateCompanyRequirement(id: number, payload: Partial<CompanyRequirement>) {
-  const { data } = await http.patch<CompanyRequirement>(`/company-requirements/${id}/`, payload)
+  const { data } = await http.patch<CompanyRequirement>(`/possible-counterparts/${id}/`, payload)
   return data
 }
 
 export async function deleteCompanyRequirement(id: number) {
-  await http.delete(`/company-requirements/${id}/`)
+  await http.delete(`/possible-counterparts/${id}/`)
 }
 
 export async function getSubject(id: number) {

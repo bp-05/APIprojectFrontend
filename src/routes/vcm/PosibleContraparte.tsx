@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'react-hot-toast'
-import { listCompanies, type Company } from '../../api/companies'
+import { listCompanies, listProblemStatements, type Company, type ProblemStatement } from '../../api/companies'
 import { listSubjectCodeSections, type BasicSubject, createCompanyRequirement, listCompanyRequirements, type CompanyRequirement, updateCompanyRequirement } from '../../api/subjects'
 import http from '../../lib/http'
 
@@ -13,6 +13,11 @@ type Prospect = {
   sector: string
   interest_collaborate: boolean
   responsible_name?: string
+  responsible_email?: string
+  responsible_phone?: string
+  responsible_rut?: string
+  responsible_area?: string
+  responsible_role?: string
   worked_before?: boolean
   can_develop_activities?: boolean
   willing_design_project?: boolean
@@ -42,6 +47,11 @@ function loadProspects(): Prospect[] {
       sector: String(p.sector ?? ''),
       interest_collaborate: !!p.interest_collaborate,
       responsible_name: typeof p.responsible_name === 'string' ? p.responsible_name : undefined,
+      responsible_email: typeof p.responsible_email === 'string' ? p.responsible_email : undefined,
+      responsible_phone: typeof p.responsible_phone === 'string' ? p.responsible_phone : undefined,
+      responsible_rut: typeof p.responsible_rut === 'string' ? p.responsible_rut : undefined,
+      responsible_area: typeof p.responsible_area === 'string' ? p.responsible_area : undefined,
+      responsible_role: typeof p.responsible_role === 'string' ? p.responsible_role : undefined,
       worked_before: !!p.worked_before,
       can_develop_activities: !!p.can_develop_activities,
       willing_design_project: !!p.willing_design_project,
@@ -54,6 +64,7 @@ function loadProspects(): Prospect[] {
       has_guide: !!p.has_guide,
       can_receive_alternance: !!p.can_receive_alternance,
       alternance_students_quota: typeof p.alternance_students_quota === 'number' || p.alternance_students_quota === null ? p.alternance_students_quota : null,
+      subject_hint: typeof p.subject_hint === 'number' ? p.subject_hint : undefined,
       source: 'local',
     }))
   } catch {
@@ -120,14 +131,14 @@ export default function PosibleContraparte() {
   const [assignName, setAssignName] = useState('')
 
   const [companies, setCompanies] = useState<Company[]>([])
+  const [companyContacts, setCompanyContacts] = useState<Map<number, ContactInfo>>(new Map())
   const [subjects, setSubjects] = useState<BasicSubject[]>([])
   const [subjectProspectsMap, setSubjectProspectsMap] = useState<SubjectProspects>(() => loadSubjectProspects())
 
-  // Form ediciÃ³n/creaciÃ³n
+  // Form edición/creación
   const [editing, setEditing] = useState<Prospect | null>(null)
   const [editName, setEditName] = useState('')
   const [editSector, setEditSector] = useState('')
-  const [editSubjectId, setEditSubjectId] = useState<number>(0)
   const [editAssignedSubjects, setEditAssignedSubjects] = useState<number[]>([])
   const [editInterest, setEditInterest] = useState(false)
   const [editWorkedBefore, setEditWorkedBefore] = useState(false)
@@ -143,41 +154,53 @@ export default function PosibleContraparte() {
     setError(null)
     ;(async () => {
       try {
-        const [comps, subs] = await Promise.all([
+        const [comps, subs, problems] = await Promise.all([
           listCompanies(),
           listSubjectCodeSections().catch(() => []),
+          listProblemStatements().catch(() => []),
         ])
         setCompanies(comps)
         setSubjects(subs as BasicSubject[])
+        const contactMap = buildContactsFromProblems(problems)
+        setCompanyContacts(contactMap)
 
         // Cargar DB + Local y unir (evitando duplicados por nombre)
         let dbReqs: CompanyRequirement[] = []
         try { dbReqs = await listCompanyRequirements() } catch {}
         const byId = new Map(comps.map((c) => [c.id, c]))
-        const dbRows: Prospect[] = (dbReqs || []).map((r) => ({
-          id: `db:${r.id}`,
-          company_name: byId.get(r.company)?.name || `Empresa #${r.company}`,
-          sector: r.sector || '',
-          interest_collaborate: !!r.interest_collaborate,
-          responsible_name: byId.get(r.company)?.spys_responsible_name || '',
-          worked_before: !!r.worked_before,
-          can_develop_activities: !!r.can_develop_activities,
-          willing_design_project: !!r.willing_design_project,
-          interaction_types: Array.isArray((r as any).interaction_type)
-            ? ((r as any).interaction_type as string[])
-            : (typeof (r as any).interaction_type === 'string' && (r as any).interaction_type
-                ? [String((r as any).interaction_type)]
-                : []),
-          interaction_type: Array.isArray((r as any).interaction_type)
-            ? String(((r as any).interaction_type as string[])[0] || '')
-            : String((r as any).interaction_type || ''),
-          has_guide: !!r.has_guide,
-          can_receive_alternance: !!r.can_receive_alternance,
-          alternance_students_quota: typeof r.alternance_students_quota === 'number' ? r.alternance_students_quota : 0,
-          subject_hint: r.subject,
-          source: 'db',
-          requirement_id: r.id,
-        }))
+        const dbRows: Prospect[] = (dbReqs || []).map((r) => {
+          const company = byId.get(r.company)
+          const contact = getPrimaryContact(company, contactMap.get(r.company) || null)
+          return {
+            id: `db:${r.id}`,
+            company_name: company?.name || `Empresa #${r.company}`,
+            sector: r.sector || '',
+            interest_collaborate: !!r.interest_collaborate,
+            responsible_name: contact?.name?.trim() || '',
+            responsible_email: contact?.email?.trim(),
+            responsible_phone: contact?.phone?.trim(),
+            responsible_rut: contact?.rut?.trim(),
+            responsible_area: contact?.counterpart_area?.trim(),
+            responsible_role: contact?.role?.trim(),
+            worked_before: !!r.worked_before,
+            can_develop_activities: !!r.can_develop_activities,
+            willing_design_project: !!r.willing_design_project,
+            interaction_types: Array.isArray((r as any).interaction_type)
+              ? ((r as any).interaction_type as string[])
+              : (typeof (r as any).interaction_type === 'string' && (r as any).interaction_type
+                  ? [String((r as any).interaction_type)]
+                  : []),
+            interaction_type: Array.isArray((r as any).interaction_type)
+              ? String(((r as any).interaction_type as string[])[0] || '')
+              : String((r as any).interaction_type || ''),
+            has_guide: !!r.has_guide,
+            can_receive_alternance: !!r.can_receive_alternance,
+            alternance_students_quota: typeof r.alternance_students_quota === 'number' ? r.alternance_students_quota : 0,
+            subject_hint: typeof r.subject === 'number' ? r.subject : undefined,
+            source: 'db',
+            requirement_id: r.id,
+          }
+        })
 
         const locals = loadProspects()
         const localFiltered = locals.filter((p) => !dbRows.some((d) => (d.company_name || '').trim().toLowerCase() === (p.company_name || '').trim().toLowerCase()))
@@ -211,14 +234,85 @@ export default function PosibleContraparte() {
     })
   }
 
+  function findCompanyByName(name: string) {
+    const normalized = name.trim().toLowerCase()
+    return companies.find((c) => c.name.trim().toLowerCase() === normalized)
+  }
+
+type ContactInfo = {
+  name?: string
+  email?: string
+  phone?: string
+  rut?: string
+  counterpart_area?: string
+  role?: string
+}
+
+function cleanContactInfo(info?: ContactInfo | null): ContactInfo | null {
+  if (!info) return null
+  const normalized: ContactInfo = {
+    name: info.name?.trim() || '',
+    email: info.email?.trim() || '',
+    phone: info.phone?.trim() || '',
+    rut: info.rut?.trim() || '',
+    counterpart_area: info.counterpart_area?.trim() || '',
+    role: info.role?.trim() || '',
+  }
+  if (
+    !normalized.name &&
+    !normalized.email &&
+    !normalized.phone &&
+    !normalized.counterpart_area &&
+    !normalized.role
+  ) {
+    return null
+  }
+  return normalized
+}
+
+function buildContactsFromProblems(problems: ProblemStatement[]): Map<number, ContactInfo> {
+  const map = new Map<number, ContactInfo>()
+  problems.forEach((p) => {
+    const raw = p.counterpart_contacts?.[0]
+    const normalized = cleanContactInfo({
+      name: raw?.name,
+      email: raw?.email,
+      phone: raw?.phone,
+      rut: raw?.rut,
+      counterpart_area: raw?.counterpart_area,
+      role: raw?.role,
+    })
+    if (normalized) {
+      map.set(p.company, normalized)
+    }
+  })
+  return map
+}
+
+function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): ContactInfo | null {
+  const contact = company?.counterpart_contacts?.find(
+    (c) => c.name?.trim() || c.email?.trim() || c.phone?.trim(),
+  )
+  if (contact) {
+    return cleanContactInfo({
+      name: contact.name,
+      email: contact.email,
+      phone: contact.phone,
+      rut: contact.rut,
+      counterpart_area: contact.counterpart_area,
+      role: contact.role,
+    })
+  }
+  return cleanContactInfo(fallback || null)
+}
+
   function openAssign(p: Prospect) {
     if (p.source === 'db') return // solo lectura para filas de BD
     setAssigningId(p.id)
-    const candidate = companies.find((c) => c.name.trim().toLowerCase() === p.company_name.trim().toLowerCase())
-    // Si existe Responsable SPyS en Empresas, lo mostramos
-    // @ts-ignore: campo opcional en el tipo Company
-    const spysName: string = (candidate as any)?.spys_responsible_name?.trim() || ''
-    setAssignName(spysName)
+    const candidate = findCompanyByName(p.company_name)
+    const fallback = candidate ? companyContacts.get(candidate.id) || null : null
+    const contact = getPrimaryContact(candidate, fallback)
+    setAssignName(contact?.name?.trim() || '')
   }
 
   function saveAssign() {
@@ -242,7 +336,6 @@ export default function PosibleContraparte() {
     setEditName(p.company_name || '')
     setEditSector(p.sector || '')
     setEditInterest(!!p.interest_collaborate)
-    setEditSubjectId(0)
     const assigned = subjectsForProspect(p.id, subjectProspectsMap)
     if (assigned.length) {
       setEditAssignedSubjects(assigned)
@@ -274,7 +367,6 @@ export default function PosibleContraparte() {
     setEditName('')
     setEditSector('')
     setEditInterest(false)
-    setEditSubjectId(0)
     setEditAssignedSubjects([])
     setEditWorkedBefore(false)
     setEditCanDevelopActivities(false)
@@ -308,43 +400,67 @@ export default function PosibleContraparte() {
   async function saveEdit() {
     const name = editName.trim()
     const sector = editSector.trim()
-    if (!name) { alert('Ingresa el nombre de la Empresa'); return }
+    
+    // Validaciones
+    if (!name) { 
+      toast.error('Ingresa el nombre de la Empresa')
+      return 
+    }
+    if (!sector) { 
+      toast.error('Ingresa el Sector')
+      return 
+    }
+    
+    // Si es para guardar en BD, requiere asignatura
+    if (!editing || editing.source !== 'db') {
+      if (editAssignedSubjects.length === 0) {
+        toast.error('Selecciona una Asignatura para guardar en la base de datos')
+        return
+      }
+    }
 
     const arr = items.slice()
     const idx = editing ? arr.findIndex((x) => x.id === editing.id) : -1
 
-    const candidate = companies.find((c) => c.name.trim().toLowerCase() === name.toLowerCase())
-    // @ts-ignore opcional
-    const resp = (candidate as any)?.spys_responsible_name?.trim() || ''
+    const candidate = findCompanyByName(name)
+    const fallback = candidate ? companyContacts.get(candidate.id) || null : null
+    const contactInfo = getPrimaryContact(candidate, fallback)
 
     const record: Prospect = {
       id: editing?.id || crypto.randomUUID(),
       company_name: name,
       sector,
-      responsible_name: resp || editing?.responsible_name,
-      interest_collaborate: !!editInterest,
-      worked_before: !!editWorkedBefore,
-      can_develop_activities: !!editCanDevelopActivities,
-      willing_design_project: !!editWillingDesignProject,
-      interaction_types: editInteractionTypes.slice(),
-      interaction_type: editInteractionTypes[0] || '',
-      has_guide: !!editHasGuide,
-      can_receive_alternance: !!editCanReceiveAlternance,
-      alternance_students_quota: editCanReceiveAlternance && editQuotaStr !== '' ? Math.max(0, parseInt(editQuotaStr || '0', 10) || 0) : null,
-      source: editing?.source || 'local',
-      requirement_id: editing?.requirement_id,
-    }
+      responsible_name: contactInfo?.name?.trim() || editing?.responsible_name,
+      responsible_email: contactInfo?.email?.trim() || editing?.responsible_email,
+      responsible_phone: contactInfo?.phone?.trim() || editing?.responsible_phone,
+      responsible_rut: contactInfo?.rut?.trim() || editing?.responsible_rut,
+      responsible_area: contactInfo?.counterpart_area?.trim() || editing?.responsible_area,
+      responsible_role: contactInfo?.role?.trim() || editing?.responsible_role,
+        interest_collaborate: !!editInterest,
+        worked_before: !!editWorkedBefore,
+        can_develop_activities: !!editCanDevelopActivities,
+        willing_design_project: !!editWillingDesignProject,
+        interaction_types: editInteractionTypes.slice(),
+        interaction_type: editInteractionTypes[0] || '',
+        has_guide: !!editHasGuide,
+        can_receive_alternance: !!editCanReceiveAlternance,
+        alternance_students_quota: editCanReceiveAlternance && editQuotaStr !== '' ? Math.max(0, parseInt(editQuotaStr || '0', 10) || 0) : null,
+        subject_hint: undefined,
+        source: editing?.source || 'local',
+        requirement_id: editing?.requirement_id,
+      }
 
     // Si es fila de BD: actualizar en servidor
     if (editing?.source === 'db' && editing?.requirement_id) {
       try {
         const payload = {
+          subject: editAssignedSubjects.length > 0 ? editAssignedSubjects[0] : null,
           sector: record.sector,
           worked_before: !!record.worked_before,
           interest_collaborate: !!record.interest_collaborate,
           can_develop_activities: !!record.can_develop_activities,
           willing_design_project: !!record.willing_design_project,
-          interaction_type: record.interaction_type || "",
+          interaction_type: record.interaction_types && record.interaction_types.length ? record.interaction_types : [],
           has_guide: !!record.has_guide,
           can_receive_alternance: !!record.can_receive_alternance,
           alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
@@ -396,32 +512,37 @@ export default function PosibleContraparte() {
       updateSubjectAssignments(record.id, editAssignedSubjects)
 
       try {
-      if (editSubjectId) {
         const company = companies.find((c) => c.name.trim().toLowerCase() === record.company_name.trim().toLowerCase())
         if (company) {
           const sec = (record.sector && record.sector.trim()) || String((company as any).sector || '')
           if (!sec) { toast.error('Sector requerido. Completa el campo "Sector".'); return }
           const payload = {
-            subject: editSubjectId,
+            subject: editAssignedSubjects.length > 0 ? editAssignedSubjects[0] : null,
             company: company.id,
             sector: sec,
             worked_before: !!record.worked_before,
             interest_collaborate: !!record.interest_collaborate,
             can_develop_activities: !!record.can_develop_activities,
             willing_design_project: !!record.willing_design_project,
-            interaction_type: record.interaction_type || "",
+            interaction_type: record.interaction_types && record.interaction_types.length ? record.interaction_types : [],
             has_guide: !!record.has_guide,
             can_receive_alternance: !!record.can_receive_alternance,
             alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
           }
           const created = await createCompanyRequirement(payload as any)
-          // Reemplazar local por la fila de BD
-            const dbRow: Prospect = {
-              id: `db:${created.id}`,
+          const fallback = company ? companyContacts.get(company.id) || null : null
+          const contact = getPrimaryContact(company, fallback)
+          const dbRow: Prospect = {
+            id: `db:${created.id}`,
             company_name: company.name,
             sector: created.sector || '',
             interest_collaborate: !!created.interest_collaborate,
-            responsible_name: (company as any).spys_responsible_name || '',
+            responsible_name: contact?.name?.trim() || '',
+            responsible_email: contact?.email?.trim(),
+            responsible_phone: contact?.phone?.trim(),
+            responsible_rut: contact?.rut?.trim(),
+            responsible_area: contact?.counterpart_area?.trim(),
+            responsible_role: contact?.role?.trim(),
             worked_before: !!created.worked_before,
             can_develop_activities: !!created.can_develop_activities,
             willing_design_project: !!created.willing_design_project,
@@ -433,21 +554,20 @@ export default function PosibleContraparte() {
             interaction_type: Array.isArray((created as any).interaction_type)
               ? String(((created as any).interaction_type as string[])[0] || '')
               : String((created as any).interaction_type || ''),
-              has_guide: !!created.has_guide,
-              can_receive_alternance: !!created.can_receive_alternance,
-              alternance_students_quota: typeof created.alternance_students_quota === 'number' ? created.alternance_students_quota : 0,
-              subject_hint: created.subject,
-              source: 'db',
-              requirement_id: created.id,
-            }
-            setItems((prev) => [dbRow, ...prev.filter((p) => p.id !== record.id && (p.company_name || '').trim().toLowerCase() !== record.company_name.trim().toLowerCase())])
-            updateSubjectAssignments(record.id, [])
-            updateSubjectAssignments(dbRow.id, editAssignedSubjects)
-            toast.success('Guardado en base de datos')
+            has_guide: !!created.has_guide,
+            can_receive_alternance: !!created.can_receive_alternance,
+            alternance_students_quota: typeof created.alternance_students_quota === 'number' ? created.alternance_students_quota : 0,
+            subject_hint: created.subject ?? undefined,
+            source: 'db',
+            requirement_id: created.id,
+          }
+          setItems((prev) => [dbRow, ...prev.filter((p) => p.id !== record.id && (p.company_name || '').trim().toLowerCase() !== record.company_name.trim().toLowerCase())])
+          updateSubjectAssignments(record.id, [])
+          updateSubjectAssignments(dbRow.id, editAssignedSubjects)
+          toast.success('Guardado en base de datos')
         } else {
           toast.error('Empresa no encontrada en BD. Crea la empresa primero en "Empresas".')
         }
-      }
       } catch (e: any) {
         const msg = e?.response?.data ? JSON.stringify(e.response.data) : (e instanceof Error ? e.message : 'No se pudo guardar en BD')
         toast.error(msg)
@@ -457,9 +577,9 @@ export default function PosibleContraparte() {
   }
 
   async function onDelete(p: Prospect) {
-    if (!confirm(`Â¿Eliminar "${p.company_name}"?`)) return
+    if (!confirm(`¿Eliminar "${p.company_name}"?`)) return
     if (p.source === 'db') {
-      const sure = confirm('Se eliminarÃ¡ el requerimiento en la base de datos. Esta acciÃ³n no se puede deshacer. Â¿Deseas continuar?')
+      const sure = confirm('Se eliminará el requerimiento en la base de datos. Esta acción no se puede deshacer. ¿Deseas continuar?')
       if (!sure) return
     }
     try {
@@ -493,36 +613,43 @@ export default function PosibleContraparte() {
             <tr>
               <Th className="uppercase tracking-wide">Empresa</Th>
               <Th className="uppercase tracking-wide">Sector</Th>
-              <Th className="uppercase tracking-wide">InterÃ©s</Th>
+              <Th className="uppercase tracking-wide">Interés</Th>
               <Th className="uppercase tracking-wide">Responsable</Th>
               <Th className="text-right uppercase tracking-wide">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargandoâ€¦</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
             ) : rows.length === 0 ? (
               <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin registros</td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.id} className="hover:bg-zinc-50">
-                  <Td>{r.company_name || 'â€”'}
+                  <Td>{r.company_name || '—'}
                     {r.source === 'db' ? (
                       <>
-                        <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">en base</span>
                         {recentlyUpdated.has(r.id) ? (
                           <span className="ml-2 rounded border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] text-green-700">modificado</span>
                         ) : null}
                       </>
                     ) : null}
                   </Td>
-                  <Td>{r.sector || 'â€”'}</Td>
+                  <Td>{r.sector || '—'}</Td>
                   <Td><YesNoPill value={!!r.interest_collaborate} /></Td>
                   <Td>
                     {r.responsible_name && r.responsible_name.trim() ? (
-                      r.responsible_name
+                      <div className="space-y-0.5">
+                        <div className="font-medium text-zinc-900">{r.responsible_name}</div>
+                        <div className="text-xs text-zinc-600">
+                          {formatResponsibleLine(r.responsible_role, r.responsible_area) || '—'}
+                        </div>
+                        <div className="text-xs text-zinc-600">
+                          {formatResponsibleLine(r.responsible_email, r.responsible_phone) || 'Sin datos de contacto'}
+                        </div>
+                      </div>
                     ) : (
-                      r.source === 'db' ? 'â€”' : (
+                      r.source === 'db' ? '—' : (
                         <button onClick={() => openAssign(r)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Asignar</button>
                       )
                     )}
@@ -554,7 +681,7 @@ export default function PosibleContraparte() {
               <label className="block text-sm">
                 <span className="mb-1 block font-medium text-zinc-800">Nombre (desde Responsable SPyS en Empresas)</span>
                 <input value={assignName} disabled className="block w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-700" placeholder="No encontrado en Empresas" />
-                {!assignName && (<span className="mt-1 block text-xs text-zinc-600">No se encontrÃ³ Responsable SPyS para esta empresa. Revise el nombre en Empresas.</span>)}
+                {!assignName && (<span className="mt-1 block text-xs text-zinc-600">No se encontró Responsable SPyS para esta empresa. Revise el nombre en Empresas.</span>)}
               </label>
               <div className="mt-4 flex items-center justify-end gap-2">
                 <button onClick={() => { setAssigningId(null); setAssignName('') }} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
@@ -577,16 +704,21 @@ export default function PosibleContraparte() {
             </div>
             <div className="px-6 py-4">
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Item label="Empresa">{viewing.company_name || 'â€”'}</Item>
-                <Item label="Sector">{viewing.sector || 'â€”'}</Item>
-                <Item label="InterÃ©s de colaborar"><YesNoPill value={!!viewing.interest_collaborate} /></Item>
-                <Item label="TrabajÃ³ anteriormente"><YesNoPill value={!!viewing.worked_before} /></Item>
-                <Item label="Puede desarrollar actividades"><YesNoPill value={!!viewing.can_develop_activities} /></Item>
-                <Item label="Tiene proyecto para diseÃ±o"><YesNoPill value={!!viewing.willing_design_project} /></Item>
-                <Item label="Tipo de interacciÃ³n">{labelInteractionTypes(viewing.interaction_types) || 'â€”'}</Item>
-                <Item label="Cuenta con Maestro GuÃ­a"><YesNoPill value={!!viewing.has_guide} /></Item>
+                <Item label="Empresa">{viewing.company_name || '—'}</Item>
+                <Item label="Sector">{viewing.sector || '—'}</Item>
+                <Item label="Interés de colaborar"><YesNoPill value={!!viewing.interest_collaborate} /></Item>
+                <Item label="Trabajó anteriormente"><YesNoPill value={!!viewing.worked_before} /></Item>
+                <Item label="Desarrollar actividades"><YesNoPill value={!!viewing.can_develop_activities} /></Item>
+                <Item label="Tiene proyecto para diseño"><YesNoPill value={!!viewing.willing_design_project} /></Item>
+                <Item label="Tipo de interacción">{labelInteractionTypes(viewing.interaction_types) || '—'}</Item>
+                <Item label="Cuenta con Maestro Guía"><YesNoPill value={!!viewing.has_guide} /></Item>
                 <Item label="Puede recibir alternancia"><YesNoPill value={!!viewing.can_receive_alternance} /></Item>
-                <Item label="Cupos alternancia (nivel 3)">{viewing.can_receive_alternance ? (viewing.alternance_students_quota ?? 'â€”') : 'â€”'}</Item>
+                <Item label="Cupos alternancia (nivel 3)">{viewing.can_receive_alternance ? (viewing.alternance_students_quota ?? '—') : '—'}</Item>
+                <Item label="Responsable">{viewing.responsible_name || '—'}</Item>
+                <Item label="Correo responsable">{viewing.responsible_email || '—'}</Item>
+                <Item label="Teléfono responsable">{viewing.responsible_phone || '—'}</Item>
+                <Item label="Área / cargo">{formatResponsibleLine(viewing.responsible_area, viewing.responsible_role) || '—'}</Item>
+                <Item label="RUT responsable">{viewing.responsible_rut || '—'}</Item>
               </dl>
             </div>
             <div className="px-6 py-3 border-t flex justify-end">
@@ -615,17 +747,17 @@ export default function PosibleContraparte() {
               </label>
 
               <label className="mb-3 block text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">Â¿A quÃ© tipo de sector productivo o de servicios responde la contraparte?</span>
+                <span className="mb-1 block font-medium text-zinc-800">¿A qué tipo de sector productivo o de servicios responde la contraparte?</span>
                 <input value={editSector} onChange={(e) => setEditSector(e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
               </label>
 
-              <YesNoChoice label="Â¿La sede ha trabajado anteriormente con esta contraparte?" value={editWorkedBefore} onChange={setEditWorkedBefore} />
-              <YesNoChoice label="Â¿La contraparte tiene interÃ©s de participar con INACAP de manera colaborativa?" value={editInterest} onChange={setEditInterest} />
-              <YesNoChoice label="Â¿Puede el estudiante desarrollar actividades asociadas a los aprendizajes esperados?" value={editCanDevelopActivities} onChange={setEditCanDevelopActivities} />
-              <YesNoChoice label="Â¿La contraparte estarÃ­a dispuesta a diseÃ±ar con un docente de INACAP un PROYECTO atingente a los aprendizajes?" value={editWillingDesignProject} onChange={setEditWillingDesignProject} />
+              <YesNoChoice label="¿La sede ha trabajado anteriormente con esta contraparte?" value={editWorkedBefore} onChange={setEditWorkedBefore} />
+              <YesNoChoice label="¿La contraparte tiene interés de participar con INACAP de manera colaborativa?" value={editInterest} onChange={setEditInterest} />
+              <YesNoChoice label="¿Puede el estudiante desarrollar actividades asociadas a los aprendizajes esperados?" value={editCanDevelopActivities} onChange={setEditCanDevelopActivities} />
+              <YesNoChoice label="¿La contraparte estaría dispuesta a diseñar con un docente de INACAP un PROYECTO atingente a los aprendizajes?" value={editWillingDesignProject} onChange={setEditWillingDesignProject} />
 
               <div className="mb-3 text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">Â¿QuÃ© tipo de interacciÃ³n puede tener el estudiante con la contraparte?</span>
+                <span className="mb-1 block font-medium text-zinc-800">¿Qué tipo de interacción puede tener el estudiante con la contraparte?</span>
                 <div className="flex items-center gap-6">
                   {[
                     { key: 'virtual', label: 'Virtual' },
@@ -650,54 +782,38 @@ export default function PosibleContraparte() {
                 </div>
               </div>
 
-              <YesNoChoice label="Si la contraparte recibe estudiantes en alternancia (Tipo 3), Â¿cuenta con un Maestro GuÃ­a?" value={editHasGuide} onChange={setEditHasGuide} />
-              <YesNoChoice label="Â¿La contraparte puede recibir a estudiantes en alternancia (nivel 3) durante el semestre?" value={editCanReceiveAlternance} onChange={(v) => { setEditCanReceiveAlternance(v); if (!v) setEditQuotaStr('') }} />
+              <YesNoChoice label="Si la contraparte recibe estudiantes en alternancia (Tipo 3), ¿cuenta con un Maestro Guía?" value={editHasGuide} onChange={setEditHasGuide} />
+              <YesNoChoice label="¿La contraparte puede recibir a estudiantes en alternancia (nivel 3) durante el semestre?" value={editCanReceiveAlternance} onChange={(v) => { setEditCanReceiveAlternance(v); if (!v) setEditQuotaStr('') }} />
 
               <label className="mb-1 block text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">Â¿CuÃ¡l es el NÂ° de estudiantes que puede recibir en alternancia (nivel 3) por 12 horas o mÃ¡s durante el semestre?</span>
+                <span className="mb-1 block font-medium text-zinc-800">¿Cuál es el N° de estudiantes que puede recibir en alternancia (nivel 3) por 12 horas o más durante el semestre?</span>
                 <input value={editQuotaStr} onChange={(e) => setEditQuotaStr(e.target.value.replace(/[^0-9]/g, ''))} disabled={!editCanReceiveAlternance} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none disabled:cursor-not-allowed disabled:bg-zinc-50 focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
               </label>
 
-                            <label className="mb-3 block text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">Asignatura recomendada</span>
-                <select value={editSubjectId} onChange={(e) => setEditSubjectId(Number(e.target.value) || 0)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
-                  <option value={0}>Sin asignar</option>
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name ? `${s.name} (${s.code}-${s.section})` : `${s.code}-${s.section}`}
-                    </option>
-                  ))}
-                </select>
-                <span className="mt-1 block text-xs text-zinc-600">Esta asignatura se usará al guardar en la base de datos como "Posible contraparte".</span>
-              </label>
-
               <div className="mb-4 text-sm">
-                <span className="mb-2 block font-medium text-zinc-800">Asignaturas vinculadas</span>
+                <span className="mb-2 block font-medium text-zinc-800">Asignatura vinculada</span>
                 <div className="max-h-48 overflow-y-auto rounded border border-zinc-200 p-3">
                   {subjects.map((s) => {
                     const checked = editAssignedSubjects.includes(s.id)
                     return (
                       <label key={s.id} className="mb-1 flex items-center gap-2 text-sm">
                         <input
-                          type="checkbox"
+                          type="radio"
+                          name="subject"
                           checked={checked}
                           onChange={(e) => {
-                            const checked = e.target.checked
-                            setEditAssignedSubjects((prev) => {
-                              if (checked) {
-                                return prev.includes(s.id) ? prev : [...prev, s.id]
-                              }
-                              return prev.filter((id) => id !== s.id)
-                            })
+                            if (e.target.checked) {
+                              setEditAssignedSubjects([s.id])
+                            }
                           }}
-                          className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600"
+                          className="h-4 w-4 rounded-full border-zinc-300 text-red-600 focus:ring-red-600"
                         />
                         <span>{s.name ? `${s.name} (${s.code}-${s.section})` : `${s.code}-${s.section}`}</span>
                       </label>
                     )
                   })}
                 </div>
-                <span className="mt-1 block text-xs text-zinc-600">Selecciona todas las asignaturas que podrán usar esta contraparte y que habilitarán alternancia.</span>
+                <span className="mt-1 block text-xs text-zinc-600">Selecciona la asignatura que podrá usar esta contraparte.</span>
               </div>
 
               <div className="mt-4 flex items-center justify-end gap-2">
@@ -733,9 +849,16 @@ function YesNoPill({ value }: { value: boolean }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${value ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
       <span className={`h-2 w-2 rounded-full ${value ? 'bg-green-500' : 'bg-red-500'}`} />
-      {value ? 'SÃ­' : 'No'}
+      {value ? 'Sí' : 'No'}
     </span>
   )
+}
+
+function formatResponsibleLine(...values: Array<string | undefined>) {
+  const cleaned = values
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter((v) => v.length > 0)
+  return cleaned.join(' / ')
 }
 
 function labelInteractionTypes(v?: string[]) {
@@ -760,7 +883,7 @@ function YesNoChoice({ label, value, onChange }: { label: string; value: boolean
       <div className="flex items-center gap-4">
         <label className="inline-flex items-center gap-2">
           <input type="radio" name={name} checked={value === true} onChange={() => onChange(true)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />
-          <span>SÃ­</span>
+          <span>Sí</span>
         </label>
         <label className="inline-flex items-center gap-2">
           <input type="radio" name={name} checked={value === false} onChange={() => onChange(false)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />

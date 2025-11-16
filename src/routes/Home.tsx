@@ -1,4 +1,5 @@
-import { LoaderFunctionArgs, useLoaderData } from 'react-router'
+import { useLoaderData } from 'react-router'
+import type { LoaderFunctionArgs } from 'react-router'
 
 export async function loader(_args: LoaderFunctionArgs) {
   // Placeholder: no server call yet

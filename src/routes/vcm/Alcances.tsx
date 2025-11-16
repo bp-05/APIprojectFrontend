@@ -161,19 +161,6 @@ function Td({ children, className = '' }: { children: React.ReactNode; className
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
 
-function YesNoPill({ value }: { value: boolean }) {
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${
-      value
-        ? 'border-green-200 bg-green-50 text-green-700'
-        : 'border-red-200 bg-red-50 text-red-700'
-    }`}>
-      <span className={`h-2 w-2 rounded-full ${value ? 'bg-green-500' : 'bg-red-500'}`} />
-      {value ? 'Sí' : 'No'}
-    </span>
-  )
-}
-
 function AlcanceForm({
   initial,
   companies,
@@ -219,6 +206,17 @@ function AlcanceForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+    
+    // Validaciones
+    if (!company) {
+      toast.error('Selecciona una Empresa')
+      return
+    }
+    if (!form.subject_code || !form.subject_section) {
+      toast.error('Selecciona una Asignatura')
+      return
+    }
+    
     setSaving(true)
     try {
       if (!initial) {

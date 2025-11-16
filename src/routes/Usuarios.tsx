@@ -5,6 +5,7 @@ import { listRoles as fetchRoles } from '../api/roles'
 import { nameCase } from '../lib/strings'
 import { roleLabelMap } from './roleMap'
 import { useAuth } from '../store/auth'
+import type { UserRole } from '../store/auth'
 
 export default function Usuarios() {
   const [items, setItems] = useState<User[]>([])
@@ -103,7 +104,7 @@ export default function Usuarios() {
                 <tr key={u.id} className="hover:bg-zinc-50">
                   <Td>{u.email}</Td>
                   <Td>{nameCase(`${u.first_name ?? ''} ${u.last_name ?? ''}`)}</Td>
-                  <Td>{roleLabelMap[u.role as any] || u.role || '-'}</Td>
+                  <Td>{labelForRole(u.role)}</Td>
                   <Td>
                     {u.is_active === false ? (
                       <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">Inactivo</span>
@@ -280,7 +281,7 @@ function EditUserDialog({ user, onClose, onSaved }: { user: User; onClose: () =>
               </option>
               {roles.map((r) => (
                 <option key={r} value={r}>
-                  {roleLabelMap[r as any] || r}
+                  {labelForRole(r)}
                 </option>
               ))}
             </select>
@@ -319,6 +320,12 @@ function EditUserDialog({ user, onClose, onSaved }: { user: User; onClose: () =>
 
 function Td({ children, className = '' }: { children: any; className?: string }) {
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
+}
+
+function labelForRole(role: string | null | undefined): string {
+  if (!role) return '-'
+  const key = role as UserRole
+  return roleLabelMap[key] || role
 }
 
 function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
@@ -422,7 +429,7 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
               </option>
               {roles.map((r) => (
                 <option key={r} value={r}>
-                  {roleLabelMap[r as any] || r}
+                  {labelForRole(r)}
                 </option>
               ))}
             </select>

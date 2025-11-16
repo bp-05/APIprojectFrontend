@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-hot-toast'
 import {
   listCompanies,
+  listProblemStatements,
   createCompany,
   updateCompany,
   deleteCompany,
   type Company,
+  type CounterpartContact,
+  type ProblemStatement,
 } from '../../api/companies'
 
 export default function EmpresasVCM() {
@@ -15,14 +18,18 @@ export default function EmpresasVCM() {
   const [search, setSearch] = useState('')
 
   const [editing, setEditing] = useState<Company | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [contactHints, setContactHints] = useState<Map<number, CounterpartContact>>(new Map())
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      const data = await listCompanies()
+      const [data, problems] = await Promise.all([
+        listCompanies(),
+        listProblemStatements().catch(() => []),
+      ])
       setItems(data)
+      setContactHints(buildContactMap(problems))
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'No se pudieron cargar empresas'
       setError(msg)
@@ -47,15 +54,15 @@ export default function EmpresasVCM() {
       phone: '',
       address: '',
       management_address: '',
-      spys_responsible_name: '',
       employees_count: 0,
       sector: '',
       api_type: 1,
+      counterpart_contacts: [],
     } as Company)
   }
 
   function openEdit(c: Company) {
-    setEditing({ ...c })
+    setEditing({ ...c, counterpart_contacts: c.counterpart_contacts || [] })
   }
 
   async function onDelete(c: Company) {
@@ -97,6 +104,7 @@ export default function EmpresasVCM() {
               <Th>Correo</Th>
               <Th>Teléfono</Th>
               <Th>Sector</Th>
+              <Th>Responsable</Th>
               <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
@@ -112,6 +120,7 @@ export default function EmpresasVCM() {
                   <Td>{c.email || '—'}</Td>
                   <Td>{c.phone || '—'}</Td>
                   <Td>{c.sector || '—'}</Td>
+                  <Td>{renderContactSummary(contactHints.get(c.id))}</Td>
                   <Td className="text-right">
                     <div className="flex justify-end gap-2">
                       <button onClick={() => openEdit(c)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50 shadow-sm">Editar</button>
@@ -145,10 +154,10 @@ function EmpresaModal({ initial, onClose, onSaved }: { initial: Company | null; 
       phone: '',
       address: '',
       management_address: '',
-      spys_responsible_name: '',
       employees_count: 0,
       sector: '',
       api_type: 1,
+      counterpart_contacts: [],
     } as Company,
   )
   const [employeesStr, setEmployeesStr] = useState<string>(String(initial?.employees_count ?? 0))
@@ -160,6 +169,21 @@ function EmpresaModal({ initial, onClose, onSaved }: { initial: Company | null; 
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+    
+    // Validaciones
+    if (!form.name.trim()) {
+      toast.error('Ingresa el nombre de la Empresa')
+      return
+    }
+    if (!form.sector.trim()) {
+      toast.error('Ingresa el Sector')
+      return
+    }
+    if (!form.address.trim()) {
+      toast.error('Ingresa la Dirección')
+      return
+    }
+    
     setSaving(true)
     try {
       const payload: Omit<Company, 'id'> = {
@@ -168,10 +192,10 @@ function EmpresaModal({ initial, onClose, onSaved }: { initial: Company | null; 
         phone: form.phone,
         address: form.address,
         management_address: form.management_address,
-        spys_responsible_name: form.spys_responsible_name,
         employees_count: Number(employeesStr || 0),
         sector: form.sector,
         api_type: form.api_type,
+        counterpart_contacts: Array.isArray(form.counterpart_contacts) ? form.counterpart_contacts : [],
       }
       if (initial?.id) {
         await updateCompany(initial.id, payload)
@@ -211,7 +235,6 @@ function EmpresaModal({ initial, onClose, onSaved }: { initial: Company | null; 
           <Text label="Sector" value={form.sector} onChange={(v) => update('sector', v)} required />
           <Text label="Dirección" value={form.address} onChange={(v) => update('address', v)} required />
           <Text label="Dirección gerencia" value={form.management_address} onChange={(v) => update('management_address', v)} />
-          <Text label="Responsable SPyS" value={form.spys_responsible_name} onChange={(v) => update('spys_responsible_name', v)} />
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-zinc-800">Empleados</span>
             <input
@@ -223,16 +246,6 @@ function EmpresaModal({ initial, onClose, onSaved }: { initial: Company | null; 
               className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
             />
           </label>
-          <Select
-            label="Tipo API"
-            value={String(form.api_type)}
-            onChange={(v) => update('api_type', (parseInt(v, 10) as 1 | 2 | 3))}
-            options={[
-              { value: '1', label: 'Tipo 1' },
-              { value: '2', label: 'Tipo 2' },
-              { value: '3', label: 'Tipo 3' },
-            ]}
-          />
 
           <div className="col-span-full mt-2 flex items-center justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
@@ -252,6 +265,53 @@ function Th({ children, className = '' }: { children: React.ReactNode; className
 
 function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
+}
+
+function buildContactMap(problems: ProblemStatement[]): Map<number, CounterpartContact> {
+  const map = new Map<number, CounterpartContact>()
+  problems.forEach((p) => {
+    const normalized = normalizeContact(p.counterpart_contacts?.[0] || null)
+    if (normalized) {
+      map.set(p.company, normalized)
+    }
+  })
+  return map
+}
+
+function normalizeContact(contact?: CounterpartContact | null): CounterpartContact | null {
+  if (!contact) return null
+  const normalized: CounterpartContact = {
+    name: contact.name?.trim() || '',
+    rut: contact.rut?.trim() || '',
+    phone: contact.phone?.trim() || '',
+    email: contact.email?.trim() || '',
+    counterpart_area: contact.counterpart_area?.trim() || '',
+    role: contact.role?.trim() || '',
+  }
+  if (
+    !normalized.name &&
+    !normalized.email &&
+    !normalized.phone &&
+    !normalized.counterpart_area &&
+    !normalized.role
+  ) {
+    return null
+  }
+  return normalized
+}
+
+function renderContactSummary(contact?: CounterpartContact) {
+  const normalized = normalizeContact(contact)
+  if (!normalized) {
+    return <span className="text-xs text-zinc-500">Sin responsable</span>
+  }
+  return (
+    <div className="text-sm text-zinc-800">
+      <div className="font-medium">{normalized.name || 'Sin nombre'}</div>
+      <div className="text-xs text-zinc-600">{normalized.role || normalized.counterpart_area || 'Sin cargo'}</div>
+      <div className="text-xs text-zinc-600">{normalized.email || normalized.phone || 'Sin datos de contacto'}</div>
+    </div>
+  )
 }
 
 function Text({
@@ -312,4 +372,3 @@ function Select({
     </label>
   )
 }
-

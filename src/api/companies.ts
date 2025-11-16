@@ -1,29 +1,67 @@
 import http from '../lib/http'
 
+export type CounterpartContact = {
+  id?: number
+  name: string
+  rut: string
+  phone: string
+  email: string
+  counterpart_area: string
+  role: string
+}
+
 export type Company = {
   id: number
   name: string
   address: string
   management_address: string
-  spys_responsible_name: string
   email: string
   phone: string
   employees_count: number
   sector: string
+  api_type?: number
+  counterpart_contacts: CounterpartContact[]
 }
 
 export async function listCompanies(params?: { search?: string }) {
   const { data } = await http.get<Company[]>('/companies/', { params })
+  return data.map((c) => ({
+    ...c,
+    counterpart_contacts: Array.isArray((c as any).counterpart_contacts) ? (c as any).counterpart_contacts : [],
+  }))
+}
+
+type CompanyPayload = Omit<Company, 'id'>
+
+function normalizeContacts(contacts?: CounterpartContact[]) {
+  if (!Array.isArray(contacts) || contacts.length === 0) {
+    return []
+  }
+  return contacts.map(({ id, ...rest }) => ({
+    name: rest.name,
+    rut: rest.rut,
+    phone: rest.phone,
+    email: rest.email,
+    counterpart_area: rest.counterpart_area,
+    role: rest.role,
+  }))
+}
+
+export async function createCompany(payload: CompanyPayload) {
+  const body = {
+    ...payload,
+    counterpart_contacts: normalizeContacts(payload.counterpart_contacts),
+  }
+  const { data } = await http.post<Company>('/companies/', body)
   return data
 }
 
-export async function createCompany(payload: Omit<Company, 'id'>) {
-  const { data } = await http.post<Company>('/companies/', payload)
-  return data
-}
-
-export async function updateCompany(id: number, payload: Partial<Omit<Company, 'id'>>) {
-  const { data } = await http.patch<Company>(`/companies/${id}/`, payload)
+export async function updateCompany(id: number, payload: Partial<CompanyPayload>) {
+  const body = {
+    ...payload,
+    counterpart_contacts: normalizeContacts(payload.counterpart_contacts),
+  }
+  const { data } = await http.patch<Company>(`/companies/${id}/`, body)
   return data
 }
 
@@ -41,11 +79,17 @@ export type ProblemStatement = {
   problem_definition: string
   subject: number
   company: number
+  counterpart_contacts?: CounterpartContact[]
 }
 
 export async function listProblemStatements(params?: { subject?: number; company?: number }) {
   const { data } = await http.get<ProblemStatement[]>('/problem-statements/', { params })
-  return data
+  return data.map((p) => ({
+    ...p,
+    counterpart_contacts: Array.isArray((p as any).counterpart_contacts)
+      ? ((p as any).counterpart_contacts as CounterpartContact[])
+      : [],
+  }))
 }
 
 export async function getCompany(id: number) {

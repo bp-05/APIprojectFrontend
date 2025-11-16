@@ -92,7 +92,16 @@ export default function Profile() {
     <section className="mx-auto max-w-3xl p-6">
       <h1 className="mb-6 text-xl font-semibold">Perfil</h1>
 
-      {/* Toasts informan estado; evitamos cajas inline para no mover el layout */}
+      {message ? (
+        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+          {message}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <form onSubmit={onSaveProfile} className="space-y-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-black/5">
         <div className="grid gap-4 sm:grid-cols-2">

@@ -165,15 +165,3 @@ export default function DocentesCoord() {
   )
 }
 
-function Th({ children, className = '' }: { children: any; className?: string }) {
-  return (
-    <th className={`px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-600 ${className}`}>
-      {children}
-    </th>
-  )
-}
-
-function Td({ children, className = '' }: { children: any; className?: string }) {
-  return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
-}
-

@@ -29,7 +29,7 @@ export default function MisAsignaturas() {
     load()
   }, [])
 
-  const filtered = useMemo<Subject[]>(() => {
+  const filtered: Subject[] = useMemo(() => {
     if (!search) return items
     const q = search.toLowerCase()
     return items.filter((s) =>
@@ -117,24 +117,6 @@ export default function MisAsignaturas() {
                       </button>
                     </Td>
                   </tr>
-                  {managing && managing.id === s.id ? (
-                    <tr>
-                      <td className="bg-zinc-50 p-4" colSpan={7}>
-                        <ManageSubjectPanel
-                          subject={managing!}
-                          units={units}
-                          selectedUnit={selectedUnit}
-                          onSelectUnit={setSelectedUnit}
-                          onUnitsReload={async () => {
-                            const data = await listSubjectUnits(s.id)
-                            setUnits(data)
-                            if (data.length && !data.find((u) => u.id === selectedUnit?.id)) setSelectedUnit(data[0])
-                          }}
-                          onClose={() => { setManaging(null); setUnits(null); setSelectedUnit(null) }}
-                        />
-                      </td>
-                    </tr>
-                  ) : null}
                 </Fragment>
               ))
             )}

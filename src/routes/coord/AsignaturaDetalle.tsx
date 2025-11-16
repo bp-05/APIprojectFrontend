@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { getSubject, updateSubject, type Subject } from '../../api/subjects'
 import { listDocentes, type User as AppUser, getTeacher } from '../../api/users'
-import { listProblemStatements, getCompany, type ProblemStatement } from '../../api/companies'
+import { listProblemStatements, getCompany } from '../../api/companies'
 import { listCompanyRequirements, type CompanyRequirement } from '../../api/subjects'
 import { nameCase } from '../../lib/strings'
 
@@ -208,6 +208,9 @@ export default function AsignaturaCoordDetalle() {
 
           {editingTeacher && subject ? (
             <div className="rounded-lg border border-zinc-200 bg-white p-4">
+              {teacherError ? (
+                <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{teacherError}</div>
+              ) : null}
               <EditTeacherPanel
                 currentId={subject.teacher ?? null}
                 teachers={teachers}
