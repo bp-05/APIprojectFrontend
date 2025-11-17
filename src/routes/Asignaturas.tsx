@@ -1,11 +1,16 @@
-import { useEffect, useMemo, useState, useRef } from 'react'
-import { createSubject, deleteSubject, listSubjects, updateSubject, type Subject, listAreas, listSemesters, type Area, type SemesterLevel, uploadDescriptor, processDescriptor, type Descriptor, listDescriptorsBySubject, listCareers, type Career, getDescriptor } from '../api/subjects'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import { createSubject, deleteSubject, listSubjects, updateSubject, type Subject, listAreas, listSemesters, type Area, type SemesterLevel, uploadDescriptor, processDescriptor, type Descriptor, listDescriptorsBySubject, listCareers, type Career, getSubject } from '../api/subjects'
 import { listDocentes, type User as AppUser } from '../api/users'
 import { nameCase } from '../lib/strings'
 import { toast } from 'react-hot-toast'
 import { usePeriodStore } from '../store/period'
+import { useAuth } from '../store/auth'
+import { apiBaseUrl } from '../lib/env'
 
 export default function Asignaturas() {
+  const periodSeason = usePeriodStore((state) => state.season)
+  const periodYear = usePeriodStore((state) => state.year)
+  const accessToken = useAuth((state) => state.accessToken)
   const [items, setItems] = useState<Subject[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -13,8 +18,23 @@ export default function Asignaturas() {
   const [createMode, setCreateMode] = useState<'none' | 'choose' | 'manual' | 'auto'>('none')
   const [editing, setEditing] = useState<Subject | null>(null)
   const [viewing, setViewing] = useState<Subject | null>(null)
-  const [autoPolling, setAutoPolling] = useState(false)
-  const [autoUntil, setAutoUntil] = useState<number | null>(null)
+  const upsertSubject = useCallback((subject: Subject) => {
+    setItems((prev) => {
+      if (!prev || prev.length === 0) return [subject]
+      const index = prev.findIndex((entry) => entry.id === subject.id)
+      if (index === -1) {
+        const next = [...prev, subject]
+        next.sort(compareSubjectsByCodeSection)
+        return next
+      }
+      const next = prev.slice()
+      next[index] = subject
+      return next
+    })
+  }, [])
+  const removeSubject = useCallback((subjectId: number) => {
+    setItems((prev) => prev.filter((entry) => entry.id !== subjectId))
+  }, [])
 
   async function load() {
     setLoading(true)
@@ -35,18 +55,96 @@ export default function Asignaturas() {
   }, [])
 
   useEffect(() => {
-    if (!autoPolling || !autoUntil) return
-    const tick = setInterval(() => {
-      if (Date.now() > autoUntil) {
-        setAutoPolling(false)
-        setAutoUntil(null)
-        clearInterval(tick)
-        return
+    if (typeof window === 'undefined' || typeof window.EventSource === 'undefined') return
+    if (!accessToken) return
+    const expectedSeason = (periodSeason || '').toUpperCase()
+    let cancelled = false
+    let retryHandle: number | null = null
+    let stream: EventSource | null = null
+
+    async function syncSubject(subjectId: number) {
+      try {
+        const subject = await getSubject(subjectId)
+        if (cancelled || !subject) return
+        const subjectSeason = (subject.period_season || '').toUpperCase()
+        if (subject.period_year !== periodYear || subjectSeason !== expectedSeason) {
+          removeSubject(subject.id)
+          return
+        }
+        upsertSubject(subject)
+      } catch {
+        // Ignorar errores de permisos o subjects inexistentes
       }
-      load()
-    }, 10000)
-    return () => clearInterval(tick)
-  }, [autoPolling, autoUntil])
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      if (cancelled) return
+      try {
+        const payload = JSON.parse(event.data || '{}')
+        const subjectId = Number(payload.subject_id)
+        if (!subjectId) return
+        const eventType = String(payload.event || '').toLowerCase()
+        const payloadYear = typeof payload.period_year === 'number' ? payload.period_year : null
+        const payloadSeason = typeof payload.period_season === 'string' ? payload.period_season.toUpperCase() : null
+        const matchesPeriod =
+          payloadYear === null ||
+          (payloadYear === periodYear && (!payloadSeason || payloadSeason === expectedSeason))
+        if (!matchesPeriod) {
+          if (eventType === 'deleted') {
+            removeSubject(subjectId)
+          }
+          return
+        }
+        if (eventType === 'deleted') {
+          removeSubject(subjectId)
+          return
+        }
+        if (eventType === 'descriptor_processed') {
+          const code =
+            payload.code ||
+            payload.subject_code ||
+            (typeof payload.subject === 'object' && payload.subject?.code) ||
+            null
+          const label = code ? `Asignatura ${code}` : 'Asignatura'
+          toast.success(`${label} procesada exitosamente.`)
+        }
+        void syncSubject(subjectId)
+      } catch {
+        // Ignorar payload invǭlido
+      }
+    }
+
+    const handleError = () => {
+      if (cancelled) return
+      if (stream) {
+        stream.close()
+        stream = null
+      }
+      retryHandle = window.setTimeout(connect, 5000)
+    }
+
+    function connect() {
+      if (cancelled) return
+      const baseUrl = apiBaseUrl()
+      const normalized = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+      const url = `${normalized}/subjects/stream/?token=${encodeURIComponent(accessToken)}`
+      try {
+        stream = new EventSource(url)
+        stream.onmessage = handleMessage
+        stream.onerror = handleError
+      } catch {
+        retryHandle = window.setTimeout(connect, 5000)
+      }
+    }
+
+    connect()
+
+    return () => {
+      cancelled = true
+      if (retryHandle) window.clearTimeout(retryHandle)
+      if (stream) stream.close()
+    }
+  }, [accessToken, periodSeason, periodYear, removeSubject, upsertSubject])
 
   const filtered = useMemo(() => {
     if (!search) return items
@@ -96,12 +194,6 @@ export default function Asignaturas() {
 
       {error ? (
         <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
-      ) : null}
-
-      {autoPolling ? (
-        <div className="mb-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
-          Procesando descriptor… actualizando la lista automáticamente cada 10 segundos.
-        </div>
       ) : null}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
@@ -201,10 +293,8 @@ export default function Asignaturas() {
       {createMode === 'auto' ? (
         <UploadDescriptorAutoDialog
           onClose={() => setCreateMode('none')}
-          onUploaded={async () => {
+          onUploaded={() => {
             setCreateMode('none')
-            await load()
-            toast.success('Asignatura creada desde descriptor')
           }}
         />
       ) : null}
@@ -1030,14 +1120,6 @@ function UploadDescriptorAutoDialog({ onClose, onUploaded }: { onClose: () => vo
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const autoFileInputRef = useRef<HTMLInputElement | null>(null)
-  const mountedRef = useRef(true)
-  const closedRef = useRef(false)
-
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1053,31 +1135,21 @@ function UploadDescriptorAutoDialog({ onClose, onUploaded }: { onClose: () => vo
     }
     try {
       setLoading(true)
-      const d = await uploadDescriptor(file, null)
-      try { await processDescriptor(d.id) } catch {}
-      // Cerrar el cuadro inmediatamente
-      closedRef.current = true
+      const descriptor = await uploadDescriptor(file, null)
+      toast.success('Descriptor subido; procesaremos la asignatura automáticamente.')
+      try {
+        await processDescriptor(descriptor.id)
+      } catch {}
       onClose()
-      // Esperar hasta que el descriptor termine de procesarse (en segundo plano)
-      const timeoutMs = 3 * 60 * 1000
-      const intervalMs = 3000
-      const start = Date.now()
-      while (true) {
-        try {
-          const latest = await getDescriptor(d.id)
-          if (latest?.processed_at) break
-        } catch {}
-        if (Date.now() - start > timeoutMs) {
-          break
-        }
-        await new Promise((r) => setTimeout(r, intervalMs))
-      }
       await onUploaded()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al subir descriptor'
-      setError(msg)
+    } catch (e: any) {
+      const backendMsg =
+        (e?.response?.data && (e.response.data.detail || e.response.data.error)) ||
+        (typeof e?.response?.data === 'string' ? e.response.data : null)
+      const msg = backendMsg || (e instanceof Error ? e.message : 'Error al subir descriptor')
+      setError(String(msg))
     } finally {
-      if (mountedRef.current && !closedRef.current) setLoading(false)
+      setLoading(false)
     }
   }
 
@@ -1130,4 +1202,10 @@ function UploadDescriptorAutoDialog({ onClose, onUploaded }: { onClose: () => vo
       </div>
     </div>
   )
+}
+
+function compareSubjectsByCodeSection(a: Subject, b: Subject) {
+  const codeCompare = a.code.localeCompare(b.code, 'es', { sensitivity: 'base', numeric: true })
+  if (codeCompare !== 0) return codeCompare
+  return String(a.section).localeCompare(String(b.section), 'es', { sensitivity: 'base', numeric: true })
 }
