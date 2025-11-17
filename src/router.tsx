@@ -15,6 +15,7 @@ import Usuarios from './routes/Usuarios'
 import Asignaturas from './routes/Asignaturas'
 import Docentes from './routes/Docentes'
 import MisAsignaturas from './routes/MisAsignaturas'
+import AdminPeriodos from './routes/AdminPeriodos'
 import Empresas from './routes/vcm/Empresas'
 import DCEmpresas from './routes/dc/Empresas'
 import Problemas from './routes/vcm/Problemas'
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
       { path: 'usuarios', loader: requireRoleLoader('ADMIN'), element: <Usuarios /> },
       { path: 'asignaturas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Asignaturas /> },
       { path: 'proceso-api', loader: requireRoleLoader('ADMIN'), element: <ProcesoAPI /> },
+      { path: 'admin/periodos', loader: requireRoleLoader('ADMIN'), element: <AdminPeriodos /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
       { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <Empresas /> },
       { path: 'vcm/problemas', loader: requireRoleLoader('VCM'), element: <Problemas /> },

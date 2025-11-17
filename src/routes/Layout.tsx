@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react'
 import { pathForRole, roleLabelMap } from './roleMap'
 import { nameCase } from '../lib/strings'
 import { fetchLatestPeriodCode } from '../api/periods'
-import { derivePeriodFromDate } from '../lib/period'
+import { usePeriodStore } from '../store/period'
 
 export default function Layout() {
   const navigate = useNavigate()
   const { isAuthenticated, logout, user, role, loadMe } = useAuth()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const location = useLocation()
-  const [currentPeriod, setCurrentPeriod] = useState(() => derivePeriodFromDate())
+  const currentPeriod = usePeriodStore((s) => s.periodCode)
+  const setPeriodFromCode = usePeriodStore((s) => s.setPeriodFromCode)
 
   // Estado de colapso del Menú del coordinador con persistencia
   const [coordSidebarCollapsed, setCoordSidebarCollapsed] = useState<boolean>(() => {
@@ -59,16 +60,16 @@ export default function Layout() {
     async function loadPeriod() {
       try {
         const remotePeriod = await fetchLatestPeriodCode()
-        if (!ignore && remotePeriod) setCurrentPeriod(remotePeriod)
+        if (!ignore && remotePeriod) setPeriodFromCode(remotePeriod)
       } catch {
-        if (!ignore) setCurrentPeriod(derivePeriodFromDate())
+        // keep last known period
       }
     }
     loadPeriod()
     return () => {
       ignore = true
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, setPeriodFromCode])
 
   function handleLogout() {
     logout()
@@ -169,6 +170,12 @@ export default function Layout() {
                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
                   >
                     Proceso API
+                  </Link>
+                  <Link
+                    to="/admin/periodos"
+                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Gestionar periodos
                   </Link>
                   <Link
                     to="/empresas"
@@ -295,6 +302,7 @@ export default function Layout() {
                   <Link onClick={() => setMobileNavOpen(false)} to="/usuarios" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Usuarios</Link>
                   <Link onClick={() => setMobileNavOpen(false)} to="/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
                   <Link onClick={() => setMobileNavOpen(false)} to="/proceso-api" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Proceso API</Link>
+                  <Link onClick={() => setMobileNavOpen(false)} to="/admin/periodos" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Gestionar periodos</Link>
                   <Link onClick={() => setMobileNavOpen(false)} to="/empresas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Empresas</Link>
                   <Link onClick={() => setMobileNavOpen(false)} to="/problematicas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Problemáticas</Link>
                 </>

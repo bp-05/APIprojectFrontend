@@ -29,3 +29,12 @@ export function derivePeriodFromDate(date = new Date()): string {
   const season: PeriodSeason = month <= 6 ? 'O' : 'P'
   return `${season}-${date.getFullYear()}`
 }
+
+export function parsePeriodCode(code?: string | null) {
+  if (!code) return null
+  const [seasonToken, yearToken] = code.split('-', 2)
+  const season = normalizePeriodSeason(seasonToken)
+  const year = Number.parseInt(yearToken, 10)
+  if (!season || Number.isNaN(year)) return null
+  return { season, year }
+}

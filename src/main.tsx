@@ -5,9 +5,11 @@ import { router } from './router'
 import './index.css'
 import { useAuth } from './store/auth'
 import { Toaster } from 'react-hot-toast'
+import { usePeriodStore } from './store/period'
 
 // Hydrate auth tokens from storage before first render
 useAuth.getState().hydrate()
+usePeriodStore.getState().hydrate()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
