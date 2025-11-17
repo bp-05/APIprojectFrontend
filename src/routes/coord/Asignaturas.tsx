@@ -16,25 +16,9 @@ export default function AsignaturasCoord() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [cycleVersion, setCycleVersion] = useState(0)
   // Overlay de estado local por proyecto (hasta que backend exponga estado)
-  const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
+  const [localStatus] = useState<Record<number, LocalStatus>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
   })
-  function saveLocalStatus(next: Record<number, LocalStatus>) {
-    setLocalStatus(next)
-    try {
-      localStorage.setItem('coordSubjectStatus', JSON.stringify(next))
-      window.dispatchEvent(new Event('coordSubjectStatusChanged'))
-    } catch {}
-  }
-  function setStatus(id: number, status: ProjectState) {
-    saveLocalStatus({
-      ...localStatus,
-      [id]: {
-        status,
-        timestamps: { ...(localStatus[id]?.timestamps || {}), [status]: new Date().toISOString() },
-      },
-    })
-  }
 
   async function load() {
     setLoading(true)
@@ -285,7 +269,7 @@ export default function AsignaturasCoord() {
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Cargandoâ€¦</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
@@ -402,7 +386,7 @@ function DescriptorCell({ subject }: { subject: Subject }) {
   }, [subject.id])
 
   if (items === null) {
-    return <span className="inline-block h-3 w-3 animate-pulse rounded-sm bg-zinc-300" title="Cargandoâ€¦" />
+    return <span className="inline-block h-3 w-3 animate-pulse rounded-sm bg-zinc-300" title="Cargando…" />
   }
   if (!items.length) {
     return <span className="text-xs text-zinc-500">-</span>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useAuth } from '../store/auth'
+import type { UserRole } from '../store/auth'
 import { pathForRole } from './roleMap'
 import { toast } from 'react-hot-toast'
 import { roleLabelMap } from './roleMap'
@@ -26,12 +27,14 @@ export default function Login() {
       if (displayName) {
         toast.success(`Bienvenido, ${displayName}`)
       } else if (me.role) {
-        const roleLabel = roleLabelMap[me.role as any] || me.role
+        const roleKey = me.role as UserRole
+        const roleLabel = roleLabelMap[roleKey] || roleKey
         toast.success(`Bienvenido, ${roleLabel}`)
       } else {
         toast.success('Bienvenido')
       }
-      const role = me.role || (localStorage.getItem('user_role') as any) || null
+      const storedRole = localStorage.getItem('user_role') as UserRole | null
+      const role: UserRole | null = me.role || storedRole || null
       navigate(pathForRole(role))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error de autenticación'
@@ -85,7 +88,11 @@ export default function Login() {
             />
           </div>
 
-          {/* Los errores se notifican por toast para evitar mover el layout */}
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
 
           <button
             type="submit"

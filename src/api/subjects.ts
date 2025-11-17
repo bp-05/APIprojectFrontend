@@ -242,22 +242,23 @@ export type CompanyRequirement = {
   has_guide: boolean
   can_receive_alternance: boolean
   alternance_students_quota: number | null
-  subject: number
+  subject: number | null
   company: number
 }
 
 export async function listCompanyRequirements() {
-  const { data } = await http.get<CompanyRequirement[]>(`/company-requirements/`)
+  const { data } = await http.get<CompanyRequirement[]>(`/possible-counterparts/`)
   return data
 }
 
 export async function createCompanyRequirement(payload: Omit<CompanyRequirement, 'id'>) {
-  const { data } = await http.post<CompanyRequirement>(`/company-requirements/`, payload)
+  const { data } = await http.post<CompanyRequirement>(`/possible-counterparts/`, payload)
   return data
 }
 
-export async function updateCompanyRequirement(id: number, payload: Partial<Omit<CompanyRequirement, 'id'>>) {
-  const { data } = await http.patch<CompanyRequirement>(`/company-requirements/${id}/`, payload)
+
+export async function updateCompanyRequirement(id: number, payload: Partial<CompanyRequirement>) {
+  const { data } = await http.patch<CompanyRequirement>(`/possible-counterparts/${id}/`, payload)
   return data
 }
 
@@ -316,6 +317,10 @@ export async function updateApiType3Completion(
   return data
 }
 
+export async function deleteCompanyRequirement(id: number) {
+  await http.delete(`/possible-counterparts/${id}/`)
+}
+
 export async function getSubject(id: number) {
   const { data } = await http.get<Subject>(`/subjects/${id}/`)
   return data
@@ -350,8 +355,8 @@ export type Api3Alternance = {
   subject: number
 }
 
-export async function listAlternances() {
-  const { data } = await http.get<Api3Alternance[]>(`/alternances/`)
+export async function listAlternances(params?: { subject?: number }) {
+  const { data } = await http.get<Api3Alternance[]>(`/alternances/`, { params })
   return data
 }
 
@@ -370,3 +375,31 @@ export async function getAlternanceBySubject(subjectId: number) {
   return data?.[0] ?? null
 }
 
+export type Api2Completion = {
+  id: number
+  project_goal_students: string
+  deliverables_at_end: string
+  company_expected_participation: string
+  other_activities: string
+  subject: number
+}
+
+export async function listApi2Completions(params?: { subject?: number }) {
+  const { data } = await http.get<Api2Completion[]>(`/api2-completions/`, { params })
+  return data
+}
+
+export type Api3Completion = {
+  id: number
+  project_goal_students: string
+  deliverables_at_end: string
+  expected_student_role: string
+  other_activities: string
+  master_guide_expected_support: string
+  subject: number
+}
+
+export async function listApi3Completions(params?: { subject?: number }) {
+  const { data } = await http.get<Api3Completion[]>(`/api3-completions/`, { params })
+  return data
+}

@@ -10,7 +10,7 @@ export default function EstadoCoord() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const [editTarget, setEditTarget] = useState<{ id: number; state: ProjectState } | null>(null)
   const [editSelection, setEditSelection] = useState<ProjectState>('Borrador')
   const [cycleTarget, setCycleTarget] = useState<{ id: number } | null>(null)

@@ -1,144 +1,506 @@
-﻿import { useEffect, useState } from 'react'
-import { toast } from 'react-hot-toast'
-import { Link, useParams } from 'react-router'
-import { getSubject, type Subject } from '../../api/subjects'
-import { listCompanies, listEngagementScopes, listProblemStatements, type Company, type CompanyEngagementScope, type ProblemStatement } from '../../api/companies'
-import { listCompanyRequirements, type CompanyRequirement, updateCompanyRequirement, createCompanyRequirement, listAlternances, type Api3Alternance, updateAlternance, createAlternance } from '../../api/subjects'
+﻿import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useParams, useNavigate } from 'react-router'
+import toast from 'react-hot-toast'
+import html2pdf from 'html2pdf.js'
+import { useAuth } from '../../store/auth'
+import {
+  getSubject,
+  type Subject,
+  listCompanyRequirements,
+  type CompanyRequirement,
+  updateCompanyRequirement,
+  listApi2Completions,
+  type Api2Completion,
+  listApi3Completions,
+  type Api3Completion,
+  listAlternances,
+  type Api3Alternance,
+  listSubjectCompetencies,
+  type SubjectCompetency,
+  listSubjectUnits,
+  type SubjectUnit,
+  listBoundaryConditions,
+  type CompanyBoundaryCondition,
+} from '../../api/subjects'
+import { listCompanies, type Company } from '../../api/companies'
+
+type Prospect = { id: string; company_name: string }
+type SubjectProspects = Record<number, string[]>
 
 export default function AsignaturaVCMDetalle() {
+  const navigate = useNavigate()
   const { id } = useParams()
+  const { role } = useAuth()
   const subjectId = Number(id)
+  const isVCM = role === 'VCM'
+
   const [subject, setSubject] = useState<Subject | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [companies, setCompanies] = useState<Company[]>([])
   const [requirements, setRequirements] = useState<CompanyRequirement[]>([])
-  const [scopes, setScopes] = useState<CompanyEngagementScope[]>([])
-  const [problems, setProblems] = useState<ProblemStatement[]>([])
-  const [savingId, setSavingId] = useState<number | null>(null)
-  const [showCreate, setShowCreate] = useState(false)
-  const [newReqCompany, setNewReqCompany] = useState<number>(0)
-  const [newReqCan, setNewReqCan] = useState(false)
-  const [newReqQuota, setNewReqQuota] = useState('')
+  const [api2Completion, setApi2Completion] = useState<Api2Completion | null>(null)
+  const [api3Completion, setApi3Completion] = useState<Api3Completion | null>(null)
   const [alternance, setAlternance] = useState<Api3Alternance | null>(null)
-  const [altForm, setAltForm] = useState<{ student_role: string; students_quota: string; tutor_name: string; tutor_email: string; alternance_hours: string }>({ student_role: '', students_quota: '', tutor_name: '', tutor_email: '', alternance_hours: '' })
+  const [competencies, setCompetencies] = useState<SubjectCompetency[]>([])
+  const [units, setUnits] = useState<SubjectUnit[]>([])
+  const [boundaryCondition, setBoundaryCondition] = useState<CompanyBoundaryCondition | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [prospects, setProspects] = useState<Prospect[]>(() => loadProspects())
+  const [subjectProspects, setSubjectProspects] = useState<SubjectProspects>(() => loadSubjectProspects())
+  const [editingReq, setEditingReq] = useState<{req: CompanyRequirement; form: {quota: string; can: boolean}} | null>(null)
+  const [selectedUnit, setSelectedUnit] = useState<SubjectUnit | null>(null)
 
-  useEffect(() => {
-    let mounted = true
-    async function load() {
+  async function loadData() {
+    try {
       setLoading(true)
       setError(null)
-      try {
-        if (!Number.isFinite(subjectId)) throw new Error('ID invalido')
-        const [s, comps, reqs, scps, probs, alts] = await Promise.all([
-          getSubject(subjectId),
-          listCompanies(),
-          listCompanyRequirements(),
-          listEngagementScopes(),
-          listProblemStatements({ subject: subjectId }),
-          listAlternances(),
-        ])
-        if (mounted) {
-          setSubject(s)
-          setCompanies(comps)
-          setRequirements(reqs)
-          setScopes(scps)
-          setProblems(probs)
-          const a = (alts || []).find((x) => x.subject === subjectId) || null
-          setAlternance(a)
-          setAltForm({
-            student_role: a?.student_role || '',
-            students_quota: a ? String(a.students_quota) : '',
-            tutor_name: a?.tutor_name || '',
-            tutor_email: a?.tutor_email || '',
-            alternance_hours: a ? String(a.alternance_hours) : '',
-          })
-        }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'No se pudo cargar la asignatura'
-        if (mounted) setError(msg)
-      } finally {
-        if (mounted) setLoading(false)
+      const [s, comps, reqs, api2, api3, alts, comp, u, bc] = await Promise.all([
+        getSubject(subjectId),
+        listCompanies().catch(() => [] as Company[]),
+        listCompanyRequirements().catch(() => [] as CompanyRequirement[]),
+        listApi2Completions({ subject: subjectId }).catch(() => []),
+        listApi3Completions({ subject: subjectId }).catch(() => []),
+        listAlternances({ subject: subjectId }).catch(() => []),
+        listSubjectCompetencies(subjectId).catch(() => [] as SubjectCompetency[]),
+        listSubjectUnits(subjectId).catch(() => [] as SubjectUnit[]),
+        listBoundaryConditions().catch(() => [] as CompanyBoundaryCondition[]),
+      ])
+      setSubject(s)
+      setCompanies(comps)
+      setRequirements(reqs)
+      setApi2Completion(api2[0] ?? null)
+      setApi3Completion(api3[0] ?? null)
+      setAlternance(alts[0] ?? null)
+      setCompetencies(comp)
+      setUnits(u)
+      // Seleccionar primera unidad por defecto
+      if (u.length > 0) setSelectedUnit(u[0])
+      // Buscar boundary condition para esta asignatura
+      const bc_for_subject = bc.find(b => b.subject === subjectId)
+      setBoundaryCondition(bc_for_subject ?? null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al cargar la asignatura')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!Number.isFinite(subjectId)) {
+      setError('Asignatura invalida')
+      setLoading(false)
+      return
+    }
+    loadData()
+  }, [subjectId])
+
+  useEffect(() => {
+    const handler = () => {
+      setProspects(loadProspects())
+      setSubjectProspects(loadSubjectProspects())
+    }
+    window.addEventListener('vcm:prospects-updated', handler)
+    return () => window.removeEventListener('vcm:prospects-updated', handler)
+  }, [])
+
+  const counterpartNames = useMemo(() => {
+    if (!subject) return [] as string[]
+    return resolveCounterparts(subject.id, companies, requirements, prospects, subjectProspects)
+  }, [subject, companies, requirements, prospects, subjectProspects])
+
+  const apiType = subject?.api_type ?? null
+  const showApi2 = apiType === 2
+  const showApi3 = apiType === 3
+  const acceptsAlternance = useMemo(() => {
+    if (!subject || !showApi3) return false
+    return requirements.some((r) => r.subject === subject.id && r.can_receive_alternance)
+  }, [requirements, subject, showApi3])
+
+  async function saveRequirement(req: CompanyRequirement, quotaStr: string, can: boolean) {
+    if (!subject) return
+    
+    // Validar cuota si está habilitada
+    if (can) {
+      const quota = parseInt(quotaStr.trim(), 10)
+      if (!quotaStr.trim() || isNaN(quota) || quota <= 0) {
+        toast.error('Ingresa una cantidad válida de estudiantes para alternancia')
+        return
       }
     }
-    load()
-    return () => { mounted = false }
-  }, [id])
+    
+    try {
+      const quota = quotaStr.trim() === '' || !can ? 0 : Number(quotaStr)
+      const payload = { ...req, alternance_students_quota: quota }
+      await updateCompanyRequirement(req.id, payload)
+      setRequirements(reqs => reqs.map(r => r.id === req.id ? { ...r, alternance_students_quota: quota } : r))
+      setEditingReq(null)
+      toast.success('Datos del requerimiento guardados')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al guardar'
+      toast.error(msg)
+    }
+  }
+
+  if (loading) {
+    return <div className="p-6"><p className="text-sm text-zinc-600">Cargando asignatura...</p></div>
+  }
+
+  if (error || !subject) {
+    return (
+      <div className="p-6">
+        <button className="mb-3 text-sm text-red-600 hover:underline" onClick={() => navigate(-1)}>Volver</button>
+        <p className="text-sm text-red-600">{error || 'No se encontro la asignatura solicitada.'}</p>
+      </div>
+    )
+  }
+
+  function generatePDF() {
+    const element = document.getElementById('pdf-content')
+    if (!element || !subject) {
+      toast.error('No se pudo generar el reporte')
+      return
+    }
+
+    const opt = {
+      margin: 10,
+      filename: `Reporte_${subject.code}-${subject.section}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(html2pdf() as any).set(opt).from(element).save()
+    toast.success('Reporte descargado')
+  }
 
   return (
-    <section className="p-6">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Detalle de asignatura</h1>
-          {subject ? (
-            <p className="text-sm text-zinc-600">{subject.name} — {subject.code}-{subject.section}</p>
-          ) : null}
-        </div>
-        <Link to="/vcm/asignaturas" className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Volver</Link>
+    <div className="mx-auto max-w-5xl p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <button className="text-sm text-red-600 hover:underline" onClick={() => navigate(-1)}>Volver</button>
+        <button
+          onClick={generatePDF}
+          className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+        >
+          Descargar Reporte PDF
+        </button>
       </div>
 
-      {error ? (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
-      ) : null}
-
-      {loading ? (
-        <div className="text-sm text-zinc-600">Cargando…</div>
-      ) : subject ? (
-        <div className="grid grid-cols-1 gap-4">
-          <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <h2 className="mb-2 text-sm font-semibold">Información general</h2>
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-              <Item label="Código">{subject.code}</Item>
-              <Item label="Sección">{subject.section}</Item>
-              <Item label="Nombre">{subject.name}</Item>
-              <Item label="Docente">{subject.teacher_name || '—'}</Item>
-              <Item label="Campus">{subject.campus}</Item>
-              <Item label="Jornada">{subject.shift}</Item>
-              <Item label="Horas">{String(subject.hours)}</Item>
-              <Item label="Semestre">{subject.semester_name ?? String(subject.semester)}</Item>
-              <Item label="Área">{subject.area_name || String(subject.area)}</Item>
-              <Item label="Carrera">{subject.career_name || (subject.career ? String(subject.career) : '—')}</Item>
-              <Item label="Tipo API">{String(subject.api_type)}</Item>
-            </dl>
-          </div>
-
-          <EmpresasSection subject={subject} companies={companies} requirements={requirements} scopes={scopes} problems={problems} />
-
-          <RequerimientosSection
-            subject={subject}
-            companies={companies}
-            requirements={requirements}
-            onChangeRequirements={setRequirements}
-            savingId={savingId}
-            setSavingId={setSavingId}
-            showCreate={showCreate}
-            setShowCreate={setShowCreate}
-            newReqCompany={newReqCompany}
-            setNewReqCompany={setNewReqCompany}
-            newReqCan={newReqCan}
-            setNewReqCan={setNewReqCan}
-            newReqQuota={newReqQuota}
-            setNewReqQuota={setNewReqQuota}
-          />
-
-          <TiposProyectoSection subject={subject} companies={companies} scopes={scopes} />
-
-          <AlternanceSection
-            subjectId={subject.id}
-            value={alternance}
-            form={altForm}
-            onChangeForm={setAltForm}
-            onSaved={setAlternance}
-          />
-
-          <PosiblesContrapartesSeleccion subjectId={subject.id} />
+      <div id="pdf-content">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-zinc-900">{subject.name}</h1>
+          <p className="text-sm text-zinc-600">{subject.code}-{subject.section} · {subject.career_name || 'Carrera sin definir'}</p>
         </div>
-      ) : null}
-    </section>
+
+      <div className="rounded-lg border border-zinc-200 bg-white p-4 mb-6">
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <DetailItem label="Codigo">{subject.code}</DetailItem>
+          <DetailItem label="Seccion">{subject.section}</DetailItem>
+          <DetailItem label="Carrera">{subject.career_name || '-'}</DetailItem>
+          <DetailItem label="Area">{subject.area_name || '-'}</DetailItem>
+          <DetailItem label="Semestre">{subject.semester_name || '-'}</DetailItem>
+          <DetailItem label="Campus">{subject.campus || '-'}</DetailItem>
+          <DetailItem label="Jornada">{subject.shift || '-'}</DetailItem>
+          <DetailItem label="Docente">{subject.teacher_name || '-'}</DetailItem>
+          <DetailItem label="Tipo API">
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+              subject.api_type === 3 ? 'bg-purple-100 text-purple-700' :
+              subject.api_type === 2 ? 'bg-blue-100 text-blue-700' :
+              'bg-green-100 text-green-700'
+            }`}>
+              API {subject.api_type || 1}
+            </span>
+          </DetailItem>
+        </dl>
+
+        <div className="mt-6">
+          <h2 className="text-base font-semibold text-zinc-900">Posibles contrapartes</h2>
+          {counterpartNames.length ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {counterpartNames.map((name) => (
+                <span key={name} className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-3 py-0.5 text-sm text-zinc-700">{name}</span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-zinc-600">Sin contrapartes registradas.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Competencias Técnicas */}
+      {competencies.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Competencias Técnicas de la Asignatura</h2>
+          <div className="space-y-2">
+            {competencies.map((comp) => (
+              <div key={comp.id} className="rounded-lg border border-zinc-200 bg-white p-3">
+                <p className="text-sm text-zinc-700">
+                  <span className="font-semibold text-zinc-900">Competencia {comp.number}:</span> {comp.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Unidades de la Asignatura */}
+      {units.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Unidades de la Asignatura</h2>
+          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <div className="mb-4 flex flex-wrap gap-2">
+              {units.map((unit) => (
+                <button
+                  key={unit.id}
+                  onClick={() => setSelectedUnit(unit)}
+                  className={`rounded-md px-3 py-1 text-xs transition-colors ${
+                    selectedUnit?.id === unit.id
+                      ? 'bg-red-600 text-white'
+                      : 'border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'
+                  }`}
+                >
+                  Unidad {unit.number}
+                </button>
+              ))}
+            </div>
+            {selectedUnit && (
+              <div className="space-y-4 border-t border-zinc-200 pt-4">
+                {selectedUnit.expected_learning && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Aprendizaje esperado</label>
+                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.expected_learning}</p>
+                  </div>
+                )}
+                {selectedUnit.unit_hours && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Horas de la unidad</label>
+                    <p className="text-sm text-zinc-700">{selectedUnit.unit_hours}h</p>
+                  </div>
+                )}
+                {selectedUnit.activities_description && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Descripción general de actividades</label>
+                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.activities_description}</p>
+                  </div>
+                )}
+                {selectedUnit.evaluation_evidence && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Evidencia sistema de evaluación</label>
+                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.evaluation_evidence}</p>
+                  </div>
+                )}
+                {selectedUnit.evidence_detail && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Detalle de evidencia</label>
+                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.evidence_detail}</p>
+                  </div>
+                )}
+                {selectedUnit.counterpart_link && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Vínculo con contraparte</label>
+                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.counterpart_link}</p>
+                  </div>
+                )}
+                {selectedUnit.place_mode_type && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Lugar/Modo</label>
+                    <p className="text-sm text-zinc-700">{selectedUnit.place_mode_type}</p>
+                  </div>
+                )}
+                {selectedUnit.counterpart_participant_name && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Participante de contraparte</label>
+                    <p className="text-sm text-zinc-700">{selectedUnit.counterpart_participant_name}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Company Boundary Condition */}
+      {boundaryCondition && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Condiciones Límite de la Empresa</h2>
+          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <div className="space-y-3 text-sm">
+              <div>
+                <h4 className="font-semibold text-zinc-900 mb-1">Tipo de Empresas</h4>
+                <div className="flex flex-wrap gap-2">
+                  {boundaryCondition.large_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Gran Empresa</span>}
+                  {boundaryCondition.medium_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Mediana Empresa</span>}
+                  {boundaryCondition.small_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Pequeña Empresa</span>}
+                  {boundaryCondition.family_enterprise && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Empresa Familiar</span>}
+                  {boundaryCondition.not_relevant && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">No Relevante</span>}
+                </div>
+              </div>
+              {boundaryCondition.company_type_description && (
+                <p><span className="font-medium text-zinc-900">Descripción:</span> <span className="text-zinc-700">{boundaryCondition.company_type_description}</span></p>
+              )}
+              {boundaryCondition.company_requirements_for_level_2_3 && (
+                <p><span className="font-medium text-zinc-900">Requerimientos (API 2/3):</span> <span className="text-zinc-700">{boundaryCondition.company_requirements_for_level_2_3}</span></p>
+              )}
+              {boundaryCondition.project_minimum_elements && (
+                <p><span className="font-medium text-zinc-900">Elementos mínimos del proyecto:</span> <span className="text-zinc-700">{boundaryCondition.project_minimum_elements}</span></p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Requerimientos de Empresas */}
+      {requirements.filter(r => r.subject === subject.id).length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Requerimientos de Empresas</h2>
+          <div className="space-y-3">
+            {requirements.filter(r => r.subject === subject.id).map((req) => {
+              const company = companies.find(c => c.id === req.company)
+              return (
+                <div key={req.id} className="rounded-lg border border-red-200 bg-red-50 p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-red-900">{company?.name || `Empresa ${req.company}`}</h3>
+                      <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+                        <p><span className="font-medium">Sector:</span> {req.sector || '-'}</p>
+                        <p><span className="font-medium">Ha trabajado:</span> {req.worked_before ? 'Sí' : 'No'}</p>
+                        <p><span className="font-medium">Desea colaborar:</span> {req.interest_collaborate ? 'Sí' : 'No'}</p>
+                        <p><span className="font-medium">Tipo interacción:</span> {req.interaction_type ? (Array.isArray(req.interaction_type) ? req.interaction_type.join(', ') : req.interaction_type) : '-'}</p>
+                      </div>
+                      {req.can_receive_alternance && (
+                        <p className="mt-2 text-sm font-medium text-green-700">✓ Acepta alternancia</p>
+                      )}
+                    </div>
+                    {isVCM && (
+                      <button
+                        onClick={() => setEditingReq({ req, form: { quota: String(req.alternance_students_quota || ''), can: req.can_receive_alternance } })}
+                        className="ml-4 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Requerimiento */}
+      {editingReq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
+          <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-zinc-900 mb-4">Editar Cupos de Alternancia</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={editingReq.form.can}
+                    onChange={(e) => {
+                      setEditingReq({
+                        ...editingReq,
+                        form: { ...editingReq.form, can: e.target.checked, quota: !e.target.checked ? '' : editingReq.form.quota }
+                      })
+                    }}
+                    className="rounded border-zinc-300"
+                  />
+                  <span className="text-sm font-medium">Acepta alternancia</span>
+                </label>
+              </div>
+              {editingReq.form.can && (
+                <div>
+                  <label className="block text-xs font-medium text-zinc-600 mb-1">Cupos de estudiantes</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingReq.form.quota}
+                    onChange={(e) => setEditingReq({...editingReq, form: {...editingReq.form, quota: e.target.value}})}
+                    placeholder="0"
+                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                  />
+                </div>
+              )}
+              <div className="flex gap-2 pt-4">
+                <button
+                  onClick={() => setEditingReq(null)}
+                  className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => saveRequirement(editingReq.req, editingReq.form.quota, editingReq.form.can)}
+                  className="flex-1 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* API 2 Completion */}
+      {showApi2 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-zinc-900 mb-3">API Tipo 2 - Información del Proyecto</h2>
+          {api2Completion ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <CompletionBox label="Objetivo para estudiantes" value={api2Completion.project_goal_students} color="border-red-200 bg-red-50" />
+              <CompletionBox label="Entregables al final" value={api2Completion.deliverables_at_end} color="border-red-200 bg-red-50" />
+              <CompletionBox label="Participación esperada" value={api2Completion.company_expected_participation} color="border-red-200 bg-red-50" />
+              <CompletionBox label="Otras actividades" value={api2Completion.other_activities} color="border-red-200 bg-red-50" />
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-600">Sin información registrada.</p>
+          )}
+        </div>
+      )}
+
+      {/* API 3 Completion */}
+      {showApi3 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-zinc-900 mb-3">API Tipo 3 - Información del Proyecto</h2>
+          {api3Completion ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <CompletionBox label="Objetivo para estudiantes" value={api3Completion.project_goal_students} color="border-red-200 bg-red-50" />
+              <CompletionBox label="Entregables al final" value={api3Completion.deliverables_at_end} color="border-red-200 bg-red-50" />
+              <CompletionBox label="Rol esperado del estudiante" value={api3Completion.expected_student_role} color="border-red-200 bg-red-50" />
+              <CompletionBox label="Otras actividades" value={api3Completion.other_activities} color="border-red-200 bg-red-50" />
+              <CompletionBox label="Apoyo maestro guía" value={api3Completion.master_guide_expected_support} color="border-red-200 bg-red-50" />
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-600">Sin información registrada.</p>
+          )}
+        </div>
+      )}
+
+      {/* API 3 Alternancia */}
+      {showApi3 && acceptsAlternance && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Alternancia (API 3)</h2>
+          {alternance ? (
+            <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <TextBlock label="Rol del estudiante" value={alternance.student_role} />
+                <TextBlock label="Cupos" value={alternance.students_quota ? `${alternance.students_quota} estudiantes` : '-'} />
+                <TextBlock label="Tutor" value={alternance.tutor_name} />
+                <TextBlock label="Correo tutor" value={alternance.tutor_email} />
+                <TextBlock label="Horas de alternancia" value={alternance.alternance_hours ? `${alternance.alternance_hours} horas` : '-'} />
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-600">Sin datos de alternancia registrados.</p>
+          )}
+        </div>
+      )}
+      </div>
+    </div>
   )
 }
 
-function Item({ label, children }: { label: string; children: React.ReactNode }) {
+function DetailItem({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <dt className="text-xs font-medium text-zinc-600">{label}</dt>
@@ -147,608 +509,76 @@ function Item({ label, children }: { label: string; children: React.ReactNode })
   )
 }
 
-function EmpresasSection({ subject, companies, requirements, scopes, problems }: {
-  subject: Subject
-  companies: Company[]
-  requirements: CompanyRequirement[]
-  scopes: CompanyEngagementScope[]
-  problems: ProblemStatement[]
-}) {
-  const companiesById = new Map<number, Company>()
-  companies.forEach((c) => companiesById.set(c.id, c))
-
-  const ids = (() => {
-    const set = new Set<number>()
-    ;(requirements || []).filter((r) => r.subject === subject.id).forEach((r) => set.add(r.company))
-    ;(problems || []).forEach((p) => set.add(p.company))
-    ;(scopes || []).filter((s) => s.subject_code === subject.code && s.subject_section === subject.section).forEach((a) => set.add(a.company))
-    return Array.from(set)
-  })()
-
-  if (ids.length === 0) return null
+function CompletionBox({ label, value, color = 'border-zinc-200 bg-white' }: { label: string; value?: string | null; color?: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
-      <h2 className="mb-2 text-sm font-semibold">Empresas vinculadas</h2>
-      <ul className="list-inside list-disc text-sm text-zinc-800">
-        {ids.map((id) => (
-          <li key={id}>{companiesById.get(id)?.name || `Empresa #${id}`}</li>
-        ))}
-      </ul>
+    <div className={`rounded-lg border p-4 ${color}`}>
+      <div className="text-xs font-semibold text-zinc-900 mb-2">{label}</div>
+      <div className="text-sm text-zinc-700 whitespace-pre-line">{value?.trim() ? value : '—'}</div>
     </div>
   )
 }
 
-function RequerimientosSection({ subject, companies, requirements, onChangeRequirements, savingId, setSavingId, showCreate, setShowCreate, newReqCompany, setNewReqCompany, newReqCan, setNewReqCan, newReqQuota, setNewReqQuota }: {
-  subject: Subject
-  companies: Company[]
-  requirements: CompanyRequirement[]
-  onChangeRequirements: (v: CompanyRequirement[]) => void
-  savingId: number | null
-  setSavingId: (v: number | null) => void
-  showCreate: boolean
-  setShowCreate: (v: boolean) => void
-  newReqCompany: number
-  setNewReqCompany: (v: number) => void
-  newReqCan: boolean
-  setNewReqCan: (v: boolean) => void
-  newReqQuota: string
-  setNewReqQuota: (v: string) => void
-}) {
-  const list = (requirements || []).filter((r) => r.subject === subject.id)
-  const companiesById = new Map<number, Company>()
-  companies.forEach((c) => companiesById.set(c.id, c))
+function TextBlock({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <div className="text-xs font-medium text-zinc-600">{label}</div>
+      <div className="text-sm text-zinc-900">{value?.trim() ? value : '—'}</div>
+    </div>
+  )
+}
 
-  async function save(r: CompanyRequirement, updates: Partial<CompanyRequirement>) {
-    setSavingId(r.id)
-    try {
-      await updateCompanyRequirement(r.id, updates)
-      const fresh = await listCompanyRequirements()
-      onChangeRequirements(fresh)
-    } finally {
-      setSavingId(null)
+function resolveCounterparts(
+  subjectId: number,
+  companies: Company[],
+  requirements: CompanyRequirement[],
+  prospects: Prospect[],
+  subjectProspects: SubjectProspects
+): string[] {
+  const byCompanyId = new Map(companies.map((c) => [c.id, c]))
+  const byReqId = new Map(requirements.map((r) => [r.id, r]))
+
+  const ids = subjectProspects[subjectId] || []
+  const localNames = ids.map((id) => {
+    if (id.startsWith('db:')) {
+      const rid = Number(id.slice(3))
+      const req = byReqId.get(rid)
+      if (req && req.subject === subjectId) return byCompanyId.get(req.company)?.name
+      return undefined
     }
-  }
-
-  async function create() {
-    setSavingId(-1)
-    try {
-      await createCompanyRequirement({
-        subject: subject.id,
-        company: newReqCompany,
-        sector: '',
-        worked_before: false,
-        interest_collaborate: true,
-        can_develop_activities: false,
-        willing_design_project: false,
-        interaction_type: '',
-        has_guide: false,
-        can_receive_alternance: newReqCan,
-        alternance_students_quota: newReqCan && newReqQuota !== '' ? Number(newReqQuota) : null,
-      })
-      const fresh = await listCompanyRequirements()
-      onChangeRequirements(fresh)
-      setShowCreate(false)
-      setNewReqCompany(0)
-      setNewReqCan(false)
-      setNewReqQuota('')
-    } finally {
-      setSavingId(null)
+    if (id.startsWith('dbco:')) {
+      const cid = Number(id.slice(5))
+      return byCompanyId.get(cid)?.name
     }
-  }
+    return prospects.find((p) => p.id === id)?.company_name
+  }).filter(Boolean) as string[]
 
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Requerimientos de empresa</h2>
-        <button onClick={() => setShowCreate(true)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Agregar</button>
-      </div>
-      {list.length === 0 ? (
-        <div className="text-sm text-zinc-600">Sin requerimientos</div>
-      ) : (
-        <table className="min-w-full divide-y divide-zinc-200">
-          <thead className="bg-zinc-50">
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Empresa</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Alternancia</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Cupo</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold text-zinc-600">Acción</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {list.map((r) => (
-              <AlternanceRow
-                key={r.id}
-                companyName={companiesById.get(r.company)?.name || `Empresa #${r.company}`}
-                value={{ can: r.can_receive_alternance, quota: r.alternance_students_quota }}
-                saving={savingId === r.id}
-                onSave={(val) => save(r, { can_receive_alternance: val.can, alternance_students_quota: val.quota })}
-              />
-            ))}
-          </tbody>
-        </table>
-      )}
-      {showCreate ? (
-        <div className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-          <div className="mb-2 text-sm font-medium">Nuevo requerimiento</div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-            <label className="text-xs">
-              <span className="mb-1 block">Empresa</span>
-              <select value={String(newReqCompany || '')} onChange={(e) => setNewReqCompany(Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm">
-                <option value="" disabled>Seleccione…</option>
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={newReqCan} onChange={(e) => setNewReqCan(e.target.checked)} /> Alternancia
-            </label>
-            <label className="text-xs">
-              <span className="mb-1 block">Cupo</span>
-              <input value={newReqQuota} onChange={(e) => setNewReqQuota(e.target.value.replace(/[^0-9]/g, ''))} className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm" placeholder="#" disabled={!newReqCan} />
-            </label>
-            <div className="text-right">
-              <button onClick={() => setShowCreate(false)} className="mr-2 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs">Cancelar</button>
-              <button onClick={create} disabled={!newReqCompany} className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700">Guardar</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  )
-}
+  const backendNames = requirements
+    .filter((r) => r.subject === subjectId)
+    .map((r) => byCompanyId.get(r.company)?.name)
+    .filter(Boolean) as string[]
 
-function AlternanceRow({ companyName, value, onSave, saving }: { companyName: string; value: { can: boolean; quota: number | null }; onSave: (v: { can: boolean; quota: number | null }) => void | Promise<void>; saving?: boolean }) {
-  const [can, setCan] = useState<boolean>(value.can)
-  const [quota, setQuota] = useState<string>(value.quota !== null && value.quota !== undefined ? String(value.quota) : '')
-  return (
-    <tr>
-      <td className="px-3 py-2 text-sm">{companyName}</td>
-      <td className="px-3 py-2 text-sm"><input type="checkbox" checked={can} onChange={(e) => setCan(e.target.checked)} /></td>
-      <td className="px-3 py-2 text-sm">
-        <input value={quota} onChange={(e) => setQuota(e.target.value.replace(/[^0-9]/g, ''))} className="w-16 rounded-md border border-zinc-300 px-2 py-1 text-sm" placeholder="#" disabled={!can} />
-      </td>
-      <td className="px-3 py-2 text-right text-sm">
-        <button onClick={() => onSave({ can, quota: quota === '' ? null : Number(quota) })} disabled={saving} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Guardar</button>
-      </td>
-    </tr>
-  )
-}
-
-function TiposProyectoSection({ subject, companies, scopes }: { subject: Subject; companies: Company[]; scopes: CompanyEngagementScope[] }) {
-  const companiesById = new Map<number, Company>()
-  companies.forEach((c) => companiesById.set(c.id, c))
-
-  const list = (scopes || []).filter((s) => s.subject_code === subject.code && s.subject_section === subject.section)
-  if (!list.length) return null
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
-      <h2 className="mb-2 text-sm font-semibold">Tipos de proyecto</h2>
-      <table className="min-w-full divide-y divide-zinc-200">
-        <thead className="bg-zinc-50">
-          <tr>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Empresa</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Proyecto de valor/investigacion</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Beneficios esperados</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {list.map((a) => (
-            <tr key={a.id}>
-              <td className="px-3 py-2 text-sm">{companiesById.get(a.company)?.name || `Empresa #${a.company}`}</td>
-              <td className="px-3 py-2 text-sm">{a.has_value_or_research_project ? 'Si' : 'No'}</td>
-              <td className="px-3 py-2 text-sm">{a.benefits_from_student || '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function AlternanceSection({ subjectId, value, form, onChangeForm, onSaved }: {
-  subjectId: number
-  value: Api3Alternance | null
-  form: { student_role: string; students_quota: string; tutor_name: string; tutor_email: string; alternance_hours: string }
-  onChangeForm: (v: { student_role: string; students_quota: string; tutor_name: string; tutor_email: string; alternance_hours: string }) => void
-  onSaved: (v: Api3Alternance | null) => void
-}) {
-  const [saving, setSaving] = useState(false)
-
-  async function save() {
-    setSaving(true)
-    try {
-      const payload = {
-        student_role: form.student_role.trim(),
-        students_quota: Number(form.students_quota || '0') || 0,
-        tutor_name: form.tutor_name.trim(),
-        tutor_email: form.tutor_email.trim(),
-        alternance_hours: Number(form.alternance_hours || '0') || 0,
-        subject: subjectId,
-      }
-      let res: Api3Alternance
-      if (value) {
-        res = await updateAlternance(value.id, payload)
-      } else {
-        res = await createAlternance(payload)
-      }
-      onSaved(res)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
-      <h2 className="mb-2 text-sm font-semibold">Requerimientos (API - Alternance)</h2>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <LabeledInput label="Rol del estudiante" value={form.student_role} onChange={(v) => onChangeForm({ ...form, student_role: v })} />
-        <LabeledInput label="Cupo de estudiantes" value={form.students_quota} onChange={(v) => onChangeForm({ ...form, students_quota: v.replace(/[^0-9]/g, '') })} />
-        <LabeledInput label="Nombre tutor" value={form.tutor_name} onChange={(v) => onChangeForm({ ...form, tutor_name: v })} />
-        <LabeledInput label="Correo tutor" value={form.tutor_email} onChange={(v) => onChangeForm({ ...form, tutor_email: v })} />
-        <LabeledInput label="Horas de alternancia" value={form.alternance_hours} onChange={(v) => onChangeForm({ ...form, alternance_hours: v.replace(/[^0-9]/g, '') })} />
-      </div>
-      <div className="mt-3 text-right">
-        <button onClick={save} disabled={saving} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
-          {saving ? 'Guardando…' : value ? 'Actualizar' : 'Crear'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function LabeledInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <label className="block text-sm">
-      <span className="mb-1 block font-medium text-zinc-800">{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
-    </label>
-  )
-}
-
-// --- Posibles contrapartes (localStorage) ---
-import { useId } from 'react'
-
-type Prospect = {
-  id: string
-  company_name: string
-  sector: string
-  worked_before: boolean
-  interest_collaborate: boolean
-  can_develop_activities: boolean
-  willing_design_project: boolean
-  interaction_type: string
-  has_guide: boolean
-  can_receive_alternance: boolean
-  alternance_students_quota: number | null
+  return Array.from(new Set(localNames.length ? localNames : backendNames))
 }
 
 function loadProspects(): Prospect[] {
   try {
     const raw = localStorage.getItem('vcm_posibles_contrapartes')
     const arr = raw ? JSON.parse(raw) : []
-    return Array.isArray(arr) ? arr : []
+    if (Array.isArray(arr)) {
+      return arr.map((p: any) => ({ id: String(p.id), company_name: String(p.company_name || '') }))
+    }
+    return []
   } catch {
     return []
   }
 }
-function saveProspects(list: Prospect[]) {
-  localStorage.setItem('vcm_posibles_contrapartes', JSON.stringify(list))
-}
 
-function PosibleContraparteSection() {
-  const [items, setItems] = useState<Prospect[]>([])
-  const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<Prospect | null>(null)
-
-  useEffect(() => { setItems(loadProspects()) }, [])
-
-  function onSaved(p: Prospect) {
-    const arr = loadProspects()
-    const idx = arr.findIndex((x) => x.id === p.id)
-    if (idx >= 0) arr[idx] = p; else arr.push(p)
-    saveProspects(arr)
-    setItems(arr)
-    setOpen(false)
+function loadSubjectProspects(): SubjectProspects {
+  try {
+    const raw = localStorage.getItem('vcm_subject_prospects')
+    const obj = raw ? JSON.parse(raw) : {}
+    return obj && typeof obj === 'object' ? obj : {}
+  } catch {
+    return {}
   }
-
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Posible contraparte</h2>
-        <button onClick={() => { setEditing(null); setOpen(true) }} className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">Agregar</button>
-      </div>
-      {items.length === 0 ? (
-        <div className="text-sm text-zinc-600">Sin registros</div>
-      ) : (
-        <table className="min-w-full divide-y divide-zinc-200">
-          <thead className="bg-zinc-50">
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Empresa</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Sector</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">Interés</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold text-zinc-600">Acción</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {items.map((p) => (
-              <tr key={p.id}>
-                <td className="px-3 py-2 text-sm">{p.company_name}</td>
-                <td className="px-3 py-2 text-sm">{p.sector || '—'}</td>
-                <td className="px-3 py-2 text-sm">{p.interest_collaborate ? 'Sí' : 'No'}</td>
-                <td className="px-3 py-2 text-right text-sm">
-                  <button onClick={() => { setEditing(p); setOpen(true) }} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Editar</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {open && (
-        <ProspectDialog initial={editing || undefined} onClose={() => setOpen(false)} onSaved={onSaved} />
-      )}
-    </div>
-  )
 }
-
-function YesNo({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
-  const name = useId()
-  return (
-    <div className="text-sm">
-      <div className="mb-1 font-medium text-zinc-800">{label}</div>
-      <div className="flex items-center gap-4">
-        <label className="inline-flex items-center gap-2">
-          <input type="radio" name={name} checked={value === true} onChange={() => onChange(true)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />
-          <span>Sí</span>
-        </label>
-        <label className="inline-flex items-center gap-2">
-          <input type="radio" name={name} checked={value === false} onChange={() => onChange(false)} className="h-4 w-4 border-zinc-300 text-red-600 focus:ring-red-600" />
-          <span>No</span>
-        </label>
-      </div>
-    </div>
-  )
-}
-
-function ProspectDialog({ initial, onClose, onSaved }: { initial?: Prospect; onClose: () => void; onSaved: (p: Prospect) => void }) {
-  const [form, setForm] = useState<Prospect>({
-    id: initial?.id || crypto.randomUUID(),
-    company_name: initial?.company_name || '',
-    sector: initial?.sector || '',
-    worked_before: initial?.worked_before || false,
-    interest_collaborate: initial?.interest_collaborate || false,
-    can_develop_activities: initial?.can_develop_activities || false,
-    willing_design_project: initial?.willing_design_project || false,
-    interaction_type: initial?.interaction_type || '',
-    has_guide: initial?.has_guide || false,
-    can_receive_alternance: initial?.can_receive_alternance || false,
-    alternance_students_quota: initial?.alternance_students_quota ?? null,
-  })
-  const [quotaStr, setQuotaStr] = useState<string>(typeof form.alternance_students_quota === 'number' ? String(form.alternance_students_quota) : '')
-  const [saving, setSaving] = useState(false)
-
-  function update<K extends keyof Prospect>(k: K, v: Prospect[K]) { setForm((f) => ({ ...f, [k]: v })) }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true)
-    try {
-      const payload: Prospect = {
-        ...form,
-        company_name: form.company_name.trim(),
-        sector: form.sector.trim(),
-        interaction_type: form.interaction_type.trim(),
-        alternance_students_quota: form.can_receive_alternance ? (quotaStr === '' ? null : Math.max(0, Number(quotaStr) || 0)) : null,
-      }
-      if (!payload.company_name) throw new Error('Ingrese el nombre de la contraparte')
-      onSaved(payload)
-    } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-3xl rounded-xl bg-white shadow-lg ring-1 ring-black/5 max-h-[calc(100vh-4rem)] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-3">
-          <h2 className="text-sm font-semibold text-zinc-900">{initial ? 'Editar posible contraparte' : 'Agregar posible contraparte'}</h2>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
-        </div>
-        <form className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 sm:px-6" onSubmit={onSubmit}>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-zinc-800">Nombre de la contraparte</span>
-            <input value={form.company_name} onChange={(e) => update('company_name', e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-zinc-800">Sector</span>
-            <input value={form.sector} onChange={(e) => update('sector', e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
-          </label>
-
-          <YesNo label="¿La sede ha trabajado anteriormente con esta contraparte?" value={form.worked_before} onChange={(v) => update('worked_before', v)} />
-          <YesNo label="¿La contraparte tiene interés de participar con INACAP de manera colaborativa?" value={form.interest_collaborate} onChange={(v) => update('interest_collaborate', v)} />
-          <YesNo label="¿El estudiante puede desarrollar actividades asociadas a los aprendizajes esperados?" value={form.can_develop_activities} onChange={(v) => update('can_develop_activities', v)} />
-          <YesNo label="¿Cuenta con proyecto para diseño/desarrollo (si corresponde)?" value={form.willing_design_project} onChange={(v) => update('willing_design_project', v)} />
-
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-zinc-800">Tipo de interacción</span>
-            <select value={form.interaction_type} onChange={(e) => update('interaction_type', e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
-              <option value="">Seleccionar</option>
-              <option value="Virtual">Virtual</option>
-              <option value="Presencial en la empresa">Presencial en la empresa</option>
-              <option value="Presencial en INACAP">Presencial en INACAP</option>
-            </select>
-          </label>
-
-          <YesNo label="Si recibe estudiantes en alternancia (Tipo 3), ¿cuenta con un Maestro Guía?" value={form.has_guide} onChange={(v) => update('has_guide', v)} />
-          <YesNo label="¿Puede recibir estudiantes en alternancia (nivel 3) durante el semestre?" value={form.can_receive_alternance} onChange={(v) => update('can_receive_alternance', v)} />
-
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-zinc-800">N° estudiantes alternancia (nivel 3)</span>
-            <input value={quotaStr} onChange={(e) => setQuotaStr(e.target.value.replace(/[^0-9]/g, ''))} disabled={!form.can_receive_alternance} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
-          </label>
-
-          <div className="col-span-full mt-2 flex items-center justify-end gap-2">
-            <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
-            <button type="submit" disabled={saving} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">{saving ? 'Guardando…' : 'Guardar'}</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-
-
-// Selection-only list of possible counterparts per subject (no create/edit here)
-function PosiblesContrapartesSeleccion({ subjectId }: { subjectId: number }) {
-  type ProspectDisplay = { id: string; company_name: string; sector?: string; interest_collaborate?: boolean }
-  const [prospects, setProspects] = useState<ProspectDisplay[]>([])
-  const [dbForSubject, setDbForSubject] = useState<ProspectDisplay[]>([])
-  const [selected, setSelected] = useState<string[]>([])
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    async function loadLists() {
-      // Unir DB + Local (evitando duplicados por nombre)
-      try {
-        // Local
-        const raw = localStorage.getItem('vcm_posibles_contrapartes')
-        const arr = raw ? JSON.parse(raw) : []
-        const localList: ProspectDisplay[] = Array.isArray(arr)
-          ? arr.map((p: any) => ({ id: String(p.id), company_name: String(p.company_name || ''), sector: p.sector || '', interest_collaborate: !!p.interest_collaborate }))
-          : []
-
-        // DB
-        let dbReqs: CompanyRequirement[] = []
-        try { dbReqs = await listCompanyRequirements() } catch {}
-        // Consultamos empresas para resolver nombres
-        let compsLocal: Company[] = []
-        try { compsLocal = await listCompanies() } catch { compsLocal = [] }
-        const byId = new Map(compsLocal.map((c) => [c.id, c]))
-        const dbList: ProspectDisplay[] = (dbReqs || []).map((r) => ({
-          id: `db:${r.id}`,
-          company_name: byId.get(r.company)?.name || `Empresa #${r.company}`,
-          sector: r.sector || '',
-          interest_collaborate: !!r.interest_collaborate,
-        }))
-
-        // Guardar también los de esta asignatura para mostrarlos como seleccionados
-        const dbChosen: ProspectDisplay[] = (dbReqs || [])
-          .filter((r) => Number(r.subject) === Number(subjectId))
-          .map((r) => ({
-            id: `db:${r.id}`,
-            company_name: byId.get(r.company)?.name || `Empresa #${r.company}`,
-            sector: r.sector || '',
-            interest_collaborate: !!r.interest_collaborate,
-          }))
-        setDbForSubject(dbChosen)
-
-        const merged: ProspectDisplay[] = [...dbList]
-        for (const p of localList) {
-          const key = (p.company_name || '').trim().toLowerCase()
-          if (!merged.some((d) => (d.company_name || '').trim().toLowerCase() === key)) merged.push(p)
-        }
-        setProspects(merged)
-      } catch {
-        setProspects([])
-      }
-
-      // Seleccionados persistidos (solo ids locales)
-      try {
-        const rawSel = localStorage.getItem('vcm_subject_prospects')
-        const map = rawSel ? JSON.parse(rawSel) : {}
-        const curr = map && typeof map === 'object' ? (map[String(subjectId)] || []) : []
-        setSelected(Array.isArray(curr) ? curr.map(String) : [])
-      } catch { setSelected([]) }
-    }
-    loadLists()
-  }, [subjectId])
-
-  function toggle(id: string) {
-    setSelected((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]))
-  }
-
-  function save() {
-    try {
-      const rawSel = localStorage.getItem('vcm_subject_prospects')
-      const map = rawSel ? JSON.parse(rawSel) : {}
-      const obj = map && typeof map === 'object' ? map : {}
-      obj[String(subjectId)] = selected
-      localStorage.setItem('vcm_subject_prospects', JSON.stringify(obj))
-      setOpen(false)
-    } catch {
-      // silently fail; keep modal open if needed
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Posibles contrapartes</h2>
-        <button onClick={() => setOpen(true)} className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">Seleccionar posibles contrapartes</button>
-      </div>
-      {(() => {
-        // Unir seleccionadas locales + las que están en base para esta asignatura
-        const localChosen = prospects.filter((p) => selected.includes(p.id))
-        const mergedChosen: ProspectDisplay[] = [...dbForSubject]
-        for (const p of localChosen) {
-          const key = (p.company_name || '').trim().toLowerCase()
-          if (!mergedChosen.some((d) => (d.company_name || '').trim().toLowerCase() === key)) mergedChosen.push(p)
-        }
-        return mergedChosen.length ? (
-          <div className="flex flex-wrap gap-2">
-            {mergedChosen.map((p) => (
-              <span
-                key={p.id}
-                className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-0.5 text-xs text-zinc-700"
-                title={p.company_name}
-              >
-                {p.company_name}
-                {p.id.startsWith('db:') ? (
-                  <span className="ml-1 rounded bg-white/70 px-1 text-[10px] text-zinc-600">en base</span>
-                ) : null}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-zinc-600">Sin contrapartes seleccionadas.</div>
-        )
-      })()}
-
-      {open ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-xl rounded-xl bg-white shadow-lg ring-1 ring-black/5 max-h-[calc(100vh-4rem)] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-3">
-              <h3 className="text-sm font-semibold text-zinc-900">Seleccionar posibles contrapartes</h3>
-              {/* Cerrar superior eliminado: usamos botones inferiores */}
-            </div>
-            <div className="p-4">
-              {prospects.length === 0 ? (
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm text-zinc-600">No hay posibles contrapartes. Cree algunas en "Posible contraparte".</div>
-                  <Link to="/vcm/posible-contraparte" className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Ir a Posible contraparte</Link>
-                </div>
-              ) : (
-                <ul className="max-h-80 overflow-y-auto rounded-md border border-zinc-200">
-                  {prospects.map((p) => (
-                    <li key={p.id} className="flex items-center justify-between border-b border-zinc-100 px-3 py-2 last:border-b-0">
-                      <div>
-                        <div className="text-sm text-zinc-900">{p.company_name}</div>
-                        <div className="text-xs text-zinc-600">{p.sector || '—'}</div>
-                      </div>
-                      <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600" />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="mt-3 flex items-center justify-end gap-2">
-                <button onClick={() => setOpen(false)} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">Cancelar</button>
-                <button onClick={save} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Guardar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-
-
