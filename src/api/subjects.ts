@@ -1,4 +1,5 @@
 import http from '../lib/http'
+import { usePeriodStore } from '../store/period'
 
 export type Subject = {
   id: number
@@ -24,8 +25,14 @@ export type Subject = {
   descriptors?: Descriptor[]
 }
 
-export async function listSubjects() {
-  const { data } = await http.get<Subject[]>(`/subjects/`)
+export async function listSubjects(params?: Record<string, any>) {
+  const { season, year } = usePeriodStore.getState()
+  const defaultParams = {
+    period_season: season,
+    period_year: year,
+  }
+  const query = params ? { ...defaultParams, ...params } : defaultParams
+  const { data } = await http.get<Subject[]>(`/subjects/`, { params: query })
   return data
 }
 

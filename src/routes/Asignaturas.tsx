@@ -394,7 +394,8 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
   const [name, setName] = useState('')
   const [hours, setHours] = useState<number | ''>('')
   const [apiType, setApiType] = useState<number | ''>('')
-  const [campus, setCampus] = useState('chillan')
+  const [campus, setCampus] = useState('Chillán')
+  const [shift, setShift] = useState<'diurna' | 'vespertina'>('diurna')
   const [area, setArea] = useState<number | ''>('')
   const [semester, setSemester] = useState<number | ''>('')
   const [areas, setAreas] = useState<Area[]>([])
@@ -435,6 +436,7 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
         hours: Number(hours),
         api_type: Number(apiType),
         campus,
+        shift,
         area: Number(area),
         semester: Number(semester),
         period_season: periodSeason,
@@ -476,6 +478,17 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Campus</label>
             <input value={campus} onChange={(e) => setCampus(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Jornada</label>
+            <select
+              value={shift}
+              onChange={(e) => setShift(e.target.value as 'diurna' | 'vespertina')}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            >
+              <option value="diurna">Diurna</option>
+              <option value="vespertina">Vespertina</option>
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Horas</label>
@@ -523,6 +536,7 @@ function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subject; on
   const [section, setSection] = useState(subject.section)
   const [name, setName] = useState(subject.name)
   const [campus, setCampus] = useState(subject.campus)
+  const [shift, setShift] = useState<'diurna' | 'vespertina'>((subject.shift as 'diurna' | 'vespertina') || 'diurna')
   const [hours, setHours] = useState<number | ''>(subject.hours)
   const [apiType, setApiType] = useState<number | ''>(subject.api_type)
   const [area, setArea] = useState<number | ''>(subject.area)
@@ -564,6 +578,7 @@ function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subject; on
         section,
         name,
         campus,
+        shift,
         hours: Number(hours),
         api_type: Number(apiType),
         area: Number(area),
@@ -606,6 +621,17 @@ function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subject; on
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Campus</label>
             <input value={campus} onChange={(e) => setCampus(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Jornada</label>
+            <select
+              value={shift}
+              onChange={(e) => setShift(e.target.value as 'diurna' | 'vespertina')}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            >
+              <option value="diurna">Diurna</option>
+              <option value="vespertina">Vespertina</option>
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Horas</label>
