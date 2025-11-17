@@ -1,4 +1,4 @@
-export default function DAC() {
+export default function DacDashboard() {
   return (
     <section className="p-6">
       <h1 className="text-xl font-semibold">Panel Departamento Academico</h1>

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { getPeriodSetting } from '../api/periods'
 import { derivePeriodFromDate, makePeriodCode, normalizePeriodSeason, parsePeriodCode, PeriodSeason } from '../lib/period'
 
 const STORAGE_KEY = 'current_period'
@@ -10,6 +11,7 @@ type PeriodState = {
   hydrate: () => void
   setPeriod: (season: PeriodSeason, year: number) => void
   setPeriodFromCode: (code: string | null | undefined) => void
+  syncFromServer: () => Promise<{ season: PeriodSeason; year: number } | null>
 }
 
 function fallbackPeriod(): { season: PeriodSeason; year: number; code: string } {
@@ -65,6 +67,23 @@ export const usePeriodStore = create<PeriodState>((set) => {
         year: parsed.year,
         periodCode: `${parsed.season}-${parsed.year}`,
       })
+    },
+    syncFromServer: async () => {
+      try {
+        const data = await getPeriodSetting()
+        if (!data) return null
+        const normalized = normalizePeriodSeason(data.period_season)
+        if (!normalized || typeof data.period_year !== 'number') return null
+        const code = makePeriodCode(normalized, data.period_year)
+        if (!code) return null
+        try {
+          localStorage.setItem(STORAGE_KEY, code)
+        } catch {}
+        set({ season: normalized, year: data.period_year, periodCode: code })
+        return { season: normalized, year: data.period_year }
+      } catch {
+        return null
+      }
     },
   }
 })

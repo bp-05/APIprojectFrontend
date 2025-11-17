@@ -4,6 +4,7 @@ import {
   createPeriodPhaseSchedule,
   listPeriodPhaseSchedules,
   updatePeriodPhaseSchedule,
+  updatePeriodSetting,
   type PeriodPhaseSchedule,
 } from '../api/periods'
 import { PeriodSeason, normalizePeriodSeason } from '../lib/period'
@@ -44,6 +45,7 @@ export default function AdminPeriodos() {
   const year = usePeriodStore((s) => s.year)
   const periodCode = usePeriodStore((s) => s.periodCode)
   const setPeriod = usePeriodStore((s) => s.setPeriod)
+  const syncPeriodFromServer = usePeriodStore((s) => s.syncFromServer)
   const [yearInput, setYearInput] = useState(() => String(year))
 
   async function loadSchedules() {
@@ -63,6 +65,10 @@ export default function AdminPeriodos() {
   useEffect(() => {
     loadSchedules()
   }, [])
+
+  useEffect(() => {
+    syncPeriodFromServer().catch(() => null)
+  }, [syncPeriodFromServer])
 
   useEffect(() => {
     setYearInput(String(year))
@@ -117,6 +123,7 @@ export default function AdminPeriodos() {
     setSaving(true)
     setError(null)
     try {
+      await updatePeriodSetting({ period_year: year, period_season: season })
       const promises = PHASES.map(({ value }) => {
         const record = phaseState[value] ?? { start: '', end: '' }
         const payload = {

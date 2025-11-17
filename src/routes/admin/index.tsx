@@ -1,4 +1,4 @@
-export default function Admin() {
+export default function AdminDashboard() {
   return (
     <section className="p-6">
       <h1 className="text-xl font-semibold">Panel Admin</h1>

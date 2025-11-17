@@ -13,6 +13,7 @@ export default function Layout() {
   const location = useLocation()
   const currentPeriod = usePeriodStore((s) => s.periodCode)
   const setPeriodFromCode = usePeriodStore((s) => s.setPeriodFromCode)
+  const syncPeriodFromServer = usePeriodStore((s) => s.syncFromServer)
 
   // Estado de colapso del Menú del coordinador con persistencia
   const [coordSidebarCollapsed, setCoordSidebarCollapsed] = useState<boolean>(() => {
@@ -58,18 +59,19 @@ export default function Layout() {
     if (!isAuthenticated) return
     let ignore = false
     async function loadPeriod() {
-      try {
-        const remotePeriod = await fetchLatestPeriodCode()
-        if (!ignore && remotePeriod) setPeriodFromCode(remotePeriod)
-      } catch {
-        // keep last known period
+      const synced = await syncPeriodFromServer().catch(() => null)
+      if (!ignore && !synced) {
+        try {
+          const remotePeriod = await fetchLatestPeriodCode()
+          if (remotePeriod) setPeriodFromCode(remotePeriod)
+        } catch {}
       }
     }
     loadPeriod()
     return () => {
       ignore = true
     }
-  }, [isAuthenticated, setPeriodFromCode])
+  }, [isAuthenticated, setPeriodFromCode, syncPeriodFromServer])
 
   function handleLogout() {
     logout()

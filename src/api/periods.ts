@@ -20,6 +20,12 @@ export type PeriodPhaseSchedulePayload = {
   days_allocated?: number | null
 }
 
+export type PeriodSetting = {
+  period_year: number
+  period_season: PeriodSeason
+  updated_at?: string
+}
+
 export async function listPeriodPhaseSchedules(params?: {
   period_year?: number
   period_season?: PeriodSeason
@@ -54,4 +60,14 @@ export async function fetchLatestPeriodCode(): Promise<string | null> {
       typeof entry?.period_year === 'number' && normalizePeriodSeason(entry?.period_season) !== null
   )
   return candidate ? makePeriodCode(candidate.period_season, candidate.period_year) : null
+}
+
+export async function getPeriodSetting() {
+  const { data } = await http.get<PeriodSetting>(`/period-setting/`)
+  return data
+}
+
+export async function updatePeriodSetting(payload: PeriodSetting) {
+  const { data } = await http.put<PeriodSetting>(`/period-setting/`, payload)
+  return data
 }

@@ -3,6 +3,7 @@ import { createSubject, deleteSubject, listSubjects, updateSubject, type Subject
 import { listDocentes, type User as AppUser } from '../api/users'
 import { nameCase } from '../lib/strings'
 import { toast } from 'react-hot-toast'
+import { usePeriodStore } from '../store/period'
 
 export default function Asignaturas() {
   const [items, setItems] = useState<Subject[]>([])
@@ -110,6 +111,7 @@ export default function Asignaturas() {
               <Th>Descriptor</Th>
               <Th>Código</Th>
               <Th>Sección</Th>
+              <Th>Periodo</Th>
               <Th>Nombre</Th>
               <Th>Área</Th>
               <Th>Carrera</Th>
@@ -120,11 +122,11 @@ export default function Asignaturas() {
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={6}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={6}>Sin resultados</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Sin resultados</td>
               </tr>
             ) : (
               filtered.map((s) => (
@@ -134,6 +136,7 @@ export default function Asignaturas() {
                   </Td>
                   <Td>{s.code}</Td>
                   <Td>{s.section}</Td>
+                  <Td>{s.period_code || `${s.period_season}-${s.period_year}`}</Td>
                   <Td>{s.name}</Td>
                   <Td>{s.area_name}</Td>
                   <Td>
@@ -240,6 +243,7 @@ function ViewSubjectDialog({ subject, onClose }: { subject: Subject; onClose: ()
   const rows: Array<[string, any]> = [
     ['Código', subject.code],
     ['Sección', subject.section],
+    ['Periodo', subject.period_code || `${subject.period_season}-${subject.period_year}`],
     ['Nombre', subject.name],
     ['Área', subject.area_name || subject.area],
     ['Carrera', subject.career_name || subject.career || '-'],
@@ -397,6 +401,8 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
   const [semesters, setSemesters] = useState<SemesterLevel[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const periodSeason = usePeriodStore((s) => s.season)
+  const periodYear = usePeriodStore((s) => s.year)
 
   useEffect(() => {
     let mounted = true
@@ -431,6 +437,8 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
         campus,
         area: Number(area),
         semester: Number(semester),
+        period_season: periodSeason,
+        period_year: periodYear,
       })
       toast.success('Asignatura creada')
       await onCreated()
