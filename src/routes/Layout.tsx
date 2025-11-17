@@ -3,12 +3,15 @@ import { useAuth } from '../store/auth'
 import { useEffect, useState } from 'react'
 import { pathForRole, roleLabelMap } from './roleMap'
 import { nameCase } from '../lib/strings'
+import { fetchLatestPeriodCode } from '../api/periods'
+import { derivePeriodFromDate } from '../lib/period'
 
 export default function Layout() {
   const navigate = useNavigate()
   const { isAuthenticated, logout, user, role, loadMe } = useAuth()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const location = useLocation()
+  const [currentPeriod, setCurrentPeriod] = useState(() => derivePeriodFromDate())
 
   // Estado de colapso del Menú del coordinador con persistencia
   const [coordSidebarCollapsed, setCoordSidebarCollapsed] = useState<boolean>(() => {
@@ -50,19 +53,36 @@ export default function Layout() {
     }
   }, [isAuthenticated, user, loadMe])
 
+  useEffect(() => {
+    if (!isAuthenticated) return
+    let ignore = false
+    async function loadPeriod() {
+      try {
+        const remotePeriod = await fetchLatestPeriodCode()
+        if (!ignore && remotePeriod) setCurrentPeriod(remotePeriod)
+      } catch {
+        if (!ignore) setCurrentPeriod(derivePeriodFromDate())
+      }
+    }
+    loadPeriod()
+    return () => {
+      ignore = true
+    }
+  }, [isAuthenticated])
+
   function handleLogout() {
     logout()
     navigate('/login')
   }
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 shadow-sm">
+      <header className="flex flex-col gap-3 border-b border-zinc-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <button
               onClick={() => setMobileNavOpen(true)}
               className="mr-2 inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-50 md:hidden"
-              aria-label="Abrir men�"
+              aria-label="Abrir menú"
             >
               ☰
             </button>
@@ -72,30 +92,36 @@ export default function Layout() {
             <div className="text-sm font-semibold tracking-wide text-zinc-800">Gestor API</div>
           </Link>
         </div>
-        {isAuthenticated && (
-          <div className="flex items-center gap-3">
-            <div className="text-sm text-zinc-700">
-              {nameCase(user?.full_name || `${user?.first_name ?? ''} ${user?.last_name ?? ''}`) || user?.username}
-              {role ? (
-                <span className="ml-2 rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                  {roleLabelMap[role] || role}
-                </span>
-              ) : null}
-            </div>
-            <Link
-              to="/profile"
-              className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-            >
-              Perfil
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center justify-center rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-600/20"
-            >
-              Salir
-            </button>
+        <div className="flex flex-col-reverse items-start gap-3 sm:flex-row sm:items-center sm:justify-end md:flex-row md:items-center md:gap-4">
+          <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 sm:text-sm">
+            <span>Periodo actual:</span>
+            <span className="rounded bg-zinc-100 px-2 py-0.5 text-zinc-800">{currentPeriod}</span>
           </div>
-        )}
+          {isAuthenticated && (
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="text-sm text-zinc-700">
+                {nameCase(user?.full_name || `${user?.first_name ?? ''} ${user?.last_name ?? ''}`) || user?.username}
+                {role ? (
+                  <span className="ml-2 rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                    {roleLabelMap[role] || role}
+                  </span>
+                ) : null}
+              </div>
+              <Link
+                to="/profile"
+                className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+              >
+                Perfil
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center justify-center rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-600/20"
+              >
+                Salir
+              </button>
+            </div>
+          )}
+        </div>
       </header>
       <div className="flex">
         {isAuthenticated ? (
