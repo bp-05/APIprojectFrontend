@@ -587,8 +587,10 @@ export function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subj
   const [apiType, setApiType] = useState<number | ''>(subject.api_type)
   const [area, setArea] = useState<number | ''>(subject.area)
   const [semester, setSemester] = useState<number | ''>(subject.semester)
+  const [career, setCareer] = useState<number | ''>(subject.career ?? '')
   const [areas, setAreas] = useState<Area[]>([])
   const [semesters, setSemesters] = useState<SemesterLevel[]>([])
+  const [careers, setCareers] = useState<Career[]>([])
   const [teachers, setTeachers] = useState<AppUser[]>([])
   const [teacherSel, setTeacherSel] = useState<number | ''>(subject.teacher ?? '')
   const [loading, setLoading] = useState(false)
@@ -596,11 +598,12 @@ export function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subj
 
   useEffect(() => {
     let mounted = true
-    Promise.all([listAreas(), listSemesters(), listDocentes({ onlyActive: true })])
-      .then(([a, s, t]) => {
+    Promise.all([listAreas(), listSemesters(), listCareers(), listDocentes({ onlyActive: true })])
+      .then(([a, s, c, t]) => {
         if (!mounted) return
         setAreas(a)
         setSemesters(s)
+        setCareers(c)
         setTeachers(t)
       })
       .catch(() => {})
@@ -628,6 +631,7 @@ export function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subj
         hours: Number(hours),
         total_students: totalStudents === '' ? null : Number(totalStudents),
         api_type: Number(apiType),
+        career: career === '' ? null : Number(career),
         area: Number(area),
         semester: Number(semester),
         teacher: teacherSel === '' ? null : Number(teacherSel),
@@ -729,6 +733,15 @@ export function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subj
               <option value="">Seleccione…</option>
               {areas.map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Carrera</label>
+            <select value={career} onChange={(e) => setCareer(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
+              <option value="">Sin carrera</option>
+              {careers.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>
