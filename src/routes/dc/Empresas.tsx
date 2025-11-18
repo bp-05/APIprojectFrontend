@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  listCompanies,
-  createCompany,
-  updateCompany,
-  deleteCompany,
-  type Company,
-} from '../../api/companies'
+import { useNavigate } from 'react-router'
+import { listCompanies, createCompany, updateCompany, type Company } from '../../api/companies'
 import { toast } from 'react-hot-toast'
 
 export default function DCEmpresas() {
@@ -14,7 +9,7 @@ export default function DCEmpresas() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<Company | null>(null)
+  const navigate = useNavigate()
 
   async function load() {
     setLoading(true)
@@ -43,13 +38,6 @@ export default function DCEmpresas() {
         .some((v) => String(v || '').toLowerCase().includes(q)),
     )
   }, [items, search])
-
-  async function handleDelete(company: Company) {
-    if (!confirm(`¿Eliminar empresa ${company.name}?`)) return
-    await deleteCompany(company.id)
-    toast.success('Empresa eliminada')
-    await load()
-  }
 
   return (
     <section className="p-6">
@@ -86,8 +74,8 @@ export default function DCEmpresas() {
               <Th>Correo</Th>
               <Th>Telefono</Th>
               <Th>Sector</Th>
+              <Th>Direccion (Principal)</Th>
               <Th>Empleados</Th>
-              <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
@@ -105,26 +93,25 @@ export default function DCEmpresas() {
               </tr>
             ) : (
               filtered.map((company) => (
-                <tr key={company.id} className="hover:bg-zinc-50">
+                <tr
+                  key={company.id}
+                  tabIndex={0}
+                  role="button"
+                  onClick={() => navigate(`/dc/empresas/${company.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      navigate(`/dc/empresas/${company.id}`)
+                    }
+                  }}
+                  className="cursor-pointer hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600/40"
+                >
                   <Td>{company.name}</Td>
                   <Td>{company.email || '-'}</Td>
                   <Td>{company.phone || '-'}</Td>
                   <Td>{company.sector || '-'}</Td>
+                  <Td>{company.address || '-'}</Td>
                   <Td>{company.employees_count ?? '-'}</Td>
-                  <Td className="text-right">
-                    <button
-                      onClick={() => setEditing(company)}
-                      className="mr-2 rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(company)}
-                      className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
-                    >
-                      Eliminar
-                    </button>
-                  </Td>
                 </tr>
               ))
             )}
@@ -138,18 +125,6 @@ export default function DCEmpresas() {
           onClose={() => setCreating(false)}
           onSaved={async () => {
             setCreating(false)
-            await load()
-          }}
-        />
-      ) : null}
-
-      {editing ? (
-        <CompanyDialog
-          title="Editar empresa"
-          company={editing}
-          onClose={() => setEditing(null)}
-          onSaved={async () => {
-            setEditing(null)
             await load()
           }}
         />
@@ -185,11 +160,12 @@ function CompanyDialog({
     name: company?.name ?? '',
     address: company?.address ?? '',
     management_address: company?.management_address ?? '',
-    spys_responsible_name: company?.spys_responsible_name ?? '',
     email: company?.email ?? '',
     phone: company?.phone ?? '',
     employees_count: company?.employees_count ?? 0,
     sector: company?.sector ?? '',
+    counterpart_contacts: company?.counterpart_contacts ?? [],
+    api_type: company?.api_type,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -292,14 +268,6 @@ function CompanyDialog({
             <input
               value={form.management_address}
               onChange={(e) => handleChange('management_address', e.target.value)}
-              className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Responsable SPYS</label>
-            <input
-              value={form.spys_responsible_name}
-              onChange={(e) => handleChange('spys_responsible_name', e.target.value)}
               className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
             />
           </div>
