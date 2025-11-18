@@ -13,6 +13,7 @@ import COORD_DASH from './routes/roles/COORD_Dashboard'
 import Profile from './routes/Profile'
 import Usuarios from './routes/Usuarios'
 import Asignaturas from './routes/Asignaturas'
+import AsignaturaDetalle from './routes/AsignaturaDetalle'
 import Docentes from './routes/Docentes'
 import MisAsignaturas from './routes/MisAsignaturas'
 import AdminPeriodos from './routes/AdminPeriodos'
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
       { path: 'admin', loader: requireRoleLoader('ADMIN'), element: <Admin /> },
       { path: 'usuarios', loader: requireRoleLoader('ADMIN'), element: <Usuarios /> },
       { path: 'asignaturas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Asignaturas /> },
+      { path: 'asignaturas/:id', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <AsignaturaDetalle /> },
       { path: 'proceso-api', loader: requireRoleLoader('ADMIN'), element: <ProcesoAPI /> },
       { path: 'admin/periodos', loader: requireRoleLoader('ADMIN'), element: <AdminPeriodos /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },

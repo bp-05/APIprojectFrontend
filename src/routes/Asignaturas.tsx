@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import { createSubject, deleteSubject, listSubjects, updateSubject, type Subject, listAreas, listSemesters, type Area, type SemesterLevel, uploadDescriptor, processDescriptor, type Descriptor, listDescriptorsBySubject, listCareers, type Career, getSubject } from '../api/subjects'
+import { useNavigate } from 'react-router'
+import { createSubject, listSubjects, updateSubject, type Subject, listAreas, listSemesters, type Area, type SemesterLevel, uploadDescriptor, processDescriptor, type Descriptor, listDescriptorsBySubject, listCareers, type Career, getSubject } from '../api/subjects'
 import { listDocentes, type User as AppUser } from '../api/users'
 import { nameCase } from '../lib/strings'
 import { toast } from 'react-hot-toast'
@@ -16,8 +17,7 @@ export default function Asignaturas() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [createMode, setCreateMode] = useState<'none' | 'choose' | 'manual' | 'auto'>('none')
-  const [editing, setEditing] = useState<Subject | null>(null)
-  const [viewing, setViewing] = useState<Subject | null>(null)
+  const navigate = useNavigate()
   const upsertSubject = useCallback((subject: Subject) => {
     setItems((prev) => {
       if (!prev || prev.length === 0) return [subject]
@@ -162,12 +162,14 @@ export default function Asignaturas() {
     )
   }, [items, search])
 
-  async function onDelete(s: Subject) {
-    if (!confirm(`¿Eliminar asignatura ${s.code}-${s.section}?`)) return
-    await deleteSubject(s.id)
-    toast.success('Asignatura eliminada')
-    await load()
-  }
+  const handleRowClick = useCallback(
+    (event: React.MouseEvent<HTMLTableRowElement>, subjectId: number) => {
+      const target = event.target as HTMLElement
+      if (target.closest('button, a, input, select, textarea, [role="button"]')) return
+      navigate(`/asignaturas/${subjectId}`)
+    },
+    [navigate]
+  )
 
   return (
     <section className="p-6">
@@ -208,21 +210,24 @@ export default function Asignaturas() {
               <Th>Área</Th>
               <Th>Carrera</Th>
               <Th>Docente</Th>
-              <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Sin resultados</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Sin resultados</td>
               </tr>
             ) : (
               filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-zinc-50">
+                <tr
+                  key={s.id}
+                  className="cursor-pointer hover:bg-zinc-50"
+                  onClick={(event) => handleRowClick(event, s.id)}
+                >
                   <Td>
                     <DescriptorCell subject={s} onChanged={load} />
                   </Td>
@@ -244,26 +249,6 @@ export default function Asignaturas() {
                     ) : (
                       <AssignButton subject={s} onAssigned={load} />
                     )}
-                  </Td>
-                  <Td className="text-right">
-                    <button
-                      onClick={() => setViewing(s)}
-                      className="mr-2 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
-                    >
-                      Ver
-                    </button>
-                    <button
-                      onClick={() => setEditing(s)}
-                      className="mr-2 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => onDelete(s)}
-                      className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
-                    >
-                      Eliminar
-                    </button>
                   </Td>
                 </tr>
               ))
@@ -299,20 +284,6 @@ export default function Asignaturas() {
         />
       ) : null}
 
-      {editing ? (
-        <EditSubjectDialog
-          subject={editing}
-          onClose={() => setEditing(null)}
-          onSaved={async () => {
-            setEditing(null)
-            await load()
-          }}
-        />
-      ) : null}
-
-      {viewing ? (
-        <ViewSubjectDialog subject={viewing} onClose={() => setViewing(null)} />
-      ) : null}
     </section>
   )
 }
@@ -327,44 +298,6 @@ function Th({ children, className = '' }: { children: any; className?: string })
 
 function Td({ children, className = '' }: { children: any; className?: string }) {
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
-}
-
-function ViewSubjectDialog({ subject, onClose }: { subject: Subject; onClose: () => void }) {
-  const rows: Array<[string, any]> = [
-    ['Código', subject.code],
-    ['Sección', subject.section],
-    ['Periodo', subject.period_code || `${subject.period_season}-${subject.period_year}`],
-    ['Nombre', subject.name],
-    ['Área', subject.area_name || subject.area],
-    ['Carrera', subject.career_name || subject.career || '-'],
-    ['Semestre', subject.semester_name || subject.semester],
-    ['Campus', subject.campus],
-    ['Jornada', subject.shift],
-    ['Horas', subject.hours],
-    ['Tipo API', subject.api_type],
-    ['Docente', subject.teacher_name || (subject.teacher ? `ID ${subject.teacher}` : '-')],
-  ]
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-2xl rounded-lg bg-white p-5 shadow-lg">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold">Detalle de asignatura</h2>
-          {/* Botón Cerrar superior eliminado para unificar formato */}
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {rows.map(([k, v]) => (
-            <div key={k} className="rounded-md border border-zinc-200 bg-white p-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">{k}</div>
-              <div className="mt-1 text-sm text-zinc-800">{String(v ?? '-')}</div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 text-right">
-          <button onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cerrar</button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 function AssignCareerButton({ subject, onAssigned }: { subject: Subject; onAssigned: () => void }) {
@@ -643,7 +576,7 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
   )
 }
 
-function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subject; onClose: () => void; onSaved: () => void }) {
+export function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subject; onClose: () => void; onSaved: () => void }) {
   const [code, setCode] = useState(subject.code)
   const [section, setSection] = useState(subject.section)
   const [name, setName] = useState(subject.name)
