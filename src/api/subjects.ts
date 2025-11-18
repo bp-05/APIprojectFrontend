@@ -13,6 +13,7 @@ export type Subject = {
   period_code?: string
   phase: string
   hours: number
+  total_students: number | null
   api_type: number
   teacher: number | null
   teacher_name?: string | null
@@ -56,7 +57,17 @@ export async function listSubjectCodeSections() {
 export async function createSubject(
   payload: Pick<
     Subject,
-    'code' | 'section' | 'name' | 'hours' | 'api_type' | 'campus' | 'area' | 'semester' | 'period_year' | 'period_season'
+    | 'code'
+    | 'section'
+    | 'name'
+    | 'hours'
+    | 'api_type'
+    | 'campus'
+    | 'area'
+    | 'semester'
+    | 'period_year'
+    | 'period_season'
+    | 'total_students'
   > & {
     teacher?: number | null
   }

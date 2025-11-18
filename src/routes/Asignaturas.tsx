@@ -483,6 +483,7 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
   const [section, setSection] = useState('1')
   const [name, setName] = useState('')
   const [hours, setHours] = useState<number | ''>('')
+  const [totalStudents, setTotalStudents] = useState<number | ''>('')
   const [apiType, setApiType] = useState<number | ''>('')
   const [campus, setCampus] = useState('Chillán')
   const [shift, setShift] = useState<'diurna' | 'vespertina'>('diurna')
@@ -524,6 +525,7 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
         section,
         name,
         hours: Number(hours),
+        total_students: totalStudents === '' ? null : Number(totalStudents),
         api_type: Number(apiType),
         campus,
         shift,
@@ -585,6 +587,26 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
             <input type="number" value={hours} onChange={(e) => setHours(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
           </div>
           <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Total estudiantes (opcional)</label>
+            <input
+              type="number"
+              min={0}
+              value={totalStudents}
+              onChange={(e) => setTotalStudents(e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Total estudiantes (opcional)</label>
+            <input
+              type="number"
+              min={0}
+              value={totalStudents}
+              onChange={(e) => setTotalStudents(e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+          <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo API</label>
             <select value={apiType} onChange={(e) => setApiType(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
               <option value="">Seleccione…</option>
@@ -628,6 +650,7 @@ function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subject; on
   const [campus, setCampus] = useState(subject.campus)
   const [shift, setShift] = useState<'diurna' | 'vespertina'>((subject.shift as 'diurna' | 'vespertina') || 'diurna')
   const [hours, setHours] = useState<number | ''>(subject.hours)
+  const [totalStudents, setTotalStudents] = useState<number | ''>(subject.total_students ?? '')
   const [apiType, setApiType] = useState<number | ''>(subject.api_type)
   const [area, setArea] = useState<number | ''>(subject.area)
   const [semester, setSemester] = useState<number | ''>(subject.semester)
@@ -670,6 +693,7 @@ function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subject; on
         campus,
         shift,
         hours: Number(hours),
+        total_students: totalStudents === '' ? null : Number(totalStudents),
         api_type: Number(apiType),
         area: Number(area),
         semester: Number(semester),
