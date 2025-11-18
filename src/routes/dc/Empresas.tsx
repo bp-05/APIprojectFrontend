@@ -165,7 +165,6 @@ function CompanyDialog({
     employees_count: company?.employees_count ?? 0,
     sector: company?.sector ?? '',
     counterpart_contacts: company?.counterpart_contacts ?? [],
-    api_type: company?.api_type,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

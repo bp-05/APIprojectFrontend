@@ -8,6 +8,7 @@ export type CounterpartContact = {
   email: string
   counterpart_area: string
   role: string
+  company?: number
 }
 
 export type Company = {
@@ -59,10 +60,31 @@ export async function createCompany(payload: CompanyPayload) {
 export async function updateCompany(id: number, payload: Partial<CompanyPayload>) {
   const body = {
     ...payload,
-    counterpart_contacts: normalizeContacts(payload.counterpart_contacts),
   }
   const { data } = await http.patch<Company>(`/companies/${id}/`, body)
   return data
+}
+
+export async function listCounterpartContacts(params?: { company?: number }) {
+  const { data } = await http.get<CounterpartContact[]>('/counterpart-contacts/', { params })
+  return data
+}
+
+export async function createCounterpartContact(payload: CounterpartContact & { company: number }) {
+  const { data } = await http.post<CounterpartContact>('/counterpart-contacts/', payload)
+  return data
+}
+
+export async function updateCounterpartContact(
+  id: number,
+  payload: Partial<CounterpartContact & { company: number }>,
+) {
+  const { data } = await http.patch<CounterpartContact>(`/counterpart-contacts/${id}/`, payload)
+  return data
+}
+
+export async function deleteCounterpartContact(id: number) {
+  await http.delete(`/counterpart-contacts/${id}/`)
 }
 
 export async function deleteCompany(id: number) {
@@ -94,7 +116,12 @@ export async function listProblemStatements(params?: { subject?: number; company
 
 export async function getCompany(id: number) {
   const { data } = await http.get<Company>(`/companies/${id}/`)
-  return data
+  return {
+    ...data,
+    counterpart_contacts: Array.isArray((data as any).counterpart_contacts)
+      ? ((data as any).counterpart_contacts as CounterpartContact[])
+      : [],
+  }
 }
 
 export async function createProblemStatement(payload: Omit<ProblemStatement, 'id'>) {
