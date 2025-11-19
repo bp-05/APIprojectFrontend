@@ -1,10 +1,90 @@
 ﻿import { Link, Outlet, useNavigate, useLocation } from 'react-router'
 import { useAuth } from '../store/auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { pathForRole, roleLabelMap } from './roleMap'
 import { nameCase } from '../lib/strings'
 import { fetchLatestPeriodCode } from '../api/periods'
 import { usePeriodStore } from '../store/period'
+
+type SidebarLinkItem = {
+  to: string
+  label: string
+  icon: ReactNode
+  matchPrefix?: string
+  showOnDesktop?: boolean
+  showOnMobile?: boolean
+}
+
+type SidebarSection = { title: string; items: SidebarLinkItem[] }
+type AppRole = 'ADMIN' | 'DAC' | 'DOC' | 'DC' | 'VCM' | 'COORD'
+
+const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
+  ADMIN: [
+    {
+      title: 'Administración',
+      items: [
+        { to: '/usuarios', label: 'Usuarios', icon: <IconUsers />, matchPrefix: '/usuarios' },
+        { to: '/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/asignaturas' },
+        { to: '/proceso-api', label: 'Proceso API', icon: <IconWorkflow />, matchPrefix: '/proceso-api' },
+        { to: '/admin/periodos', label: 'Gestionar periodos', icon: <IconCalendar />, matchPrefix: '/admin/periodos' },
+        { to: '/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/empresas' },
+        { to: '/problematicas', label: 'Problemáticas', icon: <IconAlert />, matchPrefix: '/problematicas' },
+      ],
+    },
+  ],
+  DAC: [
+    {
+      title: 'Departamento Académico',
+      items: [
+        { to: '/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/asignaturas' },
+        { to: '/docentes', label: 'Docentes', icon: <IconUsers />, matchPrefix: '/docentes' },
+      ],
+    },
+  ],
+  DOC: [
+    {
+      title: 'Docente',
+      items: [{ to: '/mis-asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/mis-asignaturas' }],
+    },
+  ],
+  DC: [
+    {
+      title: 'Director de área/carrera',
+      items: [
+        { to: '/dc/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/dc/asignaturas' },
+        { to: '/dc/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/dc/empresas' },
+      ],
+    },
+  ],
+  VCM: [
+    {
+      title: 'Vinculación con el medio',
+      items: [
+        { to: '/vcm/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/vcm/empresas' },
+        { to: '/vcm/problemas', label: 'Problemáticas', icon: <IconAlert />, matchPrefix: '/vcm/problemas' },
+        { to: '/vcm/alcances', label: 'Alcances', icon: <IconTarget />, matchPrefix: '/vcm/alcances' },
+        { to: '/vcm/posible-contraparte', label: 'Posible contraparte', icon: <IconHandshake />, matchPrefix: '/vcm/posible-contraparte' },
+        { to: '/vcm/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/vcm/asignaturas' },
+      ],
+    },
+  ],
+  COORD: [
+    {
+      title: 'Coordinador',
+      items: [
+        { to: '/coord/asignaturas', label: 'Asignaturas', icon: <IconFolder />, matchPrefix: '/coord/asignaturas' },
+        { to: '/coord/gantt', label: 'Gantt', icon: <IconCalendar />, matchPrefix: '/coord/gantt' },
+        { to: '/coord/reportes', label: 'Reportes', icon: <IconChart />, matchPrefix: '/coord/reportes' },
+        { to: '/coord/notificaciones', label: 'Notificaciones', icon: <IconBell />, matchPrefix: '/coord/notificaciones' },
+        { to: '/coord/docentes', label: 'Docentes', icon: <IconUsers />, matchPrefix: '/coord/docentes', showOnDesktop: false },
+      ],
+    },
+  ],
+}
+
+function isRoleWithSidebar(role: string | null | undefined): role is AppRole {
+  return typeof role === 'string' && role in SIDEBAR_SECTIONS
+}
 
 export default function Layout() {
   const navigate = useNavigate()
@@ -24,6 +104,8 @@ export default function Layout() {
     } catch {}
     return false
   })
+  const isCoordRole = role === 'COORD'
+  const sidebarSections = isRoleWithSidebar(role) ? SIDEBAR_SECTIONS[role] : undefined
 
   useEffect(() => {
     function onResize() {
@@ -126,232 +208,172 @@ export default function Layout() {
           )}
         </div>
       </header>
+
+
       <div className="flex">
+
         {isAuthenticated ? (
-          <aside className={`hidden shrink-0 border-r border-zinc-200 bg-white/70 p-4 md:block ${role === 'COORD' ? (coordSidebarCollapsed ? 'w-20' : 'w-64') : 'w-64'}`}>
-            <nav className="space-y-1">
-              {role === 'COORD' && (
-                <>
-                  <div className="mb-2 flex items-center justify-between px-2">
-                    <div className={`text-xs font-semibold uppercase tracking-wide text-zinc-500 ${coordSidebarCollapsed ? 'hidden' : ''}`}>Coordinador</div>
-                    <button
-                      type="button"
-                      onClick={toggleCoordSidebar}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                      aria-label={coordSidebarCollapsed ? '>' : '<'}
-                      title={coordSidebarCollapsed ? '>' : '<'}
-                    >
-                      <span className="text-xs">{coordSidebarCollapsed ? '>' : '<'}</span>
-                    </button>
-                  </div>
-                  <SidebarItem to="/coord/asignaturas" icon={<IconFolder />} collapsed={!!coordSidebarCollapsed} active={location.pathname.startsWith('/coord/asignaturas')} label="Asignaturas" />
-                  <SidebarItem to="/coord/gantt" icon={<IconCalendar />} collapsed={!!coordSidebarCollapsed} active={location.pathname.startsWith('/coord/gantt')} label="Gantt" />
-                  <SidebarItem to="/coord/reportes" icon={<IconChart />} collapsed={!!coordSidebarCollapsed} active={location.pathname.startsWith('/coord/reportes')} label="Reportes" />
-                  <SidebarItem to="/coord/notificaciones" icon={<IconBell />} collapsed={!!coordSidebarCollapsed} active={location.pathname.startsWith('/coord/notificaciones')} label="Notificaciones" />
-                </>
-              )}
-              {role !== 'COORD' && ( <>
-              {role === 'ADMIN' && (
-                <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Administración</div>
-                  <Link
-                    to="/usuarios"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+
+          <aside className={`hidden shrink-0 border-r border-zinc-200 bg-white/70 p-4 md:block ${isCoordRole ? (coordSidebarCollapsed ? "w-20" : "w-64") : "w-64"}`}>
+
+            <nav className="space-y-6">
+
+              {sidebarSections?.map((section, idx) => {
+
+                const visibleItems = section.items.filter((item) => item.showOnDesktop !== false)
+
+                if (visibleItems.length === 0) return null
+
+                const action = isCoordRole && idx === 0 ? (
+
+                  <button
+
+                    type="button"
+
+                    onClick={toggleCoordSidebar}
+
+                    className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+
+                    aria-label={coordSidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
+
+                    title={coordSidebarCollapsed ? ">" : "<"}
+
                   >
-                    Usuarios
-                  </Link>
-                  <Link
-                    to="/asignaturas"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+
+                    <span className="text-xs">{coordSidebarCollapsed ? ">" : "<"}</span>
+
+                  </button>
+
+                ) : null
+
+                return (
+
+                  <SidebarSectionBlock
+
+                    key={`${section.title}-${idx}`}
+
+                    title={section.title}
+
+                    collapsed={isCoordRole ? coordSidebarCollapsed : false}
+
+                    action={action}
+
                   >
-                    Asignaturas
-                  </Link>
-                  <Link
-                    to="/proceso-api"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Proceso API
-                  </Link>
-                  <Link
-                    to="/admin/periodos"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Gestionar periodos
-                  </Link>
-                  <Link
-                    to="/empresas"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Empresas
-                  </Link>
-                  <Link
-                    to="/problematicas"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Problemáticas
-                  </Link>
-                </>
-              )}
-              {role === 'DAC' && (
-                <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Departamento Académico</div>
-                  <Link
-                    to="/asignaturas"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Asignaturas
-                  </Link>
-                  <Link
-                    to="/docentes"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Docentes
-                  </Link>
-                </>
-              )}
-               {role === 'DOC' && (
-                 <>
-                   <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Docente</div>
-                   <Link
-                     to="/mis-asignaturas"
-                     className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                   >
-                     Asignaturas
-                   </Link>
-                 </>
-               )}
-              {role === 'DC' && (
-                <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Director de area/carrera</div>
-                  <Link
-                    to="/dc/asignaturas"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Asignaturas
-                  </Link>
-                  <Link
-                    to="/dc/empresas"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Empresas
-                  </Link>
-                </>
-              )}
-              {/* Otros roles/links */}
-              {/* Otros roles/links se agregarán luego */}
-              {role === 'VCM' && (
-                <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Vinculación con el medio</div>
-                  <Link
-                    to="/vcm/empresas"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Empresas
-                  </Link>
-                  <Link
-                    to="/vcm/problemas"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Problemáticas
-                  </Link>
-                  <Link
-                    to="/vcm/alcances"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Alcances
-                  </Link>
-                  <Link
-                    to="/vcm/posible-contraparte"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Posible contraparte
-                  </Link>
-                  <Link
-                    to="/vcm/asignaturas"
-                    className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    Asignaturas
-                  </Link>
-                </>
-              )}
-              </>)}
+
+                    {visibleItems.map((item) => (
+
+                      <SidebarItem
+
+                        key={item.to}
+
+                        to={item.to}
+
+                        icon={item.icon}
+
+                        label={item.label}
+
+                        collapsed={isCoordRole ? coordSidebarCollapsed : false}
+
+                        active={isSidebarItemActive(location.pathname, item)}
+
+                      />
+
+                    ))}
+
+                  </SidebarSectionBlock>
+
+                )
+
+              })}
+
             </nav>
+
           </aside>
+
         ) : null}
+
+
 
         <main className="min-h-[calc(100vh-4rem)] flex-1">
           <Outlet />
         </main>
       </div>
-      {isAuthenticated && mobileNavOpen ? (
-        <div className="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true">
-          <div className="w-64 shrink-0 border-r border-zinc-200 bg-white p-4 shadow-lg">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm font-semibold text-zinc-800">Menú</div>
-              <button
-                onClick={() => setMobileNavOpen(false)}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm hover:bg-zinc-50"
-                aria-label="Cerrar menú"
-              >
-                ✕
-              </button>
-            </div>
-            <nav className="space-y-1">
-              {role === 'ADMIN' && (
-                <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Administración</div>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/usuarios" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Usuarios</Link>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/proceso-api" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Proceso API</Link>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/admin/periodos" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Gestionar periodos</Link>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/empresas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Empresas</Link>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/problematicas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Problemáticas</Link>
-                </>
-              )}
-              {role === 'DAC' && (
-                <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Departamento Académico</div>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/docentes" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Docentes</Link>
-                </>
-              )}
-              {role === 'DOC' && (
-                <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Docente</div>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/mis-asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
-                </>
-              )}
-              {role === 'DC' && (
-                <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Director de area/carrera</div>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/dc/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/dc/empresas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Empresas</Link>
-                </>
-              )}
-              {role === 'COORD' && (
-                <>
-                  <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Coordinación</div>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/coord/asignaturas" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Asignaturas</Link>
-                  <Link onClick={() => setMobileNavOpen(false)} to="/coord/docentes" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Docentes</Link>
-                </>
-              )}
-              <Link onClick={() => setMobileNavOpen(false)} to="/profile" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Perfil</Link>
-              <button
-                onClick={() => { handleLogout(); setMobileNavOpen(false) }}
-                className="mt-2 block w-full rounded-md bg-red-600 px-3 py-1.5 text-left text-sm font-medium text-white hover:bg-red-700"
-              >
-                Salir
-              </button>
-            </nav>
-          </div>
-          <div className="flex-1 bg-black/30" onClick={() => setMobileNavOpen(false)} />
-        </div>
-      ) : null}
+
+      {isAuthenticated && mobileNavOpen ? (
+        <div className="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true">
+          <div className="w-64 shrink-0 border-r border-zinc-200 bg-white p-4 shadow-lg">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm font-semibold text-zinc-800">Menú</div>
+              <button
+                onClick={() => setMobileNavOpen(false)}
+                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm hover:bg-zinc-50"
+                aria-label="Cerrar menú"
+              >
+                ?
+              </button>
+            </div>
+            <nav className="space-y-4">
+              {sidebarSections?.map((section, idx) => {
+                const visibleItems = section.items.filter((item) => item.showOnMobile !== false)
+                if (visibleItems.length === 0) return null
+                return (
+                  <div key={`${section.title}-mobile-${idx}`}>
+                    <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">{section.title}</div>
+                    <div className="space-y-1">
+                      {visibleItems.map((item) => (
+                        <Link
+                          key={item.to}
+                          onClick={() => setMobileNavOpen(false)}
+                          to={item.to}
+                          className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+              <Link onClick={() => setMobileNavOpen(false)} to="/profile" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Perfil</Link>
+              <button
+                onClick={() => { handleLogout(); setMobileNavOpen(false) }}
+                className="mt-2 block w-full rounded-md bg-red-600 px-3 py-1.5 text-left text-sm font-medium text-white hover:bg-red-700"
+              >
+                Salir
+              </button>
+            </nav>
+          </div>
+          <div className="flex-1 bg-black/30" onClick={() => setMobileNavOpen(false)} />
+        </div>
+      ) : null}
+
     </div>
   )
 }
 
-function SidebarItem({ to, icon, label, active, collapsed }: { to: string; icon: any; label: string; active?: boolean; collapsed?: boolean }) {
+function SidebarSectionBlock({
+  title,
+  collapsed,
+  action,
+  children,
+}: {
+  title: string
+  collapsed?: boolean
+  action?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between px-2">
+        <div className={`text-xs font-semibold uppercase tracking-wide text-zinc-500 ${collapsed ? 'hidden' : ''}`}>{title}</div>
+        {action}
+      </div>
+      <div className="space-y-1">{children}</div>
+    </div>
+  )
+}
+
+function SidebarItem({ to, icon, label, active, collapsed }: { to: string; icon: ReactNode; label: string; active?: boolean; collapsed?: boolean }) {
   const base = 'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors'
   const cls = active
     ? `${base} border border-red-200 bg-red-50 text-red-700`
@@ -362,6 +384,11 @@ function SidebarItem({ to, icon, label, active, collapsed }: { to: string; icon:
       <span className={collapsed ? 'hidden' : 'block'}>{label}</span>
     </Link>
   )
+}
+
+function isSidebarItemActive(pathname: string, item: SidebarLinkItem) {
+  if (item.matchPrefix) return pathname.startsWith(item.matchPrefix)
+  return pathname === item.to
 }
 
 function IconHome() {
@@ -407,6 +434,86 @@ function IconBell() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
       <path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 8h18s-3-1-3-8" />
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  )
+}
+
+function IconUsers() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="3" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a3 3 0 0 1 0 5.74" />
+    </svg>
+  )
+}
+
+function IconBook() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22z" />
+    </svg>
+  )
+}
+
+function IconWorkflow() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <rect x="3" y="3" width="6" height="6" rx="1" />
+      <rect x="15" y="3" width="6" height="6" rx="1" />
+      <rect x="9" y="15" width="6" height="6" rx="1" />
+      <path d="M6 9v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9" />
+    </svg>
+  )
+}
+
+function IconBuilding() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M3 22h18" />
+      <path d="M6 22V7l6-3 6 3v15" />
+      <path d="M9 22v-4h6v4" />
+      <path d="M9 13h.01" />
+      <path d="M15 13h.01" />
+      <path d="M12 11h.01" />
+    </svg>
+  )
+}
+
+function IconAlert() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M10.29 3.86 1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12" y2="17" />
+    </svg>
+  )
+}
+
+function IconTarget() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="3" />
+      <line x1="12" y1="2" x2="12" y2="5" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+      <line x1="2" y1="12" x2="5" y2="12" />
+      <line x1="19" y1="12" x2="22" y2="12" />
+    </svg>
+  )
+}
+
+function IconHandshake() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M4 16l2 2h3l3 3 5-5" />
+      <path d="M14 7l-1.5-1.5a2.12 2.12 0 00-3 0L4 11" />
+      <path d="M14 7l2-2 4 4-6 6" />
+      <path d="M6 18l1.5-1.5" />
+      <path d="M8.5 16l1.5-1.5" />
+      <path d="M10.5 14l2.5 2.5" />
     </svg>
   )
 }
