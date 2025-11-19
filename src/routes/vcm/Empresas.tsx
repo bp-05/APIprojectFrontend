@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { toast } from 'react-hot-toast'
+import { useLocation, useNavigate } from 'react-router'
 import {
   listCompanies,
   listProblemStatements,
@@ -19,6 +20,9 @@ export default function EmpresasVCM() {
 
   const [editing, setEditing] = useState<Company | null>(null)
   const [contactHints, setContactHints] = useState<Map<number, CounterpartContact>>(new Map())
+  const navigate = useNavigate()
+  const location = useLocation()
+  const isVCMView = location.pathname.startsWith('/vcm')
 
   async function load() {
     setLoading(true)
@@ -45,6 +49,18 @@ export default function EmpresasVCM() {
     if (!q) return items
     return items.filter((c) => [c.name, c.email, c.phone, c.sector].some((v) => String(v || '').toLowerCase().includes(q)))
   }, [items, search])
+
+  const handleRowClick = useCallback(
+    (event: React.MouseEvent<HTMLTableRowElement>, companyId: number) => {
+      if (isVCMView) return
+      const target = event.target as HTMLElement
+      if (target.closest('button,a,input,select,textarea,[role="button"]')) return
+      navigate(`/empresas/${companyId}`)
+    },
+    [isVCMView, navigate]
+  )
+
+  const columnCount = isVCMView ? 6 : 5
 
   function openCreate() {
     setEditing({
@@ -105,28 +121,34 @@ export default function EmpresasVCM() {
               <Th>Teléfono</Th>
               <Th>Sector</Th>
               <Th>Responsable</Th>
-              <Th className="text-right">Acciones</Th>
+              {isVCMView ? <Th className="text-right">Acciones</Th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={columnCount}>Cargando…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={columnCount}>Sin resultados</td></tr>
             ) : (
               filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-zinc-50">
+                <tr
+                  key={c.id}
+                  className={`hover:bg-zinc-50 ${isVCMView ? '' : 'cursor-pointer'}`}
+                  onClick={isVCMView ? undefined : (event) => handleRowClick(event, c.id)}
+                >
                   <Td>{c.name}</Td>
                   <Td>{c.email || '—'}</Td>
                   <Td>{c.phone || '—'}</Td>
                   <Td>{c.sector || '—'}</Td>
                   <Td>{renderContactSummary(contactHints.get(c.id))}</Td>
-                  <Td className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => openEdit(c)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50 shadow-sm">Editar</button>
-                      <button onClick={() => onDelete(c)} className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 shadow-sm">Eliminar</button>
-                    </div>
-                  </Td>
+                  {isVCMView ? (
+                    <Td className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => openEdit(c)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50 shadow-sm">Editar</button>
+                        <button onClick={() => onDelete(c)} className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 shadow-sm">Eliminar</button>
+                      </div>
+                    </Td>
+                  ) : null}
                 </tr>
               ))
             )}
@@ -145,7 +167,7 @@ export default function EmpresasVCM() {
   )
 }
 
-function EmpresaModal({ initial, onClose, onSaved }: { initial: Company | null; onClose: () => void; onSaved: () => void }) {
+export function EmpresaModal({ initial, onClose, onSaved }: { initial: Company | null; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState<Company>(
     initial ?? {
       id: 0,

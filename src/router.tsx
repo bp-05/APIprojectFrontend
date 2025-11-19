@@ -18,6 +18,7 @@ import Docentes from './routes/Docentes'
 import MisAsignaturas from './routes/MisAsignaturas'
 import AdminPeriodos from './routes/AdminPeriodos'
 import Empresas from './routes/vcm/Empresas'
+import EmpresaDetalleAdmin from './routes/EmpresaDetalleAdmin'
 import DCEmpresas from './routes/dc/Empresas'
 import DCEmpresaDetalle from './routes/dc/EmpresaDetalle'
 import Problemas from './routes/vcm/Problemas'
@@ -65,6 +66,7 @@ export const router = createBrowserRouter([
       { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <Empresas /> },
       { path: 'vcm/problemas', loader: requireRoleLoader('VCM'), element: <Problemas /> },
       { path: 'empresas', loader: requireRoleLoader('ADMIN'), element: <Empresas /> },
+      { path: 'empresas/:id', loader: requireRoleLoader('ADMIN'), element: <EmpresaDetalleAdmin /> },
       
       { path: 'problematicas', loader: requireRoleLoader('ADMIN'), element: <Problemas /> },
       { path: 'vcm/alcances', loader: requireRoleLoader('VCM'), element: <Alcances /> },
