@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { listCompanies, listProblemStatements } from '../../api/companies'
-import { listSubjects, type Subject } from '../../api/subjects'
+import { listSubjects, listAreas, listCareers, type Subject, type Area, type Career } from '../../api/subjects'
 import { usePeriodStore } from '../../store/period'
 
 export default function AdminDashboard() {
   const periodCode = usePeriodStore((state) => state.periodCode)
   const [subjects, setSubjects] = useState<Subject[]>([])
+  const [areas, setAreas] = useState<Area[]>([])
+  const [careers, setCareers] = useState<Career[]>([])
   const [companyTotal, setCompanyTotal] = useState<number | null>(null)
   const [problemTotal, setProblemTotal] = useState<number | null>(null)
+  const [problems, setProblems] = useState<Awaited<ReturnType<typeof listProblemStatements>>>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -15,14 +18,21 @@ export default function AdminDashboard() {
     setLoading(true)
     setError(null)
     try {
-      const [subjectList, companies, problems] = await Promise.all([
+      const [subjectList, companies, problemsRes, areaList, careerList] = await Promise.all([
         listSubjects(),
         listCompanies(),
         listProblemStatements(),
+        listAreas(),
+        listCareers(),
       ])
-      setSubjects(Array.isArray(subjectList) ? subjectList : [])
+      const subjectsArr = Array.isArray(subjectList) ? subjectList : []
+      setSubjects(subjectsArr)
+      setAreas(Array.isArray(areaList) ? areaList : [])
+      setCareers(Array.isArray(careerList) ? careerList : [])
       setCompanyTotal(Array.isArray(companies) ? companies.length : 0)
-      setProblemTotal(Array.isArray(problems) ? problems.length : 0)
+      const problemsSafe = Array.isArray(problemsRes) ? problemsRes : []
+      setProblems(problemsSafe)
+      setProblemTotal(problemsSafe.length)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo cargar el dashboard'
       setError(message)
@@ -36,6 +46,8 @@ export default function AdminDashboard() {
   }, [loadDashboard, periodCode])
 
   const totalSubjects = subjects.length
+  const totalAreas = areas.length
+  const totalCareers = careers.length
 
   const phaseSummary = useMemo(() => {
     if (!subjects.length) return []
@@ -58,8 +70,26 @@ export default function AdminDashboard() {
       })
   }, [subjects])
 
+  const problemsByArea = useMemo(() => {
+    if (!problems.length) return []
+    const subjectAreaMap = new Map<number, string>()
+    subjects.forEach((s) => subjectAreaMap.set(s.id, s.area_name || 'Sin área'))
+    const counts: Record<string, number> = {}
+    problems.forEach((p: any) => {
+      const areaName = subjectAreaMap.get(p.subject) || 'Sin área'
+      counts[areaName] = (counts[areaName] ?? 0) + 1
+    })
+    return Object.entries(counts)
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }))
+  }, [problems, subjects])
+
   const hasData =
-    totalSubjects > 0 || (companyTotal !== null && companyTotal > 0) || (problemTotal !== null && problemTotal > 0)
+    totalSubjects > 0 ||
+    totalAreas > 0 ||
+    totalCareers > 0 ||
+    (companyTotal !== null && companyTotal > 0) ||
+    (problemTotal !== null && problemTotal > 0)
 
   return (
     <section className="space-y-8 p-6">
@@ -89,13 +119,25 @@ export default function AdminDashboard() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <StatCard title="Periodo actual" value={periodCode || '--'} subtitle="Configuracion vigente" tone="zinc" />
         <StatCard
           title="Asignaturas activas"
           value={loading && !totalSubjects ? '--' : totalSubjects}
           subtitle="Solo periodo seleccionado"
           tone="blue"
+        />
+        <StatCard
+          title="Áreas registradas"
+          value={totalAreas ?? '--'}
+          subtitle="Inventario global"
+          tone="indigo"
+        />
+        <StatCard
+          title="Carreras registradas"
+          value={totalCareers ?? '--'}
+          subtitle="Inventario global"
+          tone="violet"
         />
         <StatCard
           title="Empresas registradas"
@@ -113,23 +155,13 @@ export default function AdminDashboard() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <PhaseBreakdown data={phaseSummary} total={totalSubjects} loading={loading} />
-        <div className="rounded-xl border border-dashed border-zinc-200 bg-white/60 p-6 text-sm text-zinc-500">
-          {!hasData && !loading ? (
-            <p>No hay informacion disponible para el periodo seleccionado.</p>
-          ) : (
-            <p>
-              Utiliza este panel para validar rapidamente si la oferta academica cuenta con suficientes empresas y
-              problematicas. Si los numeros no cuadran, revisa los modulos de <strong>Asignaturas</strong> o{' '}
-              <strong>Empresas</strong> para intervenir oportunamente.
-            </p>
-          )}
-        </div>
+        <ProblemsByArea data={problemsByArea} loading={loading} />
       </div>
     </section>
   )
 }
 
-type StatTone = 'zinc' | 'blue' | 'green' | 'amber'
+type StatTone = 'zinc' | 'blue' | 'green' | 'amber' | 'indigo' | 'violet'
 
 function StatCard({
   title,
@@ -147,6 +179,8 @@ function StatCard({
     blue: 'text-sky-600',
     green: 'text-emerald-600',
     amber: 'text-amber-600',
+    indigo: 'text-indigo-600',
+    violet: 'text-violet-600',
   } as const
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white/90 px-4 py-5 shadow-sm">
@@ -222,4 +256,39 @@ function formatPhase(value?: string | null) {
   if (normalized.startsWith('fase 2')) return 'Fase 2'
   if (normalized.startsWith('fase 3')) return 'Fase 3'
   return raw
+}
+
+function ProblemsByArea({
+  data,
+  loading,
+}: {
+  data: Array<{ label: string; count: number }>
+  loading: boolean
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white/90 shadow-sm">
+      <div className="border-b border-zinc-100 px-5 py-4">
+        <div className="text-sm font-medium text-zinc-900">Problemáticas por área</div>
+        <p className="text-xs text-zinc-500">Agrupadas por área de la asignatura asociada</p>
+      </div>
+      <div className="px-5 py-4">
+        {loading ? (
+          <p className="text-sm text-zinc-500">Preparando resumen...</p>
+        ) : !data.length ? (
+          <p className="text-sm text-zinc-500">Aún no hay problemáticas con área asignada.</p>
+        ) : (
+          <ul className="space-y-3">
+            {data.map((entry) => (
+              <li key={entry.label} className="flex items-center justify-between text-sm text-zinc-800">
+                <span className="font-medium">{entry.label}</span>
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-700">
+                  {entry.count}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
 }
