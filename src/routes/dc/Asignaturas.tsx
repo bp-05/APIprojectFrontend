@@ -90,6 +90,7 @@ type SubjectFormValues = {
   campus: string
   shift: string
   hours: string
+  total_students: string
   api_type: string
   area: string
   semester: string
@@ -105,6 +106,7 @@ function createEmptyFormValues(): SubjectFormValues {
     campus: '',
     shift: '',
     hours: '',
+    total_students: '',
     api_type: '1',
     area: '',
     semester: '',
@@ -179,6 +181,7 @@ function subjectToFormValues(subject: Subject): SubjectFormValues {
     campus: subject.campus || '',
     shift: subject.shift || '',
     hours: subject.hours ? String(subject.hours) : '',
+    total_students: subject.total_students != null ? String(subject.total_students) : '',
     api_type: subject.api_type ? String(subject.api_type) : '1',
     area: subject.area ? String(subject.area) : '',
     semester: subject.semester ? String(subject.semester) : '',
@@ -208,6 +211,7 @@ function buildUpdatePayload(values: SubjectFormValues): Partial<Subject> {
     campus: values.campus.trim(),
     shift: values.shift.trim(),
     hours: Number(values.hours),
+    total_students: values.total_students === '' ? null : Number(values.total_students),
     api_type: Number(values.api_type),
     area: values.area ? Number(values.area) : undefined,
     semester: values.semester ? Number(values.semester) : undefined,
@@ -842,14 +846,14 @@ export default function DCAsignaturas() {
             <tr>
               <Th>Codigo</Th>
               <Th>Seccion</Th>
-              <Th>Nombre</Th>
-              <Th>Area</Th>
-              <Th>Carrera</Th>
-              <Th>Docente</Th>
-              <Th>Semestre</Th>
-              <Th>Fase</Th>
-            </tr>
-          </thead>
+          <Th>Nombre</Th>
+          <Th>Area</Th>
+          <Th>Carrera</Th>
+          <Th>Docente</Th>
+          <Th>Total estudiantes</Th>
+          <Th>Fase</Th>
+        </tr>
+      </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
@@ -868,11 +872,11 @@ export default function DCAsignaturas() {
                 >
                   <Td>{s.code}</Td>
                   <Td>{s.section}</Td>
-                  <Td>{s.name}</Td>
-                  <Td>{s.area_name}</Td>
-                  <Td>{s.career_name || '-'}</Td>
-                  <Td>{s.teacher_name || '-'}</Td>
-                  <Td>{s.semester_name}</Td>
+          <Td>{s.name}</Td>
+          <Td>{s.area_name}</Td>
+          <Td>{s.career_name || '-'}</Td>
+          <Td>{s.teacher_name || '-'}</Td>
+          <Td>{s.total_students ?? '-'}</Td>
                   <Td>{phaseLabel(s.phase)}</Td>
                 </tr>
               ))
@@ -1012,6 +1016,7 @@ function SubjectDetailView({
           <DetailRow label="Campus" value={subject.campus || '-'} />
           <DetailRow label="Jornada" value={subject.shift || '-'} />
           <DetailRow label="Horas" value={subject.hours} />
+          <DetailRow label="Total estudiantes" value={subject.total_students ?? '-'} />
           <DetailRow label="Tipo API" value={subject.api_type} />
           <DetailRow label="Fase" value={phaseLabel(subject.phase)} />
           <DetailRow label="Area" value={subject.area_name || '-'} />
@@ -1622,6 +1627,15 @@ function SubjectFormView({
               min={1}
               value={values.hours}
               onChange={(e) => onChange('hours', e.target.value)}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </FormField>
+          <FormField label="Total estudiantes">
+            <input
+              type="number"
+              min={0}
+              value={values.total_students}
+              onChange={(e) => onChange('total_students', e.target.value)}
               className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
             />
           </FormField>
