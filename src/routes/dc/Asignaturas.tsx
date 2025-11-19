@@ -962,6 +962,13 @@ function SubjectDetailView({
   onSaveAlternance: () => void | Promise<void>
   alternanceSaving: boolean
 }) {
+  const [openInfo, setOpenInfo] = useState(true)
+  const [openCompetencies, setOpenCompetencies] = useState(true)
+  const [openBoundary, setOpenBoundary] = useState(true)
+  const [openApi2, setOpenApi2] = useState(true)
+  const [openApi3, setOpenApi3] = useState(true)
+  const [openAlternance, setOpenAlternance] = useState(true)
+
   return (
     <section className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -978,16 +985,19 @@ function SubjectDetailView({
           Cerrar
         </button>
       </div>
-      <div className="rounded-lg border border-zinc-200 bg-white p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-zinc-900">Informacion de la asignatura</h2>
+      <CollapsibleSection
+        title="Informacion de la asignatura"
+        open={openInfo}
+        onToggle={() => setOpenInfo((v) => !v)}
+        actions={
           <button
             onClick={onEdit}
             className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
           >
             Editar
           </button>
-        </div>
+        }
+      >
         {loading ? (
           <div className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
             Actualizando informacion...
@@ -1009,55 +1019,122 @@ function SubjectDetailView({
           <DetailRow label="Docente" value={subject.teacher_name || '-'} />
           <DetailRow label="Semestre" value={subject.semester_name || '-'} />
         </dl>
-      </div>
-      <SubjectCompetenciesPanel
-        slots={competencySlots}
-        loading={competenciesLoading}
-        error={competenciesError}
-        onChange={onCompetencyChange}
-        onSaveAll={onSaveCompetencies}
-        saving={savingCompetencies}
-      />
-      <BoundaryConditionPanel
-        form={boundaryForm}
-        loading={boundaryLoading}
-        error={boundaryError}
-        onBooleanChange={onBoundaryBooleanChange}
-        onTextChange={onBoundaryTextChange}
-        onSave={onSaveBoundary}
-        saving={boundarySaving}
-      />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Competencias tecnicas"
+        open={openCompetencies}
+        onToggle={() => setOpenCompetencies((v) => !v)}
+      >
+        <SubjectCompetenciesPanel
+          slots={competencySlots}
+          loading={competenciesLoading}
+          error={competenciesError}
+          onChange={onCompetencyChange}
+          onSaveAll={onSaveCompetencies}
+          saving={savingCompetencies}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Condiciones de borde"
+        open={openBoundary}
+        onToggle={() => setOpenBoundary((v) => !v)}
+      >
+        <BoundaryConditionPanel
+          form={boundaryForm}
+          loading={boundaryLoading}
+          error={boundaryError}
+          onBooleanChange={onBoundaryBooleanChange}
+          onTextChange={onBoundaryTextChange}
+          onSave={onSaveBoundary}
+          saving={boundarySaving}
+        />
+      </CollapsibleSection>
+
       {subject.api_type === 2 ? (
-        <ApiType2Panel
-          form={api2Form}
-          loading={api2Loading}
-          error={api2Error}
-          onChange={onApi2Change}
-          onSave={onSaveApi2}
-          saving={api2Saving}
-        />
+        <CollapsibleSection
+          title="API Tipo 2"
+          open={openApi2}
+          onToggle={() => setOpenApi2((v) => !v)}
+        >
+          <ApiType2Panel
+            form={api2Form}
+            loading={api2Loading}
+            error={api2Error}
+            onChange={onApi2Change}
+            onSave={onSaveApi2}
+            saving={api2Saving}
+          />
+        </CollapsibleSection>
       ) : null}
       {subject.api_type === 3 ? (
-        <ApiType3Panel
-          form={api3Form}
-          loading={api3Loading}
-          error={api3Error}
-          onChange={onApi3Change}
-          onSave={onSaveApi3}
-          saving={api3Saving}
-        />
+        <CollapsibleSection
+          title="API Tipo 3"
+          open={openApi3}
+          onToggle={() => setOpenApi3((v) => !v)}
+        >
+          <ApiType3Panel
+            form={api3Form}
+            loading={api3Loading}
+            error={api3Error}
+            onChange={onApi3Change}
+            onSave={onSaveApi3}
+            saving={api3Saving}
+          />
+        </CollapsibleSection>
       ) : null}
       {subject.api_type === 3 ? (
-        <AlternancePanel
-          form={alternanceForm}
-          loading={alternanceLoading}
-          error={alternanceError}
-          onChange={onAlternanceChange}
-          onSave={onSaveAlternance}
-          saving={alternanceSaving}
-        />
+        <CollapsibleSection
+          title="Alternancia (API 3)"
+          open={openAlternance}
+          onToggle={() => setOpenAlternance((v) => !v)}
+        >
+          <AlternancePanel
+            form={alternanceForm}
+            loading={alternanceLoading}
+            error={alternanceError}
+            onChange={onAlternanceChange}
+            onSave={onSaveAlternance}
+            saving={alternanceSaving}
+          />
+        </CollapsibleSection>
       ) : null}
     </section>
+  )
+}
+
+function CollapsibleSection({
+  title,
+  open,
+  onToggle,
+  actions,
+  children,
+}: {
+  title: string
+  open: boolean
+  onToggle: () => void
+  actions?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-zinc-50"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-base font-semibold text-zinc-900">{title}</span>
+          <span className="text-xs text-zinc-500">{open ? 'Ocultar' : 'Mostrar'}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {actions}
+          <span className="text-lg text-zinc-500">{open ? '▾' : '▸'}</span>
+        </div>
+      </button>
+      {open ? <div className="border-t border-zinc-100 p-4 sm:p-6">{children}</div> : null}
+    </div>
   )
 }
 
