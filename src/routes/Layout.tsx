@@ -95,38 +95,51 @@ export default function Layout() {
   const setPeriodFromCode = usePeriodStore((s) => s.setPeriodFromCode)
   const syncPeriodFromServer = usePeriodStore((s) => s.syncFromServer)
 
-  // Estado de colapso del Menú del coordinador con persistencia
-  const [coordSidebarCollapsed, setCoordSidebarCollapsed] = useState<boolean>(() => {
+  const sidebarSections = isRoleWithSidebar(role) ? SIDEBAR_SECTIONS[role] : undefined
+  const collapseStorageKey = role ? `sidebarCollapsed:${role}` : 'sidebarCollapsed:default'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('coordSidebarCollapsed')
+      const saved = localStorage.getItem(collapseStorageKey)
       if (saved !== null) return JSON.parse(saved)
       if (typeof window !== 'undefined') return window.innerWidth < 1024
     } catch {}
     return false
   })
-  const isCoordRole = role === 'COORD'
-  const sidebarSections = isRoleWithSidebar(role) ? SIDEBAR_SECTIONS[role] : undefined
+  const collapseEnabled = !!sidebarSections?.length
 
   useEffect(() => {
     function onResize() {
       try {
         if (window.innerWidth < 1024) {
-          setCoordSidebarCollapsed(true)
+          setSidebarCollapsed(true)
         } else {
-          const saved = localStorage.getItem('coordSidebarCollapsed')
-          if (saved !== null) setCoordSidebarCollapsed(JSON.parse(saved))
-          else setCoordSidebarCollapsed(false)
+          const saved = localStorage.getItem(collapseStorageKey)
+          if (saved !== null) setSidebarCollapsed(JSON.parse(saved))
+          else setSidebarCollapsed(false)
         }
       } catch {}
     }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [])
+  }, [collapseStorageKey])
 
-  function toggleCoordSidebar() {
-    setCoordSidebarCollapsed((prev) => {
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(collapseStorageKey)
+      if (saved !== null) {
+        setSidebarCollapsed(JSON.parse(saved))
+      } else if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        setSidebarCollapsed(true)
+      } else {
+        setSidebarCollapsed(false)
+      }
+    } catch {}
+  }, [collapseStorageKey])
+
+  function toggleSidebarCollapse() {
+    setSidebarCollapsed((prev) => {
       const next = !prev
-      try { localStorage.setItem('coordSidebarCollapsed', JSON.stringify(next)) } catch {}
+      try { localStorage.setItem(collapseStorageKey, JSON.stringify(next)) } catch {}
       return next
     })
   }
@@ -211,88 +224,51 @@ export default function Layout() {
 
 
       <div className="flex">
-
         {isAuthenticated ? (
-
-          <aside className={`hidden shrink-0 border-r border-zinc-200 bg-white/70 p-4 md:block ${isCoordRole ? (coordSidebarCollapsed ? "w-20" : "w-64") : "w-64"}`}>
-
+          <aside
+            className={`hidden shrink-0 border-r border-zinc-200 bg-white/70 p-4 md:block ${
+              collapseEnabled ? (sidebarCollapsed ? 'w-20' : 'w-64') : 'w-64'
+            }`}
+          >
             <nav className="space-y-6">
-
               {sidebarSections?.map((section, idx) => {
-
                 const visibleItems = section.items.filter((item) => item.showOnDesktop !== false)
-
                 if (visibleItems.length === 0) return null
-
-                const action = isCoordRole && idx === 0 ? (
-
-                  <button
-
-                    type="button"
-
-                    onClick={toggleCoordSidebar}
-
-                    className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-
-                    aria-label={coordSidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
-
-                    title={coordSidebarCollapsed ? ">" : "<"}
-
-                  >
-
-                    <span className="text-xs">{coordSidebarCollapsed ? ">" : "<"}</span>
-
-                  </button>
-
-                ) : null
-
+                const action =
+                  collapseEnabled && idx === 0 ? (
+                    <button
+                      type="button"
+                      onClick={toggleSidebarCollapse}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                      aria-label={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+                      title={sidebarCollapsed ? '>' : '<'}
+                    >
+                      <span className="text-xs">{sidebarCollapsed ? '>' : '<'}</span>
+                    </button>
+                  ) : null
                 return (
-
                   <SidebarSectionBlock
-
                     key={`${section.title}-${idx}`}
-
                     title={section.title}
-
-                    collapsed={isCoordRole ? coordSidebarCollapsed : false}
-
+                    collapsed={collapseEnabled ? sidebarCollapsed : false}
                     action={action}
-
                   >
-
                     {visibleItems.map((item) => (
-
                       <SidebarItem
-
                         key={item.to}
-
                         to={item.to}
-
                         icon={item.icon}
-
                         label={item.label}
-
-                        collapsed={isCoordRole ? coordSidebarCollapsed : false}
-
+                        collapsed={collapseEnabled ? sidebarCollapsed : false}
                         active={isSidebarItemActive(location.pathname, item)}
-
                       />
-
                     ))}
-
                   </SidebarSectionBlock>
-
                 )
-
               })}
-
             </nav>
-
           </aside>
-
         ) : null}
-
-
 
         <main className="min-h-[calc(100vh-4rem)] flex-1">
           <Outlet />
