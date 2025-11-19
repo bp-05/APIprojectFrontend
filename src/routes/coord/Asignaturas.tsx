@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, listDescriptorsBySubject, type Subject, type Descriptor } from '../../api/subjects'
 import { useNavigate, useSearchParams  , Link } from 'react-router'
 
@@ -26,15 +26,15 @@ export default function AsignaturasCoord() {
       window.dispatchEvent(new Event('coordSubjectStatusChanged'))
     } catch {}
   }
-  function setStatus(id: number, status: ProjectState) {
-    saveLocalStatus({
-      ...localStatus,
-      [id]: {
-        status,
-        timestamps: { ...(localStatus[id]?.timestamps || {}), [status]: new Date().toISOString() },
-      },
-    })
-  }
+  // function setStatus(id: number, status: ProjectState) {
+  //   saveLocalStatus({
+  //     ...localStatus,
+  //     [id]: {
+  //       status,
+  //       timestamps: { ...(localStatus[id]?.timestamps || {}), [status]: new Date().toISOString() },
+  //     },
+  //   })
+  // }
 
   async function load() {
     setLoading(true)
@@ -228,7 +228,7 @@ export default function AsignaturasCoord() {
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {/* Botón Todos */}
+        {/* BotÃ³n Todos */}
         <button
           onClick={() => {
             setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('filter'); return p })
@@ -247,12 +247,12 @@ export default function AsignaturasCoord() {
               className="rounded-full border border-red-200 bg-white px-1 text-red-700 hover:bg-red-50"
               title="Quitar filtro"
             >
-              ×
+              Ã—
             </button>
           </span>
         ))}
         <div className="ml-auto" />
-        {/* Input y acción para agregar filtrado */}
+        {/* Input y acciÃ³n para agregar filtrado */}
         <input
           value={filterInput}
           onChange={(e) => setFilterInput(e.target.value)}
@@ -285,7 +285,7 @@ export default function AsignaturasCoord() {
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Cargandoâ€¦</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={10}>CargandoÃ¢â‚¬Â¦</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
@@ -339,30 +339,9 @@ export default function AsignaturasCoord() {
                       onClick={() => openView(s)}
                       className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                     >
-                      {(() => {
-                        return 'Ver más'
-                          try {
-                            const raw = localStorage.getItem('coordSubjectCycle')
-                            const lc = raw ? JSON.parse(raw) : {}
-                            const entry = lc?.[s.id]
-                            if (!entry) return null
-                            const ph = entry?.phase
-                            const dates = ph && entry?.phases ? entry.phases[ph] : { start: entry?.start, end: entry?.end }
-                            const m = (txt: string | undefined) => {
-                              if (!txt) return null; const m = /^([0-3]?\d)-([0-1]?\d)-(\d{4})$/.exec(txt.trim()); if (!m) return null; const d = Number(m[1]); const mo = Number(m[2]); const y = Number(m[3]); const dt = new Date(y, mo - 1, d); return isNaN(dt.getTime()) ? null : dt
-                            }
-                            const a = m(dates?.start); const b = m(dates?.end); if (!a || !b) return null
-                            const today = new Date(); const t = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-                            const daysBetween = (A: Date, B: Date) => Math.max(0, Math.round((B.getTime() - A.getTime()) / (1000*60*60*24)))
-                            const total = Math.max(1, daysBetween(a, b)); const used = Math.max(0, daysBetween(a, t))
-                            return Math.round((used / total) * 100)
-                          } catch { return null }
-                        ''
-                        if (p != null) return `Ver m\u00E1s \u00B7 Atraso ${p}%`
-                        const a = atrasoInfo(s); return a.delayed ? 'Ver m\u00E1s \u00B7 Atraso ' + a.days + ' d\u00EDas' : 'Ver m\u00E1s'
-                      })()}
+                      Ver más
                     </button>
-                      <Link to={`/coord/estado?id=${s.id}`} className="ml-2 inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-50">Ver estado</Link>
+                    <Link to={`/coord/estado?id=${s.id}`} className="ml-2 inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-50">Ver estado</Link>
                   </Td>
                 </tr>
               ))
@@ -374,69 +353,65 @@ export default function AsignaturasCoord() {
   )
 }
 
-function Th({ children, className = '' }: { children: any; className?: string }) {
+// Componentes auxiliares
+function Th({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <th className={`bg-zinc-50 px-3 py-2 text-left text-xs font-semibold text-zinc-700 ${className || ''}`}>{children}</th>
+}
+
+function Td({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-3 py-2 text-sm text-zinc-700 ${className || ''}`}>{children}</td>
+}
+
+interface DescriptorCellProps {
+  subject: Subject
+}
+
+function DescriptorCell({ subject }: DescriptorCellProps) {
+  const [open, setOpen] = useState(false)
+  const [descriptors, setDescriptors] = useState<Descriptor[]>([])
+  const [loading, setLoading] = useState(false)
+
+  async function load() {
+    setLoading(true)
+    try {
+      const data = await listDescriptorsBySubject(subject.id)
+      setDescriptors(data || [])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleOpen() {
+    if (!open && descriptors.length === 0) load()
+    setOpen(!open)
+  }
+
   return (
-    <th className={`px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-zinc-600 ${className}`}>
-      {children}
-    </th>
+    <div>
+      <button
+        onClick={handleOpen}
+        className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-200"
+      >
+        {open ? '▼' : '▶'} {descriptors.length > 0 ? descriptors.length : '?'}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-1 text-xs">
+          {loading ? (
+            <p className="text-zinc-500">Cargando...</p>
+          ) : descriptors.length === 0 ? (
+            <p className="text-zinc-500">Sin descriptores</p>
+          ) : (
+            descriptors.map((d) => (
+              <div key={d.id} className="rounded bg-zinc-50 p-1 text-zinc-600">
+                {d.file}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   )
 }
-
-
-function Td({ children, className = '' }: { children: any; className?: string }) {
-  return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
-}
-
-function DescriptorCell({ subject }: { subject: Subject }) {
-  const [items, setItems] = useState<Descriptor[] | null>(null)
-  useEffect(() => {
-    let mounted = true
-    listDescriptorsBySubject(subject.id)
-      .then((data) => {
-        if (!mounted) return
-        const filtered = Array.isArray(data) ? data.filter((d) => d.subject === subject.id) : []
-        setItems(filtered)
-      })
-      .catch(() => { if (mounted) setItems([]) })
-    return () => { mounted = false }
-  }, [subject.id])
-
-  if (items === null) {
-    return <span className="inline-block h-3 w-3 animate-pulse rounded-sm bg-zinc-300" title="Cargandoâ€¦" />
-  }
-  if (!items.length) {
-    return <span className="text-xs text-zinc-500">-</span>
-  }
-  const last = items[items.length - 1]
-  return (
-    <a
-      href={last.file}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-sm font-medium text-red-700 hover:underline"
-      title="ver descriptor"
-    >
-      ver descriptor
-    </a>
-  )
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
