@@ -51,10 +51,6 @@ export default function DacDashboard() {
     return { assigned, unassigned }
   }, [subjects, teachers, totalTeachers])
 
-  const subjectsWithoutArea = useMemo(
-    () => subjects.filter((s) => !s.area || !s.area_name),
-    [subjects],
-  )
   const subjectsWithoutCareer = useMemo(
     () => subjects.filter((s) => !s.career || !s.career_name),
     [subjects],
@@ -88,17 +84,10 @@ export default function DacDashboard() {
         <StatCard title="Docentes activos" value={totalTeachers ?? '--'} subtitle="Disponibles para asignar" tone="green" />
         <StatCard title="Docentes asignados" value={teacherAssignments.assigned ?? '--'} subtitle="Con asignatura" tone="emerald" />
         <StatCard title="Docentes sin asignacion" value={teacherAssignments.unassigned ?? '--'} subtitle="Para planificar" tone="amber" />
-        <StatCard title="Asignaturas sin area" value={subjectsWithoutArea.length} subtitle="Revisar consistencia" tone="red" />
         <StatCard title="Asignaturas sin carrera" value={subjectsWithoutCareer.length} subtitle="Pendiente de asignar" tone="orange" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <IssuesCard
-          title="Asignaturas sin area"
-          items={subjectsWithoutArea.map((s) => `${s.code}-${s.section} ${s.name}`)}
-          emptyLabel="Todas las asignaturas tienen area."
-          loading={loading}
-        />
         <IssuesCard
           title="Asignaturas sin carrera"
           items={subjectsWithoutCareer.map((s) => `${s.code}-${s.section} ${s.name}`)}
@@ -110,7 +99,7 @@ export default function DacDashboard() {
   )
 }
 
-type StatTone = 'blue' | 'indigo' | 'violet' | 'green' | 'emerald' | 'amber' | 'red' | 'orange'
+type StatTone = 'blue' | 'indigo' | 'violet' | 'green' | 'emerald' | 'amber' | 'orange'
 
 function StatCard({
   title,
@@ -130,7 +119,6 @@ function StatCard({
     green: 'text-green-700',
     emerald: 'text-emerald-600',
     amber: 'text-amber-600',
-    red: 'text-red-600',
     orange: 'text-orange-600',
   }
   return (

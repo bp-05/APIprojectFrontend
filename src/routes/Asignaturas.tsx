@@ -534,16 +534,6 @@ function CreateSubjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Total estudiantes (opcional)</label>
-            <input
-              type="number"
-              min={0}
-              value={totalStudents}
-              onChange={(e) => setTotalStudents(e.target.value === '' ? '' : Number(e.target.value))}
-              className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-          </div>
-          <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo API</label>
             <select value={apiType} onChange={(e) => setApiType(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
               <option value="">Seleccione…</option>
@@ -711,6 +701,15 @@ export function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subj
               <option value={3}>3</option>
             </select>
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Semestre</label>
+            <select value={semester} onChange={(e) => setSemester(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
+              <option value="">Seleccione…</option>
+              {semesters.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="col-span-2">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Docente</label>
             <div className="flex items-center gap-2">
@@ -756,15 +755,6 @@ export function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subj
               <option value="">Sin carrera</option>
               {careers.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Semestre</label>
-            <select value={semester} onChange={(e) => setSemester(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
-              <option value="">Seleccione…</option>
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>
