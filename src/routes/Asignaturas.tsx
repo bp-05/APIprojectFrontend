@@ -210,16 +210,17 @@ export default function Asignaturas() {
               <Th>Área</Th>
               <Th>Carrera</Th>
               <Th>Docente</Th>
+              <Th className="text-right">Total estudiantes</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Sin resultados</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Sin resultados</td>
               </tr>
             ) : (
               filtered.map((s) => (
@@ -249,6 +250,9 @@ export default function Asignaturas() {
                     ) : (
                       <AssignButton subject={s} onAssigned={load} />
                     )}
+                  </Td>
+                  <Td className="text-right">
+                    {typeof s.total_students === 'number' ? s.total_students : '-'}
                   </Td>
                 </tr>
               ))

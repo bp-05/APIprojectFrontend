@@ -19,22 +19,6 @@ export default function AsignaturasCoord() {
   const [localStatus] = useState<Record<number, LocalStatus>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
   })
-  function saveLocalStatus(next: Record<number, LocalStatus>) {
-    setLocalStatus(next)
-    try {
-      localStorage.setItem('coordSubjectStatus', JSON.stringify(next))
-      window.dispatchEvent(new Event('coordSubjectStatusChanged'))
-    } catch {}
-  }
-  // function setStatus(id: number, status: ProjectState) {
-  //   saveLocalStatus({
-  //     ...localStatus,
-  //     [id]: {
-  //       status,
-  //       timestamps: { ...(localStatus[id]?.timestamps || {}), [status]: new Date().toISOString() },
-  //     },
-  //   })
-  // }
 
   async function load() {
     setLoading(true)
