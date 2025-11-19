@@ -48,7 +48,6 @@ export default function EmpresaDetalleAdmin() {
       { label: 'Dirección gerencia', value: company.management_address || '—' },
       { label: 'Cantidad de empleados', value: company.employees_count ?? '—' },
       { label: 'Sector', value: company.sector || '—' },
-      { label: 'Tipo API', value: company.api_type ?? '—' },
     ]
   }, [company])
 

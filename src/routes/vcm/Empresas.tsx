@@ -72,7 +72,6 @@ export default function EmpresasVCM() {
       management_address: '',
       employees_count: 0,
       sector: '',
-      api_type: 1,
       counterpart_contacts: [],
     } as Company)
   }
@@ -178,7 +177,6 @@ export function EmpresaModal({ initial, onClose, onSaved }: { initial: Company |
       management_address: '',
       employees_count: 0,
       sector: '',
-      api_type: 1,
       counterpart_contacts: [],
     } as Company,
   )
@@ -216,7 +214,6 @@ export function EmpresaModal({ initial, onClose, onSaved }: { initial: Company |
         management_address: form.management_address,
         employees_count: Number(employeesStr || 0),
         sector: form.sector,
-        api_type: form.api_type,
         counterpart_contacts: Array.isArray(form.counterpart_contacts) ? form.counterpart_contacts : [],
       }
       if (initial?.id) {

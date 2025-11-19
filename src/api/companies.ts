@@ -20,7 +20,6 @@ export type Company = {
   phone: string
   employees_count: number
   sector: string
-  api_type?: number
   counterpart_contacts: CounterpartContact[]
 }
 
