@@ -49,9 +49,22 @@ export default function AsignaturasVCM() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return items
-    return items.filter((s) => [s.code, s.section, s.name, s.career_name].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)))
+    return q ? items.filter((s) => s.code?.toLowerCase().includes(q) || s.name?.toLowerCase().includes(q)) : items
   }, [items, search])
+
+  function getStatusBadge(subjectId: number) {
+    const m = getMetricsForSubject(subjectId)
+    if (m.companies > 0) {
+      return <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">✓ Con empresa</span>
+    }
+    return <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">○ Sin empresa</span>
+  }
+
+  function getMetricsForSubject(subjectId: number) {
+    return {
+      companies: requirements.filter((r) => r.subject === subjectId).length,
+    }
+  }
 
   return (
     <section className="p-6">
@@ -73,49 +86,50 @@ export default function AsignaturasVCM() {
               <Th>Código</Th>
               <Th>Nombre</Th>
               <Th>Carrera</Th>
-              <Th>API</Th>
+              <Th>Estado</Th>
+              <Th className="text-center">Empresas</Th>
               <Th>Posibles contrapartes</Th>
               <Th className="text-right">Acción</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargando…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Sin resultados</td></tr>
             ) : (
-              filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-zinc-50">
-                  <Td>
-                    <button
-                      className="text-left font-medium text-red-700 hover:underline"
-                      onClick={() => navigate(`/vcm/asignaturas/${s.id}`)}
-                    >
-                      {s.code}-{s.section}
-                    </button>
-                  </Td>
-                  <Td>{s.name}</Td>
-                  <Td>{s.career_name || '-'}</Td>
-                  <Td>
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      s.api_type === 3 ? 'bg-purple-100 text-purple-700' :
-                      s.api_type === 2 ? 'bg-blue-100 text-blue-700' :
-                      'bg-green-100 text-green-700'
-                    }`}>
-                      API {s.api_type || 1}
-                    </span>
-                  </Td>
-                  <Td>{renderCounterparts(s)}</Td>
-                  <Td className="text-right">
-                    <button
-                      className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
-                      onClick={() => navigate(`/vcm/asignaturas/${s.id}`)}
-                    >
-                      Ver
-                    </button>
-                  </Td>
-                </tr>
-              ))
+              filtered.map((s) => {
+                const m = getMetricsForSubject(s.id)
+                return (
+                  <tr key={s.id} className="hover:bg-zinc-50">
+                    <Td>
+                      <button
+                        className="text-left font-medium text-red-700 hover:underline"
+                        onClick={() => navigate(`/vcm/asignaturas/${s.id}`)}
+                      >
+                        {s.code}{s.section ? `-${s.section}` : ''}
+                      </button>
+                    </Td>
+                    <Td>{s.name}</Td>
+                    <Td>{s.career_name || '-'}</Td>
+                    <Td>{getStatusBadge(s.id)}</Td>
+                    <Td className="text-center">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
+                        {m.companies}
+                      </span>
+                    </Td>
+                    <Td>{renderCounterparts(s)}</Td>
+                    <Td className="text-right">
+                      <button
+                        className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                        onClick={() => navigate(`/vcm/asignaturas/${s.id}`)}
+                      >
+                        Ver
+                      </button>
+                    </Td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
@@ -125,30 +139,14 @@ export default function AsignaturasVCM() {
 
   function renderCounterparts(subject: Subject) {
     const byCompanyId = new Map(companies.map((c) => [c.id, c]))
-    const byReqId = new Map(requirements.map((r) => [r.id, r]))
-
-    const ids = subjectProspects[subject.id] || []
-    const localNames = ids.map((id) => {
-      if (id.startsWith('db:')) {
-        const rid = Number(id.slice(3))
-        const req = byReqId.get(rid)
-        if (req && req.subject === subject.id) return byCompanyId.get(req.company)?.name
-        return undefined
-      }
-      if (id.startsWith('dbco:')) {
-        const cid = Number(id.slice(5))
-        return byCompanyId.get(cid)?.name
-      }
-      return prospects.find((p) => p.id === id)?.company_name
-    }).filter(Boolean) as string[]
-
+    
+    // Obtener nombres de empresas del servidor (requirements)
     const backendNames = requirements
       .filter((r) => r.subject === subject.id)
       .map((r) => byCompanyId.get(r.company)?.name)
       .filter(Boolean) as string[]
 
-    const names = localNames.length ? localNames : backendNames
-    const unique = Array.from(new Set(names))
+    const unique = Array.from(new Set(backendNames))
 
     if (!unique.length) return '-'
 
@@ -174,6 +172,7 @@ function Th({ children, className = '' }: { children: ReactNode; className?: str
     <th className={`px-4 py-2 text-left text-xs font-semibold text-zinc-600 ${className}`}>{children}</th>
   )
 }
+
 function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }

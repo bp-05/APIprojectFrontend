@@ -10,6 +10,7 @@ const LS_KEY = 'vcm_posibles_contrapartes'
 type Prospect = {
   id: string
   company_name: string
+  company_id?: number
   sector: string
   interest_collaborate: boolean
   responsible_name?: string
@@ -174,6 +175,7 @@ export default function PosibleContraparte() {
           return {
             id: `db:${r.id}`,
             company_name: company?.name || `Empresa #${r.company}`,
+            company_id: r.company,
             sector: r.sector || '',
             interest_collaborate: !!r.interest_collaborate,
             responsible_name: contact?.name?.trim() || '',
@@ -451,6 +453,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
     const record: Prospect = {
       id: editing?.id || crypto.randomUUID(),
       company_name: name,
+      company_id: editing?.company_id,
       sector,
       responsible_name: contactInfo?.name?.trim() || editing?.responsible_name,
       responsible_email: contactInfo?.email?.trim() || editing?.responsible_email,
@@ -475,44 +478,150 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
     // Si es fila de BD: actualizar en servidor
     if (editing?.source === 'db' && editing?.requirement_id) {
       try {
-        const payload = {
-          subject: editAssignedSubjects.length > 0 ? editAssignedSubjects[0] : null,
-          sector: record.sector,
-          worked_before: !!record.worked_before,
-          interest_collaborate: !!record.interest_collaborate,
-          can_develop_activities: !!record.can_develop_activities,
-          willing_design_project: !!record.willing_design_project,
-          interaction_type: record.interaction_types && record.interaction_types.length ? record.interaction_types : [],
-          has_guide: !!record.has_guide,
-          can_receive_alternance: !!record.can_receive_alternance,
-          alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
-        }
-        const updated = await updateCompanyRequirement(editing.requirement_id, payload as any)
-        const updatedRow: Prospect = {
-          ...record,
-          id: `db:${updated.id}`,
-          source: 'db',
-          requirement_id: updated.id,
-        }
-        if (idx >= 0) arr[idx] = { ...arr[idx], ...updatedRow }
-        setItems(idx >= 0 ? arr.slice() : [updatedRow, ...arr])
-        toast.success('Requerimiento actualizado')
-          updateSubjectAssignments(updatedRow.id, editAssignedSubjects)
+        // Si cambió el número de asignaturas, necesitamos crear/eliminar requerimientos
+        const oldSubject = editing.subject_hint
+        const hasSubjectChanged = oldSubject !== editAssignedSubjects[0]
+        const hasMultipleSubjects = editAssignedSubjects.length > 1
+        
+        if (hasMultipleSubjects || (hasSubjectChanged && editAssignedSubjects.length > 0)) {
+          // Obtener todos los requerimientos de la BD para esta empresa
+          let allReqs: CompanyRequirement[] = []
+          try { 
+            allReqs = await listCompanyRequirements()
+          } catch {}
+          
+          const existingForCompany = allReqs.filter((r) => r.company === editing.company_id)
+          const existingSubjects = new Set(existingForCompany.map((r) => r.subject).filter(Boolean) as number[])
+          const selectedSubjects = new Set(editAssignedSubjects)
+          
+          // Determinar cuáles crear y cuáles eliminar
+          const toCreate = editAssignedSubjects.filter((id) => !existingSubjects.has(id))
+          const toDelete = existingForCompany.filter((r) => !selectedSubjects.has(r.subject))
+          
+          // Eliminar requerimientos deseleccionados
+          for (const req of toDelete) {
+            try {
+              await http.delete(`/company-requirements/${req.id}/`)
+            } catch {}
+          }
+          
+          // Crear nuevos requerimientos solo para las asignaturas que no existen
+          const createdReqs: any[] = []
+          if (toCreate.length > 0) {
+            const company = companies.find((c) => c.id === editing.company_id)
+            if (!company) {
+              toast.error('Empresa no encontrada')
+              return
+            }
+            
+            for (const subjectId of toCreate) {
+              const payload = {
+                subject: subjectId,
+                company: company.id,
+                sector: record.sector,
+                worked_before: !!record.worked_before,
+                interest_collaborate: !!record.interest_collaborate,
+                can_develop_activities: !!record.can_develop_activities,
+                willing_design_project: !!record.willing_design_project,
+                interaction_type: record.interaction_types && record.interaction_types.length ? record.interaction_types : [],
+                has_guide: !!record.has_guide,
+                can_receive_alternance: !!record.can_receive_alternance,
+                alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
+              }
+              const created = await createCompanyRequirement(payload as any)
+              createdReqs.push(created)
+            }
+          }
+          
+          // Actualizar el estado
+          const company = companies.find((c) => c.id === editing.company_id)
+          if (company) {
+            const fallback = companyContacts.get(company.id) || null
+            const contact = getPrimaryContact(company, fallback)
+            
+            // Crear filas para los nuevos requerimientos
+            const newRows: Prospect[] = createdReqs.map((created) => ({
+              id: `db:${created.id}`,
+              company_name: company.name,
+              company_id: company.id,
+              sector: created.sector || '',
+              interest_collaborate: !!created.interest_collaborate,
+              responsible_name: contact?.name?.trim() || '',
+              responsible_email: contact?.email?.trim(),
+              responsible_phone: contact?.phone?.trim(),
+              responsible_rut: contact?.rut?.trim(),
+              responsible_area: contact?.counterpart_area?.trim(),
+              responsible_role: contact?.role?.trim(),
+              worked_before: !!created.worked_before,
+              can_develop_activities: !!created.can_develop_activities,
+              willing_design_project: !!created.willing_design_project,
+              interaction_types: Array.isArray((created as any).interaction_type)
+                ? ((created as any).interaction_type as string[])
+                : (typeof (created as any).interaction_type === 'string' && (created as any).interaction_type
+                    ? [String((created as any).interaction_type)]
+                    : []),
+              interaction_type: Array.isArray((created as any).interaction_type)
+                ? String(((created as any).interaction_type as string[])[0] || '')
+                : String((created as any).interaction_type || ''),
+              has_guide: !!created.has_guide,
+              can_receive_alternance: !!created.can_receive_alternance,
+              alternance_students_quota: typeof created.alternance_students_quota === 'number' ? created.alternance_students_quota : 0,
+              subject_hint: created.subject ?? undefined,
+              source: 'db',
+              requirement_id: created.id,
+            }))
+            
+            // Remover las filas eliminadas y agregar las nuevas
+            const idsToDelete = new Set(toDelete.map((d) => `db:${d.id}`))
+            const updatedItems = items.filter((p) => !idsToDelete.has(p.id))
+            setItems([...newRows, ...updatedItems])
+            
+            const message = []
+            if (toCreate.length > 0) message.push(`${toCreate.length} creado(s)`)
+            if (toDelete.length > 0) message.push(`${toDelete.length} eliminado(s)`)
+            toast.success(`Cambios guardados: ${message.join(', ')}`)
+          }
+        } else {
+          // Solo actualizar la asignatura del requerimiento existente
+          const payload = {
+            subject: editAssignedSubjects.length > 0 ? editAssignedSubjects[0] : null,
+            sector: record.sector,
+            worked_before: !!record.worked_before,
+            interest_collaborate: !!record.interest_collaborate,
+            can_develop_activities: !!record.can_develop_activities,
+            willing_design_project: !!record.willing_design_project,
+            interaction_type: record.interaction_types && record.interaction_types.length ? record.interaction_types : [],
+            has_guide: !!record.has_guide,
+            can_receive_alternance: !!record.can_receive_alternance,
+            alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
+          }
+          const updated = await updateCompanyRequirement(editing.requirement_id, payload as any)
+          const updatedRow: Prospect = {
+            ...record,
+            id: `db:${updated.id}`,
+            source: 'db',
+            requirement_id: updated.id,
+          }
+          if (idx >= 0) arr[idx] = { ...arr[idx], ...updatedRow }
+          setItems(idx >= 0 ? arr.slice() : [updatedRow, ...arr])
+          toast.success('Requerimiento actualizado')
+            updateSubjectAssignments(updatedRow.id, editAssignedSubjects)
 
-        // marcar como modificado durante unos segundos
-        const key = `db:${updated.id}`
-        setRecentlyUpdated((prev) => {
-          const n = new Set(prev)
-          n.add(key)
-          return n
-        })
-        setTimeout(() => {
+          // marcar como modificado durante unos segundos
+          const key = `db:${updated.id}`
           setRecentlyUpdated((prev) => {
             const n = new Set(prev)
-            n.delete(key)
+            n.add(key)
             return n
           })
-        }, 3500)
+          setTimeout(() => {
+            setRecentlyUpdated((prev) => {
+              const n = new Set(prev)
+              n.delete(key)
+              return n
+            })
+          }, 3500)
+        }
         } catch (e: any) {
           const msg = e?.response?.data ? JSON.stringify(e.response.data) : (e instanceof Error ? e.message : 'No se pudo actualizar en BD')
           toast.error(msg)
@@ -538,25 +647,35 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
         if (company) {
           const sec = (record.sector && record.sector.trim()) || String((company as any).sector || '')
           if (!sec) { toast.error('Sector requerido. Completa el campo "Sector".'); return }
-          const payload = {
-            subject: editAssignedSubjects.length > 0 ? editAssignedSubjects[0] : null,
-            company: company.id,
-            sector: sec,
-            worked_before: !!record.worked_before,
-            interest_collaborate: !!record.interest_collaborate,
-            can_develop_activities: !!record.can_develop_activities,
-            willing_design_project: !!record.willing_design_project,
-            interaction_type: record.interaction_types && record.interaction_types.length ? record.interaction_types : [],
-            has_guide: !!record.has_guide,
-            can_receive_alternance: !!record.can_receive_alternance,
-            alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
+          
+          // Crear UN requerimiento por cada asignatura seleccionada
+          const createdReqs: any[] = []
+          for (const subjectId of editAssignedSubjects) {
+            const payload = {
+              subject: subjectId,
+              company: company.id,
+              sector: sec,
+              worked_before: !!record.worked_before,
+              interest_collaborate: !!record.interest_collaborate,
+              can_develop_activities: !!record.can_develop_activities,
+              willing_design_project: !!record.willing_design_project,
+              interaction_type: record.interaction_types && record.interaction_types.length ? record.interaction_types : [],
+              has_guide: !!record.has_guide,
+              can_receive_alternance: !!record.can_receive_alternance,
+              alternance_students_quota: record.can_receive_alternance ? Number(record.alternance_students_quota || 0) : 0,
+            }
+            const created = await createCompanyRequirement(payload as any)
+            createdReqs.push(created)
           }
-          const created = await createCompanyRequirement(payload as any)
+          
           const fallback = company ? companyContacts.get(company.id) || null : null
           const contact = getPrimaryContact(company, fallback)
-          const dbRow: Prospect = {
+          
+          // Crear una fila por cada requerimiento creado
+          const newRows: Prospect[] = createdReqs.map((created) => ({
             id: `db:${created.id}`,
             company_name: company.name,
+            company_id: company.id,
             sector: created.sector || '',
             interest_collaborate: !!created.interest_collaborate,
             responsible_name: contact?.name?.trim() || '',
@@ -582,11 +701,16 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
             subject_hint: created.subject ?? undefined,
             source: 'db',
             requirement_id: created.id,
-          }
-          setItems((prev) => [dbRow, ...prev.filter((p) => p.id !== record.id && (p.company_name || '').trim().toLowerCase() !== record.company_name.trim().toLowerCase())])
+          }))
+          
+          setItems((prev) => [...newRows, ...prev.filter((p) => p.id !== record.id && (p.company_name || '').trim().toLowerCase() !== record.company_name.trim().toLowerCase())])
           updateSubjectAssignments(record.id, [])
-          updateSubjectAssignments(dbRow.id, editAssignedSubjects)
-          toast.success('Guardado en base de datos')
+          newRows.forEach((row) => {
+            if (row.subject_hint) {
+              updateSubjectAssignments(row.id, [row.subject_hint])
+            }
+          })
+          toast.success(`${createdReqs.length} requerimiento(s) guardado(s) en base de datos`)
         } else {
           toast.error('Empresa no encontrada en BD. Crea la empresa primero en "Empresas".')
         }
@@ -618,7 +742,49 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
     }
   }
 
-  const rows = useMemo(() => items, [items])
+  // Agrupar por empresa
+  const [expandedCompanies, setExpandedCompanies] = useState<Record<string, boolean>>({})
+  const [viewMode, setViewMode] = useState<'company' | 'subject'>('company')
+  
+  const groupedByCompany = useMemo(() => {
+    const groups = new Map<string, Prospect[]>()
+    items.forEach((item) => {
+      const key = item.company_name
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(item)
+    })
+    return Array.from(groups.entries())
+  }, [items])
+
+  const groupedBySubject = useMemo(() => {
+    const groups = new Map<number, Prospect[]>()
+    items.forEach((item) => {
+      const key = item.subject_hint || 0
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(item)
+    })
+    return Array.from(groups.entries()).sort((a, b) => {
+      const nameA = subjects.find((s) => s.id === a[0])?.name || ''
+      const nameB = subjects.find((s) => s.id === b[0])?.name || ''
+      return nameA.localeCompare(nameB)
+    })
+  }, [items, subjects])
+
+  const toggleCompany = (companyName: string) => {
+    setExpandedCompanies((prev) => ({
+      ...prev,
+      [companyName]: !prev[companyName],
+    }))
+  }
+
+  const [expandedSubjects, setExpandedSubjects] = useState<Record<number, boolean>>({})
+
+  const toggleSubject = (subjectId: number) => {
+    setExpandedSubjects((prev) => ({
+      ...prev,
+      [subjectId]: !prev[subjectId],
+    }))
+  }
 
   return (
     <section className="p-6">
@@ -629,64 +795,218 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
 
       {error ? (<div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>) : null}
 
+      {/* Tabs de vista */}
+      <div className="mb-4 flex gap-2 border-b border-zinc-200">
+        <button
+          onClick={() => setViewMode('company')}
+          className={`px-4 py-2 text-sm font-medium ${
+            viewMode === 'company'
+              ? 'border-b-2 border-red-600 text-red-600'
+              : 'text-zinc-600 hover:text-zinc-900'
+          }`}
+        >
+          Por Empresa
+        </button>
+        <button
+          onClick={() => setViewMode('subject')}
+          className={`px-4 py-2 text-sm font-medium ${
+            viewMode === 'subject'
+              ? 'border-b-2 border-red-600 text-red-600'
+              : 'text-zinc-600 hover:text-zinc-900'
+          }`}
+        >
+          Por Asignatura
+        </button>
+      </div>
+
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="min-w-full divide-y divide-zinc-200">
           <thead className="bg-zinc-50">
             <tr>
-              <Th className="uppercase tracking-wide">Empresa</Th>
-              <Th className="uppercase tracking-wide">Sector</Th>
-              <Th className="uppercase tracking-wide">Interés</Th>
-              <Th className="uppercase tracking-wide">Responsable</Th>
-              <Th className="text-right uppercase tracking-wide">Acciones</Th>
+              <Th className="w-8"></Th>
+              {viewMode === 'company' ? (
+                <>
+                  <Th>Empresa</Th>
+                  <Th className="text-center">Requerimientos</Th>
+                </>
+              ) : (
+                <>
+                  <Th>Asignatura</Th>
+                  <Th className="text-center">Empresas</Th>
+                </>
+              )}
+              <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin registros</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Cargando…</td></tr>
+            ) : viewMode === 'company' ? (
+              groupedByCompany.length === 0 ? (
+                <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Sin registros</td></tr>
+              ) : (
+                groupedByCompany.map(([companyName, reqs]) => {
+                  const isExpanded = !!expandedCompanies[companyName]
+                  return (
+                    <React.Fragment key={companyName}>
+                      <tr className="hover:bg-zinc-50 cursor-pointer" onClick={() => toggleCompany(companyName)}>
+                        <Td className="text-center p-3">
+                          <span className={`inline-block transform transition-transform text-zinc-500 ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+                        </Td>
+                        <Td className="font-medium">{companyName || '—'}</Td>
+                        <Td className="text-center">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
+                            {reqs.length}
+                          </span>
+                        </Td>
+                        <Td className="text-right whitespace-nowrap">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openEdit(reqs[0])
+                            }} 
+                            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 mr-2">
+                            Editar
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onDelete(reqs[0])
+                            }} 
+                            className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
+                            Eliminar
+                          </button>
+                        </Td>
+                      </tr>
+                      {isExpanded && reqs.map((r) => {
+                        const subjectName = r.subject_hint 
+                          ? subjects.find((s) => s.id === r.subject_hint)?.name || `(ID: ${r.subject_hint})`
+                          : '—'
+                        return (
+                          <tr key={r.id} className="hover:bg-zinc-50 bg-zinc-50">
+                            <Td></Td>
+                            <Td className="text-sm pl-12 font-normal">{subjectName}</Td>
+                            <Td className="text-center text-sm">
+                              {r.interest_collaborate ? (
+                                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">✓ Interés</span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">○ Sin interés</span>
+                              )}
+                            </Td>
+                            <Td className="text-right text-sm">
+                              <div className="flex items-center justify-end gap-2">
+                                <span className="text-zinc-700">
+                                  {r.responsible_name && r.responsible_name.trim() ? r.responsible_name : '—'}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    openEdit(r)
+                                  }}
+                                  className="rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onDelete(r)
+                                  }}
+                                  className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100"
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            </Td>
+                          </tr>
+                        )
+                      })}
+                    </React.Fragment>
+                  )
+                })
+              )
             ) : (
-              rows.map((r) => (
-                <tr key={r.id} className="hover:bg-zinc-50">
-                  <Td>{r.company_name || '—'}
-                    {r.source === 'db' ? (
-                      <>
-                        {recentlyUpdated.has(r.id) ? (
-                          <span className="ml-2 rounded border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] text-green-700">modificado</span>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </Td>
-                  <Td>{r.sector || '—'}</Td>
-                  <Td><YesNoPill value={!!r.interest_collaborate} /></Td>
-                  <Td>
-                    {r.responsible_name && r.responsible_name.trim() ? (
-                      <div className="space-y-0.5">
-                        <div className="font-medium text-zinc-900">{r.responsible_name}</div>
-                        <div className="text-xs text-zinc-600">
-                          {formatResponsibleLine(r.responsible_role, r.responsible_area) || '—'}
-                        </div>
-                        <div className="text-xs text-zinc-600">
-                          {formatResponsibleLine(r.responsible_email, r.responsible_phone) || 'Sin datos de contacto'}
-                        </div>
-                      </div>
-                    ) : (
-                      r.source === 'db' ? '—' : (
-                        <button onClick={() => openAssign(r)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Asignar</button>
-                      )
-                    )}
-                  </Td>
-                  <Td className="text-right">
-                    <div className="flex items-center justify-end gap-3 whitespace-nowrap">
-                      <button onClick={() => setViewing(r)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50 shadow-sm">Ver</button>
-                      <>
-                          <button onClick={() => openEdit(r)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50 shadow-sm">Editar</button>
-                          <button onClick={() => onDelete(r)} className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 shadow-sm">Eliminar</button>
-                        </>
-                    </div>
-                  </Td>
-                </tr>
-              ))
+              groupedBySubject.length === 0 ? (
+                <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Sin registros</td></tr>
+              ) : (
+                groupedBySubject.map(([subjectId, reqs]) => {
+                  const isExpanded = !!expandedSubjects[subjectId]
+                  const subjectName = subjectId 
+                    ? subjects.find((s) => s.id === subjectId)?.name || `(ID: ${subjectId})`
+                    : 'Sin asignatura'
+                  return (
+                    <React.Fragment key={subjectId}>
+                      <tr className="hover:bg-zinc-50 cursor-pointer" onClick={() => toggleSubject(subjectId)}>
+                        <Td className="text-center p-3">
+                          <span className={`inline-block transform transition-transform text-zinc-500 ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+                        </Td>
+                        <Td className="font-medium">{subjectName}</Td>
+                        <Td className="text-center">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
+                            {reqs.length}
+                          </span>
+                        </Td>
+                        <Td className="text-right whitespace-nowrap">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openEdit(reqs[0])
+                            }} 
+                            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 mr-2">
+                            Editar
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onDelete(reqs[0])
+                            }} 
+                            className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
+                            Eliminar
+                          </button>
+                        </Td>
+                      </tr>
+                      {isExpanded && reqs.map((r) => (
+                        <tr key={r.id} className="hover:bg-zinc-50 bg-zinc-50">
+                          <Td></Td>
+                          <Td className="text-sm pl-12 font-normal">{r.company_name || '—'}</Td>
+                          <Td className="text-center text-sm">
+                            {r.interest_collaborate ? (
+                              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">✓ Interés</span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">○ Sin interés</span>
+                            )}
+                          </Td>
+                          <Td className="text-right text-sm">
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-zinc-700">
+                                {r.responsible_name && r.responsible_name.trim() ? r.responsible_name : '—'}
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openEdit(r)
+                                }}
+                                className="rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onDelete(r)
+                                }}
+                                className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </Td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  )
+                })
+              )
             )}
           </tbody>
         </table>
@@ -813,29 +1133,30 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
               </label>
 
               <div className="mb-4 text-sm">
-                <span className="mb-2 block font-medium text-zinc-800">Asignatura vinculada *</span>
+                <span className="mb-2 block font-medium text-zinc-800">Asignaturas vinculadas *</span>
                 <div className="max-h-48 overflow-y-auto rounded border border-zinc-200 p-3">
                   {subjects.map((s) => {
                     const checked = editAssignedSubjects.includes(s.id)
                     return (
                       <label key={s.id} className="mb-1 flex items-center gap-2 text-sm">
                         <input
-                          type="radio"
-                          name="subject"
+                          type="checkbox"
                           checked={checked}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setEditAssignedSubjects([s.id])
+                              setEditAssignedSubjects((prev) => [...prev, s.id])
+                            } else {
+                              setEditAssignedSubjects((prev) => prev.filter((id) => id !== s.id))
                             }
                           }}
-                          className="h-4 w-4 rounded-full border-zinc-300 text-red-600 focus:ring-red-600"
+                          className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600"
                         />
                         <span>{s.name ? `${s.name} (${s.code}-${s.section})` : `${s.code}-${s.section}`}</span>
                       </label>
                     )
                   })}
                 </div>
-                <span className="mt-1 block text-xs text-zinc-600">Selecciona la asignatura que podrá usar esta contraparte.</span>
+                <span className="mt-1 block text-xs text-zinc-600">Selecciona las asignaturas que podrán usar esta contraparte (puedes elegir múltiples).</span>
               </div>
 
               <div className="mt-4 flex items-center justify-end gap-2">
