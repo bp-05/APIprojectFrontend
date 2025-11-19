@@ -293,7 +293,11 @@ export default function AsignaturasCoord() {
               </tr>
             ) : (
               filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-zinc-50">
+                <tr
+                  key={s.id}
+                  className="cursor-pointer hover:bg-zinc-50"
+                  onClick={() => openView(s)}
+                >
                   <Td>
                     <DescriptorCell subject={s} />
                   </Td>
@@ -335,13 +339,13 @@ export default function AsignaturasCoord() {
                     })()}
                   </Td>
                   <Td className="text-right">
-                    <button
-                      onClick={() => openView(s)}
-                      className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
+                    <Link
+                      to={`/coord/estado?id=${s.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-50"
                     >
-                      Ver más
-                    </button>
-                    <Link to={`/coord/estado?id=${s.id}`} className="ml-2 inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-50">Ver estado</Link>
+                      Ver estado
+                    </Link>
                   </Td>
                 </tr>
               ))
@@ -367,51 +371,48 @@ interface DescriptorCellProps {
 }
 
 function DescriptorCell({ subject }: DescriptorCellProps) {
-  const [open, setOpen] = useState(false)
   const [descriptors, setDescriptors] = useState<Descriptor[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
+    setError(null)
     try {
       const data = await listDescriptorsBySubject(subject.id)
       setDescriptors(data || [])
+      return data || []
     } catch (e) {
       console.error(e)
+      const msg = e instanceof Error ? e.message : 'No se pudieron cargar los descriptores'
+      setError(msg)
+      return []
     } finally {
       setLoading(false)
     }
   }
 
-  function handleOpen() {
-    if (!open && descriptors.length === 0) load()
-    setOpen(!open)
+  async function handleClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (loading) return
+    const list = descriptors.length === 0 ? await load() : descriptors
+    const file = list?.find((d) => d.file)?.file || null
+    if (file) window.open(file, '_blank', 'noreferrer')
+    else setError('Sin descriptores disponibles')
   }
 
   return (
     <div>
       <button
-        onClick={handleOpen}
-        className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-200"
+        onClick={handleClick}
+        className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline"
+        disabled={loading}
       >
-        {open ? '▼' : '▶'} {descriptors.length > 0 ? descriptors.length : '?'}
+        {loading ? 'Cargando…' : 'Ver descriptor'}
       </button>
-      {open && (
-        <div className="mt-2 space-y-1 text-xs">
-          {loading ? (
-            <p className="text-zinc-500">Cargando...</p>
-          ) : descriptors.length === 0 ? (
-            <p className="text-zinc-500">Sin descriptores</p>
-          ) : (
-            descriptors.map((d) => (
-              <div key={d.id} className="rounded bg-zinc-50 p-1 text-zinc-600">
-                {d.file}
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      {error ? <div className="mt-1 text-xs text-red-600">{error}</div> : null}
     </div>
   )
 }
+
 
