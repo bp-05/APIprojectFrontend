@@ -411,6 +411,32 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
       return 
     }
     
+    // Validar campos de contacto
+    const candidate = findCompanyByName(name)
+    const fallback = candidate ? companyContacts.get(candidate.id) || null : null
+    const contactInfo = getPrimaryContact(candidate, fallback)
+    
+    if (!contactInfo?.name?.trim()) {
+      toast.error('No se encontró Responsable SPyS para esta empresa. Revisa el nombre en Empresas.')
+      return
+    }
+    if (!contactInfo?.email?.trim()) {
+      toast.error('El Responsable SPyS no tiene correo registrado en Empresas')
+      return
+    }
+    if (!contactInfo?.phone?.trim()) {
+      toast.error('El Responsable SPyS no tiene teléfono registrado en Empresas')
+      return
+    }
+    if (!contactInfo?.counterpart_area?.trim()) {
+      toast.error('El Responsable SPyS no tiene área registrada en Empresas')
+      return
+    }
+    if (!contactInfo?.role?.trim()) {
+      toast.error('El Responsable SPyS no tiene cargo registrado en Empresas')
+      return
+    }
+    
     // Si es para guardar en BD, requiere asignatura
     if (!editing || editing.source !== 'db') {
       if (editAssignedSubjects.length === 0) {
@@ -421,10 +447,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
 
     const arr = items.slice()
     const idx = editing ? arr.findIndex((x) => x.id === editing.id) : -1
-
-    const candidate = findCompanyByName(name)
-    const fallback = candidate ? companyContacts.get(candidate.id) || null : null
-    const contactInfo = getPrimaryContact(candidate, fallback)
 
     const record: Prospect = {
       id: editing?.id || crypto.randomUUID(),
@@ -737,7 +759,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
             </div>
             <div className="px-6 py-4">
               <label className="mb-3 block text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">Empresa</span>
+                <span className="mb-1 block font-medium text-zinc-800">Empresa *</span>
                 <select value={editName} onChange={(e) => handleEditNameChange(e.target.value)} disabled={editing?.source === 'db'} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none disabled:cursor-not-allowed disabled:bg-zinc-50 focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
                   <option value="">Seleccionar</option>
                   {companies.map((c) => (
@@ -747,7 +769,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
               </label>
 
               <label className="mb-3 block text-sm">
-                <span className="mb-1 block font-medium text-zinc-800">¿A qué tipo de sector productivo o de servicios responde la contraparte?</span>
+                <span className="mb-1 block font-medium text-zinc-800">¿A qué tipo de sector productivo o de servicios responde la contraparte? *</span>
                 <input value={editSector} onChange={(e) => setEditSector(e.target.value)} className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
               </label>
 
@@ -791,7 +813,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
               </label>
 
               <div className="mb-4 text-sm">
-                <span className="mb-2 block font-medium text-zinc-800">Asignatura vinculada</span>
+                <span className="mb-2 block font-medium text-zinc-800">Asignatura vinculada *</span>
                 <div className="max-h-48 overflow-y-auto rounded border border-zinc-200 p-3">
                   {subjects.map((s) => {
                     const checked = editAssignedSubjects.includes(s.id)
