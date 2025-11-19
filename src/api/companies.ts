@@ -23,12 +23,39 @@ export type Company = {
   counterpart_contacts: CounterpartContact[]
 }
 
+export async function listCounterpartContacts(params?: { company?: number }) {
+  const { data } = await http.get<CounterpartContact[]>('/counterpart-contacts/', { params })
+  return data
+}
+
 export async function listCompanies(params?: { search?: string }) {
   const { data } = await http.get<Company[]>('/companies/', { params })
-  return data.map((c) => ({
-    ...c,
-    counterpart_contacts: Array.isArray((c as any).counterpart_contacts) ? (c as any).counterpart_contacts : [],
-  }))
+  
+  // Cargar contactos para cada empresa
+  const companiesWithContacts = await Promise.all(
+    data.map(async (c) => {
+      let contacts: CounterpartContact[] = []
+      
+      // Si la API retorna contactos, usarlos
+      if (Array.isArray((c as any).counterpart_contacts)) {
+        contacts = (c as any).counterpart_contacts
+      } else if (c.id) {
+        // Si no, cargarlos por separado
+        try {
+          contacts = await listCounterpartContacts({ company: c.id })
+        } catch (e) {
+          console.error(`Error cargando contactos para empresa ${c.id}:`, e)
+        }
+      }
+      
+      return {
+        ...c,
+        counterpart_contacts: contacts,
+      }
+    })
+  )
+  
+  return companiesWithContacts
 }
 
 type CompanyPayload = Omit<Company, 'id'>
@@ -61,11 +88,6 @@ export async function updateCompany(id: number, payload: Partial<CompanyPayload>
     ...payload,
   }
   const { data } = await http.patch<Company>(`/companies/${id}/`, body)
-  return data
-}
-
-export async function listCounterpartContacts(params?: { company?: number }) {
-  const { data } = await http.get<CounterpartContact[]>('/counterpart-contacts/', { params })
   return data
 }
 
@@ -147,6 +169,8 @@ export type CompanyEngagementScope = {
   company: number
   subject_code: string
   subject_section: string
+  subject_period_season: string
+  subject_period_year: number
 }
 
 export async function listEngagementScopes(params?: {

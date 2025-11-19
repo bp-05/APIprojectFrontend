@@ -17,7 +17,8 @@ import AsignaturaDetalle from './routes/AsignaturaDetalle'
 import Docentes from './routes/Docentes'
 import MisAsignaturas from './routes/MisAsignaturas'
 import AdminPeriodos from './routes/AdminPeriodos'
-import Empresas from './routes/vcm/Empresas'
+import EmpresasAdmin from './routes/admin/Empresas'
+import EmpresasVCM from './routes/vcm/Empresas'
 import EmpresaDetalleAdmin from './routes/EmpresaDetalleAdmin'
 import DCEmpresas from './routes/dc/Empresas'
 import DCEmpresaDetalle from './routes/dc/EmpresaDetalle'
@@ -63,9 +64,9 @@ export const router = createBrowserRouter([
       { path: 'proceso-api', loader: requireRoleLoader('ADMIN'), element: <ProcesoAPI /> },
       { path: 'admin/periodos', loader: requireRoleLoader('ADMIN'), element: <AdminPeriodos /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
-      { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <Empresas /> },
+      { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <EmpresasVCM /> },
       { path: 'vcm/problemas', loader: requireRoleLoader('VCM'), element: <Problemas /> },
-      { path: 'empresas', loader: requireRoleLoader('ADMIN'), element: <Empresas /> },
+      { path: 'empresas', loader: requireRoleLoader('ADMIN'), element: <EmpresasAdmin /> },
       { path: 'empresas/:id', loader: requireRoleLoader('ADMIN'), element: <EmpresaDetalleAdmin /> },
       
       { path: 'problematicas', loader: requireRoleLoader('ADMIN'), element: <Problemas /> },

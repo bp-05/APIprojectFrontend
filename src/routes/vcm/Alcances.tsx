@@ -180,6 +180,8 @@ function AlcanceForm({
     company,
     subject_code: initial?.subject_code || '',
     subject_section: initial?.subject_section || '',
+    subject_period_season: initial?.subject_period_season || '',
+    subject_period_year: initial?.subject_period_year || new Date().getFullYear(),
     benefits_from_student: initial?.benefits_from_student || '',
     has_value_or_research_project: initial?.has_value_or_research_project || false,
     time_availability_and_participation: initial?.time_availability_and_participation || '',
@@ -196,7 +198,13 @@ function AlcanceForm({
     if (initial) return
     const subj = subjects.find((s) => s.id === subjectId)
     if (subj) {
-      setForm((f) => ({ ...f, subject_code: subj.code, subject_section: subj.section }))
+      setForm((f) => ({ 
+        ...f, 
+        subject_code: subj.code, 
+        subject_section: subj.section,
+        subject_period_season: subj.period_season,
+        subject_period_year: subj.period_year,
+      }))
     }
   }, [subjectId, subjects, initial])
 
@@ -216,25 +224,47 @@ function AlcanceForm({
       toast.error('Selecciona una Asignatura')
       return
     }
+    if (!form.benefits_from_student.trim()) {
+      toast.error('Ingresa los beneficios que podría aportar un estudiante')
+      return
+    }
+    if (!form.time_availability_and_participation.trim()) {
+      toast.error('Ingresa el tiempo disponible y participación')
+      return
+    }
+    if (!form.meeting_schedule_availability.trim()) {
+      toast.error('Ingresa los horarios de reunión disponibles')
+      return
+    }
     
     setSaving(true)
     try {
+      // Asegurar que se envía el company actualizado
+      const payload = { ...form, company }
+      
       if (!initial) {
-        if (!company || !form.subject_code || !form.subject_section) {
+        if (!company || !payload.subject_code || !payload.subject_section) {
           throw new Error('Seleccione empresa y asignatura')
         }
       }
       if (initial) {
-        await updateEngagementScope(initial.id, form)
+        await updateEngagementScope(initial.id, payload)
         toast.success('Alcance actualizado')
       } else {
-        await createEngagementScope(form)
+        await createEngagementScope(payload)
         toast.success('Alcance creado')
       }
       await onSaved()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al guardar'
-      toast.error(msg)
+      let errorMsg = 'Error al guardar'
+      if (err instanceof Error) {
+        errorMsg = err.message
+      } else if (typeof err === 'object' && err !== null && 'response' in err) {
+        const axiosErr = err as any
+        errorMsg = axiosErr.response?.data?.detail || axiosErr.message || 'Error al guardar'
+        console.error('Detalles del error:', axiosErr.response?.data)
+      }
+      toast.error(errorMsg)
     } finally {
       setSaving(false)
     }
@@ -280,18 +310,18 @@ function AlcanceForm({
           )}
 
           <Area
-            label="¿Qué beneficios podría aportar un estudiante a su organización?"
+            label="¿Qué beneficios podría aportar un estudiante a su organización? *"
             value={form.benefits_from_student}
             onChange={(v) => update('benefits_from_student', v)}
           />
           <Area
-            label="¿Cuánto tiempo le gustaría disponer para esta experiencia? ¿Podría participar durante el semestre?"
+            label="¿Cuánto tiempo le gustaría disponer para esta experiencia? ¿Podría participar durante el semestre? *"
             help="Se busca que la contraparte participe al inicio, presentando el proyecto, y al final, retroalimentando los entregables. Idealmente, podría participar además en instancias de retroalimentación intermedias durante el semestre."
             value={form.time_availability_and_participation}
             onChange={(v) => update('time_availability_and_participation', v)}
           />
           <Area
-            label="¿Qué horarios de reunión (presencial / online) tiene disponible para discutir avances del proyecto con la contraparte de Inacap?"
+            label="¿Qué horarios de reunión (presencial / online) tiene disponible para discutir avances del proyecto con la contraparte de Inacap? *"
             value={form.meeting_schedule_availability}
             onChange={(v) => update('meeting_schedule_availability', v)}
           />

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'react-hot-toast'
 import { deleteCompany, getCompany, type Company } from '../api/companies'
-import { EmpresaModal } from './vcm/Empresas'
+import { EmpresaModal } from './companies/EmpresasPanel'
 
 export default function EmpresaDetalleAdmin() {
   const { id } = useParams()
