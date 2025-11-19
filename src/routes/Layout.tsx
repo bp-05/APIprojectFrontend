@@ -367,6 +367,8 @@ function SidebarItem({ to, icon, label, active, collapsed }: { to: string; icon:
 }
 
 function isSidebarItemActive(pathname: string, item: SidebarLinkItem) {
+  // Evitar marcar como activo el listado de asignaturas DC cuando estamos en un detalle
+  if (item.matchPrefix === '/dc/asignaturas' && /^\/dc\/asignaturas\/\d+/.test(pathname)) return false
   if (item.matchPrefix) return pathname.startsWith(item.matchPrefix)
   return pathname === item.to
 }

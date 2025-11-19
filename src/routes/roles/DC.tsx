@@ -9,6 +9,7 @@ import {
   type Subject,
 } from '../../api/subjects'
 import { listCompanies } from '../../api/companies'
+import { useNavigate } from 'react-router'
 
 type SectionCounts = {
   info: number
@@ -20,6 +21,7 @@ type SectionCounts = {
 }
 
 export default function DC() {
+  const navigate = useNavigate()
   const [items, setItems] = useState<Subject[]>([])
   const [companyTotal, setCompanyTotal] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
@@ -211,7 +213,11 @@ export default function DC() {
                 </tr>
               ) : (
                 filtered.map((s) => (
-                  <tr key={s.id} className="transition-colors hover:bg-zinc-50">
+                  <tr
+                    key={s.id}
+                    className="cursor-pointer transition-colors hover:bg-zinc-50"
+                    onClick={() => navigate(`/dc/asignaturas/${s.id}`)}
+                  >
                     <Td>{s.code}</Td>
                     <Td>{s.section}</Td>
                     <Td>{s.name}</Td>

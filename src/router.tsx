@@ -22,6 +22,7 @@ import EmpresasVCM from './routes/vcm/Empresas'
 import EmpresaDetalleAdmin from './routes/EmpresaDetalleAdmin'
 import DCEmpresas from './routes/dc/Empresas'
 import DCEmpresaDetalle from './routes/dc/EmpresaDetalle'
+import DCAsignaturaDetalle from './routes/dc/AsignaturaDetalle'
 import Problemas from './routes/vcm/Problemas'
 import Alcances from './routes/vcm/Alcances'
 import AsignaturasVCM from './routes/vcm/Asignaturas'
@@ -82,6 +83,7 @@ export const router = createBrowserRouter([
       { path: 'docentes', loader: requireRoleLoader('DAC'), element: <Docentes /> },
       { path: 'dc', loader: requireRoleLoader('DC'), element: <DC /> },
       { path: 'dc/asignaturas', loader: requireRoleLoader('DC'), element: <DCAsignaturas /> },
+      { path: 'dc/asignaturas/:id', loader: requireRoleLoader('DC'), element: <DCAsignaturaDetalle /> },
       { path: 'dc/empresas', loader: requireRoleLoader('DC'), element: <DCEmpresas /> },
       { path: 'dc/empresas/:companyId', loader: requireRoleLoader('DC'), element: <DCEmpresaDetalle /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
