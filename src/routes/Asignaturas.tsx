@@ -693,6 +693,16 @@ export function EditSubjectDialog({ subject, onClose, onSaved }: { subject: Subj
             <input type="number" value={hours} onChange={(e) => setHours(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
           </div>
           <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Total estudiantes (opcional)</label>
+            <input
+              type="number"
+              min={0}
+              value={totalStudents}
+              onChange={(e) => setTotalStudents(e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+          <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo API</label>
             <select value={apiType} onChange={(e) => setApiType(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
               <option value="">Seleccione…</option>
