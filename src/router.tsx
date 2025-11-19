@@ -37,6 +37,8 @@ import EstadoCoord from './routes/coord/Estado'
 import Gantt from './routes/coord/Gantt'
 import Reportes from './routes/coord/Reportes'
 import Notificaciones from './routes/coord/Notificaciones'
+import Areas from './routes/Areas'
+import Carreras from './routes/Carreras'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -61,6 +63,8 @@ export const router = createBrowserRouter([
       { path: 'usuarios', loader: requireRoleLoader('ADMIN'), element: <Usuarios /> },
       { path: 'asignaturas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Asignaturas /> },
       { path: 'asignaturas/:id', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <AsignaturaDetalle /> },
+      { path: 'areas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Areas /> },
+      { path: 'carreras', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Carreras /> },
       { path: 'proceso-api', loader: requireRoleLoader('ADMIN'), element: <ProcesoAPI /> },
       { path: 'admin/periodos', loader: requireRoleLoader('ADMIN'), element: <AdminPeriodos /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },

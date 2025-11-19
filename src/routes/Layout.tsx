@@ -25,6 +25,8 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
       items: [
         { to: '/usuarios', label: 'Usuarios', icon: <IconUsers />, matchPrefix: '/usuarios' },
         { to: '/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/asignaturas' },
+        { to: '/areas', label: 'Áreas', icon: <IconGrid />, matchPrefix: '/areas' },
+        { to: '/carreras', label: 'Carreras', icon: <IconLayers />, matchPrefix: '/carreras' },
         { to: '/proceso-api', label: 'Proceso API', icon: <IconWorkflow />, matchPrefix: '/proceso-api' },
         { to: '/admin/periodos', label: 'Gestionar periodos', icon: <IconCalendar />, matchPrefix: '/admin/periodos' },
         { to: '/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/empresas' },
@@ -37,6 +39,8 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
       title: 'Departamento Académico',
       items: [
         { to: '/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/asignaturas' },
+        { to: '/areas', label: 'Áreas', icon: <IconGrid />, matchPrefix: '/areas' },
+        { to: '/carreras', label: 'Carreras', icon: <IconLayers />, matchPrefix: '/carreras' },
         { to: '/docentes', label: 'Docentes', icon: <IconUsers />, matchPrefix: '/docentes' },
       ],
     },
@@ -490,6 +494,27 @@ function IconHandshake() {
       <path d="M6 18l1.5-1.5" />
       <path d="M8.5 16l1.5-1.5" />
       <path d="M10.5 14l2.5 2.5" />
+    </svg>
+  )
+}
+
+function IconGrid() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  )
+}
+
+function IconLayers() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M12 2l9 4-9 4-9-4 9-4z" />
+      <path d="M3 10l9 4 9-4" />
+      <path d="M3 15l9 4 9-4" />
     </svg>
   )
 }

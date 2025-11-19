@@ -133,6 +133,20 @@ export async function getArea(id: number) {
   return data
 }
 
+export async function createArea(payload: Pick<Area, 'name'>) {
+  const { data } = await http.post<Area>(`/areas/`, payload)
+  return data
+}
+
+export async function updateArea(id: number, payload: Partial<Area>) {
+  const { data } = await http.patch<Area>(`/areas/${id}/`, payload)
+  return data
+}
+
+export async function deleteArea(id: number) {
+  await http.delete(`/areas/${id}/`)
+}
+
 export type SemesterLevel = { id: number; name: string }
 export async function listSemesters() {
   const { data } = await http.get<SemesterLevel[]>(`/subject-semesters/`)
@@ -148,6 +162,20 @@ export async function listCareers() {
 export async function getCareer(id: number) {
   const { data } = await http.get<Career>(`/careers/${id}/`)
   return data
+}
+
+export async function createCareer(payload: Pick<Career, 'name' | 'area'>) {
+  const { data } = await http.post<Career>(`/careers/`, payload)
+  return data
+}
+
+export async function updateCareer(id: number, payload: Partial<Career>) {
+  const { data } = await http.patch<Career>(`/careers/${id}/`, payload)
+  return data
+}
+
+export async function deleteCareer(id: number) {
+  await http.delete(`/careers/${id}/`)
 }
 
 export type SubjectUnit = {
