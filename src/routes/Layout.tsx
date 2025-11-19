@@ -189,9 +189,9 @@ export default function Layout() {
               ☰
             </button>
           ) : null}
-          <Link to={pathForRole(role)} className="flex items-center gap-2">
-            <img src="/favicon.ico" alt="Logo" className="h-6 w-6 rounded-sm" />
-            <div className="text-sm font-semibold tracking-wide text-zinc-800">Gestor API</div>
+          <Link to={pathForRole(role)} className="group flex items-center gap-2 hover:text-red-600">
+            <img src="/favicon.ico" alt="Logo" className="h-6 w-6 rounded-sm transition-transform duration-150 group-hover:scale-105" />
+            <div className="text-sm font-semibold tracking-wide text-zinc-800 group-hover:text-red-600">Gestor API</div>
           </Link>
         </div>
         <div className="flex flex-col-reverse items-start gap-3 sm:flex-row sm:items-center sm:justify-end md:flex-row md:items-center md:gap-4">
