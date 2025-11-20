@@ -2,6 +2,7 @@
 import type React from 'react'
 import { toast } from 'react-hot-toast'
 import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion } from '../../api/subjects'
+import { listProblemStatements, type ProblemStatement, getCompany } from '../../api/companies'
 
 type PanelMode = 'list' | 'view' | 'manage-units' | 'manage-projects'
 
@@ -107,6 +108,7 @@ export default function MisAsignaturas() {
   if (mode === 'manage-projects' && manageProjectsSubject) {
     return (
       <ManageProjectsView
+        key={manageProjectsSubject.id}
         subject={manageProjectsSubject}
         onClose={() => {
           setMode('list')
@@ -1059,6 +1061,69 @@ function ManageProjectsView({
   subject: Subject
   onClose: () => void
 }) {
+  const [projects, setProjects] = useState<(ProblemStatement & { company_name?: string })[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set())
+
+  async function loadProjects() {
+    setLoading(true)
+    setError(null)
+    setProjects([]) // Limpiar proyectos anteriores
+    setExpandedProjects(new Set()) // Resetear secciones expandidas
+    
+    console.log('Cargando proyectos para asignatura:', subject.id, subject.code, subject.section)
+    
+    try {
+      const data = await listProblemStatements({ subject: subject.id })
+      console.log('Proyectos obtenidos:', data.length, data)
+      
+      // Cargar nombres de empresas
+      const projectsWithCompanyNames = await Promise.all(
+        data.map(async (project) => {
+          let companyName = 'Empresa desconocida'
+          if (project.company) {
+            try {
+              const company = await getCompany(project.company)
+              companyName = company.name
+            } catch (err) {
+              console.error(`Error cargando empresa ${project.company}:`, err)
+            }
+          }
+          return {
+            ...project,
+            company_name: companyName,
+          }
+        })
+      )
+      
+      console.log('Proyectos con nombres de empresas:', projectsWithCompanyNames)
+      setProjects(projectsWithCompanyNames)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al cargar proyectos'
+      console.error('Error al cargar proyectos:', e)
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadProjects()
+  }, [subject.id])
+
+  function toggleProject(projectId: number) {
+    setExpandedProjects((prev) => {
+      const next = new Set(prev)
+      if (next.has(projectId)) {
+        next.delete(projectId)
+      } else {
+        next.add(projectId)
+      }
+      return next
+    })
+  }
+
   return (
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -1076,11 +1141,104 @@ function ManageProjectsView({
         </button>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-6">
-        <p className="text-sm text-zinc-600">
-          Vista de gestión de proyectos. Contenido próximamente...
-        </p>
-      </div>
+      {error ? (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      {loading ? (
+        <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-600">
+          Cargando proyectos…
+        </div>
+      ) : projects.length === 0 ? (
+        <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center">
+          <p className="text-sm text-zinc-600">
+            No hay proyectos asignados a esta asignatura.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {projects.map((project) => {
+            const isExpanded = expandedProjects.has(project.id)
+            return (
+              <div
+                key={project.id}
+                className="overflow-hidden rounded-lg border border-zinc-200 bg-white transition hover:border-zinc-300"
+              >
+                <button
+                  onClick={() => toggleProject(project.id)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-zinc-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-base font-semibold text-zinc-900">{project.company_name || 'Empresa desconocida'}</span>
+                    {project.problem_definition ? (
+                      <span className="text-xs text-zinc-500">
+                        {project.problem_definition.substring(0, 80)}
+                        {project.problem_definition.length > 80 ? '...' : ''}
+                      </span>
+                    ) : (
+                      <span className="text-xs italic text-zinc-400">Sin definición</span>
+                    )}
+                  </div>
+                  <span className="text-lg text-zinc-500">{isExpanded ? '▾' : '▸'}</span>
+                </button>
+                {isExpanded ? (
+                  <div className="border-t border-zinc-100 p-4">
+                    <ProjectExpandedContent project={project} />
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </section>
+  )
+}
+
+function ProjectExpandedContent({ project }: { project: ProblemStatement }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+          Problema a abordar
+        </label>
+        <p className="text-sm text-zinc-800">{project.problem_to_address || '-'}</p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+          ¿Por qué es importante?
+        </label>
+        <p className="text-sm text-zinc-800">{project.why_important || '-'}</p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+          Stakeholders
+        </label>
+        <p className="text-sm text-zinc-800">{project.stakeholders || '-'}</p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+          Área relacionada
+        </label>
+        <p className="text-sm text-zinc-800">{project.related_area || '-'}</p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+          Beneficios (corto, mediano y largo plazo)
+        </label>
+        <p className="text-sm text-zinc-800">{project.benefits_short_medium_long_term || '-'}</p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+          Definición del problema
+        </label>
+        <p className="text-sm text-zinc-800">{project.problem_definition || '-'}</p>
+      </div>
+    </div>
   )
 }
