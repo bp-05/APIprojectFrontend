@@ -61,6 +61,7 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
         { to: '/dc/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/dc/asignaturas' },
         { to: '/dc/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/dc/empresas' },
         { to: '/dc/proyectos', label: 'Proyectos', icon: <IconTarget />, matchPrefix: '/dc/proyectos' },
+        { to: '/dc/posible-contraparte', label: 'Posibles Contrapartes', icon: <IconHandshake />, matchPrefix: '/dc/posible-contraparte' },
         { to: '/dc/fichas', label: 'Fichas', icon: <IconFileText />, matchPrefix: '/dc/fichas' },
       ],
     },

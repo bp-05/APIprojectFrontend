@@ -31,6 +31,8 @@ import AsignaturasVCM from './routes/vcm/Asignaturas'
 import AsignaturaVCMDetalle from './routes/vcm/AsignaturaDetalle'
 import EmpresaDetalleVCM from './routes/vcm/EmpresaDetalle'
 import PosibleContraparte from './routes/vcm/PosibleContraparte'
+import PosibleContraparteDC from './routes/dc/PosibleContraparte'
+import PosibleContraparteDetalle from './routes/dc/PosibleContraparteDetalle'
 import AsignaturasCoord from './routes/coord/Asignaturas'
 import AsignaturaCoordDetalle from './routes/coord/AsignaturaDetalle'
 import EmpresaDetalle from './routes/coord/EmpresaDetalle'
@@ -93,6 +95,8 @@ export const router = createBrowserRouter([
       { path: 'dc/empresas', loader: requireRoleLoader('DC'), element: <DCEmpresas /> },
       { path: 'dc/empresas/:companyId', loader: requireRoleLoader('DC'), element: <DCEmpresaDetalle /> },
       { path: 'dc/proyectos', loader: requireRoleLoader('DC'), element: <DCProyectos /> },
+      { path: 'dc/posible-contraparte', loader: requireRoleLoader('DC'), element: <PosibleContraparteDC /> },
+      { path: 'dc/posible-contraparte/:subjectId', loader: requireRoleLoader('DC'), element: <PosibleContraparteDetalle /> },
       { path: 'dc/fichas', loader: requireRoleLoader('DC'), element: <FichasDC /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
       { path: 'doc/empresas', loader: requireRoleLoader('DOC'), element: <EmpresasDoc /> },
