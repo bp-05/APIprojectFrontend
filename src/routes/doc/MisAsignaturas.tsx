@@ -677,14 +677,14 @@ function ManageUnitsView({ subject, onClose }: { subject: Subject; onClose: () =
           </p>
         </div>
         <div className="flex gap-2">
-          {hasUnits ? null : (
+          {!loading && !hasUnits ? (
             <button
               onClick={() => setShowInitDialog(true)}
               className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
             >
               Inicializar unidades
             </button>
-          )}
+          ) : null}
           <button
             onClick={onClose}
             className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
