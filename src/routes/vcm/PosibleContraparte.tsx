@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'react-hot-toast'
-import { listCompanies, listProblemStatements, type Company, type ProblemStatement } from '../../api/companies'
+import { listCompanies, listProblemStatements, type Company, type ProblemStatement, listCounterpartContacts } from '../../api/companies'
 import { listSubjectCodeSections, type BasicSubject, createCompanyRequirement, listCompanyRequirements, type CompanyRequirement, updateCompanyRequirement } from '../../api/subjects'
 import http from '../../lib/http'
 
@@ -160,7 +160,24 @@ export default function PosibleContraparte() {
           listSubjectCodeSections().catch(() => []),
           listProblemStatements().catch(() => []),
         ])
-        setCompanies(comps)
+        
+        // Asegurar que cada empresa tenga sus contactos cargados
+        const enhancedComps = await Promise.all(
+          comps.map(async (c) => {
+            // Ya debería tener contactos de listCompanies
+            if (!c.counterpart_contacts || c.counterpart_contacts.length === 0) {
+              try {
+                const contacts = await listCounterpartContacts({ company: c.id })
+                return { ...c, counterpart_contacts: contacts }
+              } catch (e) {
+                return c
+              }
+            }
+            return c
+          })
+        )
+        
+        setCompanies(enhancedComps)
         setSubjects(subs as BasicSubject[])
         const contactMap = buildContactsFromProblems(problems)
         setCompanyContacts(contactMap)
@@ -168,7 +185,7 @@ export default function PosibleContraparte() {
         // Cargar DB + Local y unir (evitando duplicados por nombre)
         let dbReqs: CompanyRequirement[] = []
         try { dbReqs = await listCompanyRequirements() } catch {}
-        const byId = new Map(comps.map((c) => [c.id, c]))
+        const byId = new Map(enhancedComps.map((c) => [c.id, c]))
         const dbRows: Prospect[] = (dbReqs || []).map((r) => {
           const company = byId.get(r.company)
           const contact = getPrimaryContact(company, contactMap.get(r.company) || null)
@@ -292,6 +309,8 @@ function buildContactsFromProblems(problems: ProblemStatement[]): Map<number, Co
 }
 
 function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): ContactInfo | null {
+  if (!company) return cleanContactInfo(fallback || null)
+  
   const contact = company?.counterpart_contacts?.find(
     (c) => c.name?.trim() || c.email?.trim() || c.phone?.trim(),
   )
@@ -384,18 +403,32 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
     const name = v.trim().toLowerCase()
     const c = companies.find((x) => x.name.trim().toLowerCase() === name)
     if (c) setEditSector(String((c as any).sector || ''))
-    const existing = loadProspects().find((p) => (p.company_name || '').trim().toLowerCase() === name)
-    if (existing) {
-      setEditInterest(!!existing.interest_collaborate)
-      setEditWorkedBefore(!!existing.worked_before)
-      setEditCanDevelopActivities(!!existing.can_develop_activities)
-      setEditWillingDesignProject(!!existing.willing_design_project)
-      setEditInteractionTypes((existing.interaction_types && existing.interaction_types.length > 0)
-        ? existing.interaction_types.slice()
-        : (existing.interaction_type ? [existing.interaction_type] : []))
-      setEditHasGuide(!!existing.has_guide)
-      setEditCanReceiveAlternance(!!existing.can_receive_alternance)
-      setEditQuotaStr(typeof existing.alternance_students_quota === 'number' ? String(existing.alternance_students_quota) : '')
+    
+    // Buscar en items (BD + local) todas las contrapartes existentes para esta empresa
+    const existingForCompany = items.filter((p) => (p.company_name || '').trim().toLowerCase() === name)
+    
+    if (existingForCompany.length > 0) {
+      // Usar el primer registro para pre-rellenar los datos de contacto/propiedades
+      const first = existingForCompany[0]
+      setEditInterest(!!first.interest_collaborate)
+      setEditWorkedBefore(!!first.worked_before)
+      setEditCanDevelopActivities(!!first.can_develop_activities)
+      setEditWillingDesignProject(!!first.willing_design_project)
+      setEditInteractionTypes((first.interaction_types && first.interaction_types.length > 0)
+        ? first.interaction_types.slice()
+        : (first.interaction_type ? [first.interaction_type] : []))
+      setEditHasGuide(!!first.has_guide)
+      setEditCanReceiveAlternance(!!first.can_receive_alternance)
+      setEditQuotaStr(typeof first.alternance_students_quota === 'number' ? String(first.alternance_students_quota) : '')
+      
+      // Pre-seleccionar todas las asignaturas que ya están asignadas a esta empresa
+      const assignedSubjects = existingForCompany
+        .filter((p) => typeof p.subject_hint === 'number')
+        .map((p) => p.subject_hint as number)
+      setEditAssignedSubjects(assignedSubjects)
+    } else {
+      // Si no existe, limpiar asignaturas
+      setEditAssignedSubjects([])
     }
   }
 
@@ -648,9 +681,20 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
           const sec = (record.sector && record.sector.trim()) || String((company as any).sector || '')
           if (!sec) { toast.error('Sector requerido. Completa el campo "Sector".'); return }
           
-          // Crear UN requerimiento por cada asignatura seleccionada
+          // Obtener todas las asignaturas YA existentes para esta empresa
+          const existingSubjectsForCompany = new Set(
+            arr
+              .filter((p) => (p.company_name || '').trim().toLowerCase() === record.company_name.trim().toLowerCase() 
+                      && p.source === 'db'
+                      && typeof p.subject_hint === 'number')
+              .map((p) => p.subject_hint)
+          )
+          
+          // Solo crear requerimientos para asignaturas NUEVAS
+          const newSubjectsToCreate = editAssignedSubjects.filter((id) => !existingSubjectsForCompany.has(id))
+          
           const createdReqs: any[] = []
-          for (const subjectId of editAssignedSubjects) {
+          for (const subjectId of newSubjectsToCreate) {
             const payload = {
               subject: subjectId,
               company: company.id,
@@ -703,14 +747,26 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
             requirement_id: created.id,
           }))
           
-          setItems((prev) => [...newRows, ...prev.filter((p) => p.id !== record.id && (p.company_name || '').trim().toLowerCase() !== record.company_name.trim().toLowerCase())])
+          // Solo eliminar la fila LOCAL que estaba siendo editada, NO las contrapartes existentes de BD
+          setItems((prev) => {
+            // Quitar solo la fila local (record.id) que acabamos de procesar
+            const filtered = prev.filter((p) => p.id !== record.id)
+            // Agregar las NUEVAS filas de BD al inicio
+            return [...newRows, ...filtered]
+          })
           updateSubjectAssignments(record.id, [])
           newRows.forEach((row) => {
             if (row.subject_hint) {
               updateSubjectAssignments(row.id, [row.subject_hint])
             }
           })
-          toast.success(`${createdReqs.length} requerimiento(s) guardado(s) en base de datos`)
+          
+          // Mostrar mensaje apropiado según cuántos requerimientos se crearon
+          if (createdReqs.length > 0) {
+            toast.success(`${createdReqs.length} requerimiento(s) nuevo(s) guardado(s) en base de datos`)
+          } else {
+            toast.success('Datos guardados (sin nuevas asignaturas)')
+          }
         } else {
           toast.error('Empresa no encontrada en BD. Crea la empresa primero en "Empresas".')
         }
@@ -819,116 +875,94 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <table className="min-w-full divide-y divide-zinc-200">
-          <thead className="bg-zinc-50">
-            <tr>
-              <Th className="w-8"></Th>
-              {viewMode === 'company' ? (
-                <>
-                  <Th>Empresa</Th>
-                  <Th className="text-center">Requerimientos</Th>
-                </>
-              ) : (
-                <>
-                  <Th>Asignatura</Th>
-                  <Th className="text-center">Empresas</Th>
-                </>
-              )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100 bg-white">
-            {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Cargando…</td></tr>
-            ) : viewMode === 'company' ? (
-              groupedByCompany.length === 0 ? (
-                <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Sin registros</td></tr>
-              ) : (
-                groupedByCompany.map(([companyName, reqs]) => {
-                  const isExpanded = !!expandedCompanies[companyName]
-                  return (
-                    <React.Fragment key={companyName}>
-                      <tr
-                        className="hover:bg-zinc-50 cursor-pointer"
-                        onClick={() => toggleCompany(companyName)}
-                      >
-                        <Td className="text-center p-3 w-8">
-                          <span className={`inline-block transform transition-transform text-zinc-500 ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
-                        </Td>
-                        <Td className="font-medium">{companyName || '—'}</Td>
-                        <Td className="text-center">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
-                            {reqs.length}
-                          </span>
-                        </Td>
-                      </tr>
-                      {isExpanded && reqs.map((r) => {
-                        const subjectName = r.subject_hint 
-                          ? subjects.find((s) => s.id === r.subject_hint)?.name || `(ID: ${r.subject_hint})`
-                          : '—'
-                        return (
-                          <tr key={r.id} className="hover:bg-zinc-50 bg-zinc-50">
-                            <Td></Td>
-                            <Td className="text-sm pl-12 font-normal">{subjectName}</Td>
-                            <Td className="text-center text-sm">
+      <div className="space-y-3">
+        {loading ? (
+          <div className="p-4 text-sm text-zinc-600 rounded-lg border border-zinc-200 bg-white">Cargando…</div>
+        ) : viewMode === 'company' ? (
+          groupedByCompany.length === 0 ? (
+            <div className="p-4 text-sm text-zinc-600 rounded-lg border border-zinc-200 bg-white">Sin registros</div>
+          ) : (
+            groupedByCompany.map(([companyName, reqs]) => {
+              const isExpanded = !!expandedCompanies[companyName]
+              return (
+                <div key={companyName} className="rounded-lg border border-zinc-200 bg-white mb-6">
+                  <button
+                    onClick={() => toggleCompany(companyName)}
+                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+                  >
+                    <h2 className="text-base font-semibold text-zinc-900">{companyName || '—'} ({reqs.length})</h2>
+                    <span className={`inline-block transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-zinc-200 p-4">
+                      <div className="space-y-2">
+                        {reqs.map((r) => {
+                          const subjectName = r.subject_hint 
+                            ? subjects.find((s) => s.id === r.subject_hint)?.name || `(ID: ${r.subject_hint})`
+                            : '—'
+                          return (
+                            <div key={r.id} className="flex items-center justify-between p-2 rounded bg-zinc-50 hover:bg-zinc-100 transition-colors cursor-pointer" onClick={() => { setViewing(r); setShowDetailModal(true) }}>
+                              <div className="flex-1 text-sm text-zinc-700">
+                                <div className="font-medium">{subjectName}</div>
+                                {r.responsible_name && <div className="text-xs text-zinc-600">{r.responsible_name}</div>}
+                              </div>
                               {r.interest_collaborate ? (
                                 <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">✓ Interés</span>
                               ) : (
                                 <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">○ Sin interés</span>
                               )}
-                            </Td>
-                          </tr>
-                        )
-                      })}
-                    </React.Fragment>
-                  )
-                })
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )
-            ) : (
-              groupedBySubject.length === 0 ? (
-                <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Sin registros</td></tr>
-              ) : (
-                groupedBySubject.map(([subjectId, reqs]) => {
-                  const isExpanded = !!expandedSubjects[subjectId]
-                  const subjectName = subjectId 
-                    ? subjects.find((s) => s.id === subjectId)?.name || `(ID: ${subjectId})`
-                    : 'Sin asignatura'
-                  return (
-                    <React.Fragment key={subjectId}>
-                      <tr
-                        className="hover:bg-zinc-50 cursor-pointer"
-                        onClick={() => toggleSubject(subjectId)}
-                      >
-                        <Td className="text-center p-3 w-8">
-                          <span className={`inline-block transform transition-transform text-zinc-500 ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
-                        </Td>
-                        <Td className="font-medium">{subjectName}</Td>
-                        <Td className="text-center">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
-                            {reqs.length}
-                          </span>
-                        </Td>
-                      </tr>
-                      {isExpanded && reqs.map((r) => (
-                        <tr key={r.id} className="hover:bg-zinc-50 bg-zinc-50">
-                          <Td></Td>
-                          <Td className="text-sm pl-12 font-normal">{r.company_name || '—'}</Td>
-                          <Td className="text-center text-sm">
+            })
+          )
+        ) : (
+          groupedBySubject.length === 0 ? (
+            <div className="p-4 text-sm text-zinc-600 rounded-lg border border-zinc-200 bg-white">Sin registros</div>
+          ) : (
+            groupedBySubject.map(([subjectId, reqs]) => {
+              const isExpanded = !!expandedSubjects[subjectId]
+              const subjectName = subjectId 
+                ? subjects.find((s) => s.id === subjectId)?.name || `(ID: ${subjectId})`
+                : 'Sin asignatura'
+              return (
+                <div key={subjectId} className="rounded-lg border border-zinc-200 bg-white mb-6">
+                  <button
+                    onClick={() => toggleSubject(subjectId)}
+                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+                  >
+                    <h2 className="text-base font-semibold text-zinc-900">{subjectName} ({reqs.length})</h2>
+                    <span className={`inline-block transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-zinc-200 p-4">
+                      <div className="space-y-2">
+                        {reqs.map((r) => (
+                          <div key={r.id} className="flex items-center justify-between p-2 rounded bg-zinc-50 hover:bg-zinc-100 transition-colors cursor-pointer" onClick={() => { setViewing(r); setShowDetailModal(true) }}>
+                            <div className="flex-1 text-sm text-zinc-700">
+                              <div className="font-medium">{r.company_name || '—'}</div>
+                              {r.responsible_name && <div className="text-xs text-zinc-600">{r.responsible_name}</div>}
+                            </div>
                             {r.interest_collaborate ? (
                               <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">✓ Interés</span>
                             ) : (
                               <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">○ Sin interés</span>
                             )}
-                          </Td>
-                        </tr>
-                      ))}
-                    </React.Fragment>
-                  )
-                })
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )
-            )}
-          </tbody>
-        </table>
+            })
+          )
+        )}
       </div>
 
       {assigningId && (
@@ -1095,7 +1129,7 @@ function Th({ children, className = '' }: { children: React.ReactNode; className
 }
 
 function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
+  return <td className={`py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
 
 function Item({ label, children }: { label: string; children: React.ReactNode }) {

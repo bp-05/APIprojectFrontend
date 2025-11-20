@@ -67,7 +67,7 @@ export default function EmpresaDetalle() {
         <div className="grid grid-cols-1 gap-4">
           <Section title="Problematica">
             {problems.length === 0 ? (
-              <div className="text-sm text-zinc-600">Sin problemática registrada</div>
+              <div className="text-sm text-zinc-600">Sin proyecto registrado</div>
             ) : (
               problems.map((p) => (
                 <div key={p.id} className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">

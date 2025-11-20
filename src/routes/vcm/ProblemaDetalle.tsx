@@ -52,11 +52,11 @@ export default function ProblemaDetalle() {
           if (foundCompany) setCompany(foundCompany)
           if (subj) setSubject(subj)
         } else {
-          setError('Problemática no encontrada')
+          setError('Proyecto no encontrado')
         }
         setError(null)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Error al cargar la problemática')
+        setError(e instanceof Error ? e.message : 'Error al cargar el proyecto')
       } finally {
         setLoading(false)
       }
@@ -65,11 +65,11 @@ export default function ProblemaDetalle() {
   }, [problemaId])
 
   const handleDelete = async () => {
-    if (!confirm('¿Estás seguro de que deseas eliminar esta problemática? Esta acción no se puede deshacer.')) return
+    if (!confirm('¿Estás seguro de que deseas eliminar este proyecto? Esta acción no se puede deshacer.')) return
     try {
       await deleteProblemStatement(problemaId)
-      toast.success('Problemática eliminada')
-      navigate('/vcm/problemas')
+      toast.success('Proyecto eliminado')
+      navigate('/vcm/proyectos')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al eliminar')
     }
@@ -80,7 +80,7 @@ export default function ProblemaDetalle() {
     try {
       await updateProblemStatement(problema.id, formData)
       setProblema(prev => prev ? { ...prev, ...formData } : null)
-      toast.success('Problemática actualizada')
+      toast.success('Proyecto actualizado')
       setEditMode(false)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al actualizar')
@@ -89,13 +89,13 @@ export default function ProblemaDetalle() {
 
   if (loading) return <div className="p-8 text-center">Cargando...</div>
   if (error) return <div className="p-8 text-red-500">Error: {error}</div>
-  if (!problema) return <div className="p-8 text-center">Problemática no encontrada</div>
+  if (!problema) return <div className="p-8 text-center">Proyecto no encontrado</div>
 
   return (
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <button
-          onClick={() => navigate('/vcm/problemas')}
+          onClick={() => navigate('/vcm/proyectos')}
           className="text-sm text-red-600 hover:underline"
         >
           Volver
@@ -130,7 +130,7 @@ export default function ProblemaDetalle() {
             <>
               <button
                 onClick={() => setEditMode(true)}
-                className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 Editar
               </button>
@@ -146,7 +146,7 @@ export default function ProblemaDetalle() {
       </div>
 
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-zinc-900">Problemática #{problema.id}</h1>
+        <h1 className="text-3xl font-bold text-zinc-900">Proyecto #{problema.id}</h1>
         <p className="text-sm text-zinc-600 mt-2">
           {subject?.name && company?.name && `${subject.name} · ${company.name}`}
         </p>

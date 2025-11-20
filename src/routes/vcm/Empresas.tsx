@@ -468,25 +468,29 @@ function AsignarResponsableModal({ company, onClose, onSaved }: { company: Compa
   async function saveContact() {
     if (!editingContact) return
     
-    // Validar nombre
+    // Validar nombre (obligatorio)
+    if (!editingContact.name.trim()) {
+      toast.error('El nombre y apellido son requeridos')
+      return
+    }
     const nameError = validateContactField('name', editingContact.name)
     if (nameError.name) {
       toast.error(nameError.name)
       return
     }
     
-    // Validar email
+    // Validar email (obligatorio)
     if (!editingContact.email.trim()) {
       toast.error('El email es requerido')
       return
     }
-    const emailError = validateContactField('email', editingContact.email)
-    if (emailError.email) {
-      toast.error(emailError.email)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(editingContact.email)) {
+      toast.error('El email no es válido')
       return
     }
 
-    // Validar teléfono
+    // Validar teléfono (obligatorio)
     if (!editingContact.phone.trim()) {
       toast.error('El teléfono es requerido')
       return
@@ -497,13 +501,13 @@ function AsignarResponsableModal({ company, onClose, onSaved }: { company: Compa
       return
     }
 
-    // Validar área
+    // Validar área (obligatorio)
     if (!editingContact.counterpart_area.trim()) {
       toast.error('El área en la empresa es requerida')
       return
     }
 
-    // Validar cargo
+    // Validar cargo (obligatorio)
     if (!editingContact.role.trim()) {
       toast.error('El cargo es requerido')
       return
@@ -513,12 +517,12 @@ function AsignarResponsableModal({ company, onClose, onSaved }: { company: Compa
       const phoneToSave = `+56 9 ${editingContact.phone}`
       
       await createCounterpartContact({
-        name: editingContact.name,
-        rut: editingContact.rut,
+        name: editingContact.name.trim(),
+        rut: editingContact.rut.trim(),
         phone: phoneToSave,
-        email: editingContact.email,
-        counterpart_area: editingContact.counterpart_area,
-        role: editingContact.role,
+        email: editingContact.email.trim(),
+        counterpart_area: editingContact.counterpart_area.trim(),
+        role: editingContact.role.trim(),
         company: company.id,
       })
       
@@ -549,11 +553,18 @@ function AsignarResponsableModal({ company, onClose, onSaved }: { company: Compa
         <div className="grid gap-3 px-4 py-4 sm:px-6">
           {!editingContact ? (
             <>
-              <p className="text-sm text-zinc-600 mb-3">
-                {company.counterpart_contacts?.length === 0
-                  ? 'No hay responsables asignados. Crea uno nuevo.'
-                  : `Responsable actual: ${company.counterpart_contacts?.[0]?.name || 'Sin nombre'}`}
-              </p>
+              {(() => {
+                const contactWithData = company.counterpart_contacts?.find(
+                  (c) => c.name?.trim() || c.email?.trim() || c.phone?.trim()
+                )
+                return (
+                  <p className="text-sm text-zinc-600 mb-3">
+                    {!contactWithData
+                      ? 'No hay responsables asignados. Crea uno nuevo.'
+                      : `Responsable actual: ${contactWithData.name || contactWithData.email || 'Sin datos completos'}`}
+                  </p>
+                )
+              })()}
               <button
                 onClick={openAddContact}
                 className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
@@ -689,7 +700,10 @@ function Td({ children, className = '' }: { children: React.ReactNode; className
 }
 
 function renderResponsibleColumn(company: Company, onAssign: () => void) {
-  const contact = company.counterpart_contacts?.[0]
+  // Buscar el primer contacto que tenga algún dato (no vacío)
+  const contact = company.counterpart_contacts?.find(
+    (c) => c.name?.trim() || c.email?.trim() || c.phone?.trim() || c.role?.trim()
+  ) || company.counterpart_contacts?.[0]
   
   if (!contact || (!contact.name && !contact.email)) {
     return (

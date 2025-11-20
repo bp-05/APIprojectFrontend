@@ -23,7 +23,7 @@ import EmpresaDetalleAdmin from './routes/EmpresaDetalleAdmin'
 import DCEmpresas from './routes/dc/Empresas'
 import DCEmpresaDetalle from './routes/dc/EmpresaDetalle'
 import DCAsignaturaDetalle from './routes/dc/AsignaturaDetalle'
-import Problemas from './routes/vcm/Problemas'
+import Proyectos from './routes/vcm/Proyectos'
 import ProblemaDetalle from './routes/vcm/ProblemaDetalle'
 import Alcances from './routes/vcm/Alcances'
 import AlcanceDetalle from './routes/vcm/AlcanceDetalle'
@@ -76,8 +76,8 @@ export const router = createBrowserRouter([
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
       { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <EmpresasVCM /> },
       { path: 'vcm/empresas/:id', loader: requireRoleLoader('VCM'), element: <EmpresaDetalleVCM /> },
-      { path: 'vcm/problemas', loader: requireRoleLoader('VCM'), element: <Problemas /> },
-      { path: 'vcm/problemas/:id', loader: requireRoleLoader('VCM'), element: <ProblemaDetalle /> },
+      { path: 'vcm/proyectos', loader: requireRoleLoader('VCM'), element: <Proyectos /> },
+      { path: 'vcm/proyectos/:id', loader: requireRoleLoader('VCM'), element: <ProblemaDetalle /> },
       { path: 'vcm/alcances', loader: requireRoleLoader('VCM'), element: <Alcances /> },
       { path: 'vcm/alcances/:id', loader: requireRoleLoader('VCM'), element: <AlcanceDetalle /> },
       { path: 'vcm/asignaturas', loader: requireRoleLoader('VCM'), element: <AsignaturasVCM /> },

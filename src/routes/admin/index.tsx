@@ -268,14 +268,14 @@ function ProblemsByArea({
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white/90 shadow-sm">
       <div className="border-b border-zinc-100 px-5 py-4">
-        <div className="text-sm font-medium text-zinc-900">Problemáticas por área</div>
+        <div className="text-sm font-medium text-zinc-900">Proyectos por área</div>
         <p className="text-xs text-zinc-500">Agrupadas por área de la asignatura asociada</p>
       </div>
       <div className="px-5 py-4">
         {loading ? (
           <p className="text-sm text-zinc-500">Preparando resumen...</p>
         ) : !data.length ? (
-          <p className="text-sm text-zinc-500">Aún no hay problemáticas con área asignada.</p>
+          <p className="text-sm text-zinc-500">Aún no hay proyectos con área asignada.</p>
         ) : (
           <ul className="space-y-3">
             {data.map((entry) => (
