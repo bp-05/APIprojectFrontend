@@ -1038,7 +1038,7 @@ function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: ()
             type="text"
             value={formData.counterpart_link}
             onChange={(e) => setFormData({ ...formData, counterpart_link: e.target.value })}
-            placeholder="URL, email, o descripción del vínculo..."
+            placeholder="Numero de la semana y objetivo"
             className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
           />
         </div>
