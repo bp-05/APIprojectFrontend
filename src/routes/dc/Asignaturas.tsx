@@ -967,11 +967,20 @@ function SubjectDetailView({
   alternanceSaving: boolean
 }) {
   const [openInfo, setOpenInfo] = useState(true)
-  const [openCompetencies, setOpenCompetencies] = useState(true)
-  const [openBoundary, setOpenBoundary] = useState(true)
-  const [openApi2, setOpenApi2] = useState(true)
-  const [openApi3, setOpenApi3] = useState(true)
-  const [openAlternance, setOpenAlternance] = useState(true)
+  const [openCompetencies, setOpenCompetencies] = useState(false)
+  const [openBoundary, setOpenBoundary] = useState(false)
+  const [openApi2, setOpenApi2] = useState(false)
+  const [openApi3, setOpenApi3] = useState(false)
+  const [openAlternance, setOpenAlternance] = useState(false)
+
+  useEffect(() => {
+    setOpenInfo(true)
+    setOpenCompetencies(false)
+    setOpenBoundary(false)
+    setOpenApi2(false)
+    setOpenApi3(false)
+    setOpenAlternance(false)
+  }, [subject.id, subject.api_type])
 
   return (
     <section className="p-6 space-y-4">
