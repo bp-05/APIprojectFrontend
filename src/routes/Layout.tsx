@@ -60,6 +60,7 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
       items: [
         { to: '/dc/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/dc/asignaturas' },
         { to: '/dc/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/dc/empresas' },
+        { to: '/dc/proyectos', label: 'Proyectos', icon: <IconTarget />, matchPrefix: '/dc/proyectos' },
       ],
     },
   ],
