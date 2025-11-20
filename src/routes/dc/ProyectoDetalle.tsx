@@ -1,43 +1,21 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { toast } from 'react-hot-toast'
-import {
-  getProblemStatement,
-  updateProblemStatement,
-  deleteProblemStatement,
-  listCompanies,
-  type Company,
-  type ProblemStatement,
-} from '../../api/companies'
-import { listSubjectCodeSections, type BasicSubject } from '../../api/subjects'
-
-function HelpTooltip({ text }: { text: string }) {
-  return (
-    <div className="group relative inline-block ml-2">
-      <svg className="h-5 w-5 text-zinc-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <circle cx="12" cy="12" r="10" strokeWidth="2" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-        <circle cx="12" cy="17" r="0.5" fill="currentColor" strokeWidth="0" />
-      </svg>
-      <div className="invisible group-hover:visible absolute z-10 w-72 p-3 bg-zinc-800 text-white text-sm rounded-lg shadow-lg -top-2 left-8">
-        {text}
-        <div className="absolute top-3 -left-1 w-2 h-2 bg-zinc-800 transform rotate-45"></div>
-      </div>
-    </div>
-  )
-}
+import toast from 'react-hot-toast'
+import { listProblemStatements, updateProblemStatement, deleteProblemStatement, type ProblemStatement } from '../../api/companies'
+import { listCompanies, type Company } from '../../api/companies'
+import { getSubject, type Subject } from '../../api/subjects'
 
 export default function DCProyectoDetalle() {
-  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [project, setProject] = useState<ProblemStatement | null>(null)
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [subjects, setSubjects] = useState<BasicSubject[]>([])
-  const [loading, setLoading] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState<Omit<ProblemStatement, 'id'>>({
-    company: 0,
-    subject: 0,
+  const { id } = useParams()
+  const problemaId = Number(id)
+  const [problema, setProblema] = useState<ProblemStatement | null>(null)
+  const [subject, setSubject] = useState<Subject | null>(null)
+  const [company, setCompany] = useState<Company | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [formData, setFormData] = useState({
     problem_to_address: '',
     why_important: '',
     stakeholders: '',
@@ -46,137 +24,119 @@ export default function DCProyectoDetalle() {
     problem_definition: '',
   })
 
-  async function load() {
-    if (!id) return
-    setLoading(true)
-    try {
-      const [proj, comps, subjs] = await Promise.all([
-        getProblemStatement(Number(id)),
-        listCompanies(),
-        listSubjectCodeSections()
-      ])
-      setProject(proj)
-      setCompanies(comps)
-      setSubjects(subjs)
-      setForm({
-        company: proj.company,
-        subject: proj.subject,
-        problem_to_address: proj.problem_to_address || '',
-        why_important: proj.why_important || '',
-        stakeholders: proj.stakeholders || '',
-        related_area: proj.related_area || '',
-        benefits_short_medium_long_term: proj.benefits_short_medium_long_term || '',
-        problem_definition: proj.problem_definition || '',
-      })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al cargar proyecto'
-      toast.error(msg)
-      navigate('/dc/proyectos')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
-    load()
-  }, [id])
-
-  async function handleSave() {
-    if (!id || !project) return
-    setLoading(true)
-    try {
-      await updateProblemStatement(Number(id), form)
-      toast.success('Proyecto actualizado')
-      setEditing(false)
-      await load()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al guardar'
-      toast.error(msg)
-    } finally {
-      setLoading(false)
+    const loadProblema = async () => {
+      try {
+        setLoading(true)
+        const problems = await listProblemStatements()
+        const found = problems.find(p => p.id === problemaId)
+        
+        if (found) {
+          setProblema(found)
+          setFormData({
+            problem_to_address: found.problem_to_address || '',
+            why_important: found.why_important || '',
+            stakeholders: found.stakeholders || '',
+            related_area: found.related_area || '',
+            benefits_short_medium_long_term: found.benefits_short_medium_long_term || '',
+            problem_definition: found.problem_definition || '',
+          })
+          
+          // Cargar información de empresa y asignatura
+          const [companies, subj] = await Promise.all([
+            listCompanies(),
+            getSubject(found.subject),
+          ])
+          
+          const foundCompany = companies.find(c => c.id === found.company)
+          if (foundCompany) setCompany(foundCompany)
+          if (subj) setSubject(subj)
+        } else {
+          setError('Proyecto no encontrado')
+        }
+        setError(null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error al cargar el proyecto')
+      } finally {
+        setLoading(false)
+      }
     }
-  }
+    loadProblema()
+  }, [problemaId])
 
-  async function handleDelete() {
-    if (!id || !confirm('¿Eliminar este proyecto?')) return
+  const handleDelete = async () => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este proyecto? Esta acción no se puede deshacer.')) return
     try {
-      await deleteProblemStatement(Number(id))
+      await deleteProblemStatement(problemaId)
       toast.success('Proyecto eliminado')
       navigate('/dc/proyectos')
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al eliminar'
-      toast.error(msg)
+      toast.error(e instanceof Error ? e.message : 'Error al eliminar')
     }
   }
 
-  if (loading && !project) {
-    return (
-      <section className="p-6">
-        <p className="text-sm text-zinc-600">Cargando proyecto...</p>
-      </section>
-    )
+  const handleUpdate = async () => {
+    if (!problema) return
+    try {
+      await updateProblemStatement(problema.id, formData)
+      setProblema(prev => prev ? { ...prev, ...formData } : null)
+      toast.success('Proyecto actualizado')
+      setEditMode(false)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al actualizar')
+    }
   }
 
-  if (!project) return null
-
-  const company = companies.find(c => c.id === project.company)
-  const subject = subjects.find(s => s.id === project.subject)
+  if (loading) return <div className="p-8 text-center">Cargando...</div>
+  if (error) return <div className="p-8 text-red-500">Error: {error}</div>
+  if (!problema) return <div className="p-8 text-center">Proyecto no encontrado</div>
 
   return (
-    <section className="p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <button 
-            onClick={() => navigate('/dc/proyectos')}
-            className="mb-2 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
-          >
-            <span>←</span> Volver a proyectos
-          </button>
-          <h1 className="text-xl font-semibold">Detalle del Proyecto</h1>
-          <p className="text-sm text-zinc-600">
-            {company?.name || 'Empresa desconocida'} - {subject ? `${subject.code}-${subject.section}` : 'Sin asignatura'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {editing ? (
+    <div className="mx-auto max-w-5xl p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <button
+          onClick={() => navigate('/dc/proyectos')}
+          className="text-sm text-red-600 hover:underline"
+        >
+          Volver
+        </button>
+        <div className="flex gap-2">
+          {editMode ? (
             <>
               <button
-                onClick={() => {
-                  setEditing(false)
-                  setForm({
-                    company: project.company,
-                    subject: project.subject,
-                    problem_to_address: project.problem_to_address || '',
-                    why_important: project.why_important || '',
-                    stakeholders: project.stakeholders || '',
-                    related_area: project.related_area || '',
-                    benefits_short_medium_long_term: project.benefits_short_medium_long_term || '',
-                    problem_definition: project.problem_definition || '',
-                  })
-                }}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
+                onClick={handleUpdate}
+                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
               >
-                Cancelar
+                Guardar
               </button>
               <button
-                onClick={handleSave}
-                disabled={loading}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                onClick={() => {
+                  setEditMode(false)
+                  setFormData({
+                    problem_to_address: problema.problem_to_address || '',
+                    why_important: problema.why_important || '',
+                    stakeholders: problema.stakeholders || '',
+                    related_area: problema.related_area || '',
+                    benefits_short_medium_long_term: problema.benefits_short_medium_long_term || '',
+                    problem_definition: problema.problem_definition || '',
+                  })
+                }}
+                className="rounded-md bg-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-400"
               >
-                {loading ? 'Guardando...' : 'Guardar'}
+                Cancelar
               </button>
             </>
           ) : (
             <>
               <button
-                onClick={() => setEditing(true)}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
+                onClick={() => setEditMode(true)}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 Editar
               </button>
               <button
                 onClick={handleDelete}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 Eliminar
               </button>
@@ -185,172 +145,112 @@ export default function DCProyectoDetalle() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        {editing ? (
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 space-y-4">
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-800">Empresa *</span>
-              <select
-                value={form.company}
-                onChange={(e) => setForm({ ...form, company: Number(e.target.value) })}
-                className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-              >
-                <option value={0}>Selecciona empresa</option>
-                {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </label>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-zinc-900">Proyecto #{problema.id}</h1>
+        <p className="text-sm text-zinc-600 mt-2">
+          {subject?.name && company?.name && `${subject.name} · ${company.name}`}
+        </p>
+      </div>
 
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-800">Asignatura *</span>
-              <select
-                value={form.subject}
-                onChange={(e) => setForm({ ...form, subject: Number(e.target.value) })}
-                className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-              >
-                <option value={0}>Selecciona asignatura</option>
-                {subjects.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.code}-{s.section} - {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block text-sm">
-              <span className="mb-1 flex items-center font-medium text-zinc-800">
-                Problema a abordar
-                <HelpTooltip text="¿Cuál es la problemática que necesitamos abordar?" />
-              </span>
+      <div className="rounded-lg border border-zinc-200 bg-white p-6">
+        {editMode ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Problema a Abordar</label>
               <textarea
-                value={form.problem_to_address}
-                onChange={(e) => setForm({ ...form, problem_to_address: e.target.value })}
+                value={formData.problem_to_address}
+                onChange={(e) => setFormData({ ...formData, problem_to_address: e.target.value })}
                 rows={3}
-                className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
               />
-            </label>
-
-            <label className="block text-sm">
-              <span className="mb-1 flex items-center font-medium text-zinc-800">
-                Por qué es importante
-                <HelpTooltip text="¿Por qué esta problemática es importante para nosotros?" />
-              </span>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">¿Por Qué es Importante?</label>
               <textarea
-                value={form.why_important}
-                onChange={(e) => setForm({ ...form, why_important: e.target.value })}
+                value={formData.why_important}
+                onChange={(e) => setFormData({ ...formData, why_important: e.target.value })}
                 rows={3}
-                className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
               />
-            </label>
-
-            <label className="block text-sm">
-              <span className="mb-1 flex items-center font-medium text-zinc-800">
-                Stakeholders
-                <HelpTooltip text="¿Para quienes es relevante? ¿A quién concierne? ¿Quiénes están involucrados y en qué medida?" />
-              </span>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Partes Interesadas</label>
               <textarea
-                value={form.stakeholders}
-                onChange={(e) => setForm({ ...form, stakeholders: e.target.value })}
+                value={formData.stakeholders}
+                onChange={(e) => setFormData({ ...formData, stakeholders: e.target.value })}
                 rows={3}
-                className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
               />
-            </label>
-
-            <label className="block text-sm">
-              <span className="mb-1 flex items-center font-medium text-zinc-800">
-                Área relacionada
-                <HelpTooltip text="¿Qué área está más directamente relacionada?" />
-              </span>
-              <textarea
-                value={form.related_area}
-                onChange={(e) => setForm({ ...form, related_area: e.target.value })}
-                rows={2}
-                className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Área Relacionada</label>
+              <input
+                type="text"
+                value={formData.related_area}
+                onChange={(e) => setFormData({ ...formData, related_area: e.target.value })}
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
               />
-            </label>
-
-            <label className="block text-sm">
-              <span className="mb-1 flex items-center font-medium text-zinc-800">
-                Beneficios corto/mediano/largo plazo
-                <HelpTooltip text="¿Cómo y en qué nos beneficiaría en el corto, mediano y largo plazo la solución a la problemática cuando esté resuelta?" />
-              </span>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Beneficios (Corto, Medio y Largo Plazo)</label>
               <textarea
-                value={form.benefits_short_medium_long_term}
-                onChange={(e) => setForm({ ...form, benefits_short_medium_long_term: e.target.value })}
+                value={formData.benefits_short_medium_long_term}
+                onChange={(e) => setFormData({ ...formData, benefits_short_medium_long_term: e.target.value })}
                 rows={3}
-                className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
               />
-            </label>
-
-            <label className="block text-sm">
-              <span className="mb-1 flex items-center font-medium text-zinc-800">
-                Definición del problema
-                <HelpTooltip text="A partir de las respuestas, define la problemática a trabajar en la asignatura." />
-              </span>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Definición del Problema</label>
               <textarea
-                value={form.problem_definition}
-                onChange={(e) => setForm({ ...form, problem_definition: e.target.value })}
+                value={formData.problem_definition}
+                onChange={(e) => setFormData({ ...formData, problem_definition: e.target.value })}
                 rows={3}
-                className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
               />
-            </label>
+            </div>
           </div>
         ) : (
-          <div className="rounded-lg border border-zinc-200 bg-white p-6">
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <InfoItem label="Empresa" value={company?.name || '-'} />
-              <InfoItem label="Asignatura" value={subject ? `${subject.code}-${subject.section} - ${subject.name}` : '-'} />
-              <InfoItem 
-                label="Problema a abordar" 
-                value={project.problem_to_address || '-'} 
-                helpText="¿Cuál es la problemática que necesitamos abordar?"
-                className="sm:col-span-2" 
-              />
-              <InfoItem 
-                label="Por qué es importante" 
-                value={project.why_important || '-'} 
-                helpText="¿Por qué esta problemática es importante para nosotros?"
-                className="sm:col-span-2" 
-              />
-              <InfoItem 
-                label="Stakeholders" 
-                value={project.stakeholders || '-'} 
-                helpText="¿Para quienes es relevante? ¿A quién concierne? ¿Quiénes están involucrados y en qué medida?"
-                className="sm:col-span-2" 
-              />
-              <InfoItem 
-                label="Área relacionada" 
-                value={project.related_area || '-'} 
-                helpText="¿Qué área está más directamente relacionada?"
-                className="sm:col-span-2" 
-              />
-              <InfoItem 
-                label="Beneficios corto/mediano/largo plazo" 
-                value={project.benefits_short_medium_long_term || '-'} 
-                helpText="¿Cómo y en qué nos beneficiaría en el corto, mediano y largo plazo la solución a la problemática cuando esté resuelta?"
-                className="sm:col-span-2" 
-              />
-              <InfoItem 
-                label="Definición del problema" 
-                value={project.problem_definition || '-'} 
-                helpText="A partir de las respuestas, define la problemática a trabajar en la asignatura."
-                className="sm:col-span-2" 
-              />
-            </dl>
+          <div className="space-y-6">
+            {problema.problem_to_address && (
+              <div>
+                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Problema a Abordar</h2>
+                <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{problema.problem_to_address}</p>
+              </div>
+            )}
+            {problema.why_important && (
+              <div>
+                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">¿Por Qué es Importante?</h2>
+                <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{problema.why_important}</p>
+              </div>
+            )}
+            {problema.problem_definition && (
+              <div>
+                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Definición del Problema</h2>
+                <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{problema.problem_definition}</p>
+              </div>
+            )}
+            {problema.stakeholders && (
+              <div>
+                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Partes Interesadas</h2>
+                <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{problema.stakeholders}</p>
+              </div>
+            )}
+            {problema.related_area && (
+              <div>
+                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Área Relacionada</h2>
+                <p className="mt-2 text-sm text-zinc-900">{problema.related_area}</p>
+              </div>
+            )}
+            {problema.benefits_short_medium_long_term && (
+              <div>
+                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Beneficios (Corto, Medio y Largo Plazo)</h2>
+                <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{problema.benefits_short_medium_long_term}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
-    </section>
-  )
-}
-
-function InfoItem({ label, value, helpText, className = '' }: { label: string; value: string; helpText?: string; className?: string }) {
-  return (
-    <div className={className}>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500 flex items-center">
-        {label}
-        {helpText && <HelpTooltip text={helpText} />}
-      </dt>
-      <dd className="mt-1 text-sm text-zinc-900 whitespace-pre-wrap">{value}</dd>
     </div>
   )
 }
