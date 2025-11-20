@@ -46,6 +46,7 @@ import Carreras from './routes/Carreras'
 import EmpresasDoc from './routes/doc/Empresas'
 import DCProyectos from './routes/dc/Proyectos'
 import Fichas from './routes/doc/Fichas'
+import FichasDC from './routes/dc/Fichas'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -92,6 +93,7 @@ export const router = createBrowserRouter([
       { path: 'dc/empresas', loader: requireRoleLoader('DC'), element: <DCEmpresas /> },
       { path: 'dc/empresas/:companyId', loader: requireRoleLoader('DC'), element: <DCEmpresaDetalle /> },
       { path: 'dc/proyectos', loader: requireRoleLoader('DC'), element: <DCProyectos /> },
+      { path: 'dc/fichas', loader: requireRoleLoader('DC'), element: <FichasDC /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
       { path: 'doc/empresas', loader: requireRoleLoader('DOC'), element: <EmpresasDoc /> },
       { path: 'doc/fichas', loader: requireRoleLoader('DOC'), element: <Fichas /> },
