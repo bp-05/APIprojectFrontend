@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import type React from 'react'
 import { toast } from 'react-hot-toast'
-import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion, getAlternanceBySubject, type Api3Alternance } from '../../api/subjects'
+import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion } from '../../api/subjects'
 
 type PanelMode = 'list' | 'view' | 'manage-units'
 
@@ -19,7 +19,6 @@ export default function MisAsignaturas() {
   const [boundary, setBoundary] = useState<CompanyBoundaryCondition | null>(null)
   const [api2, setApi2] = useState<ApiType2Completion | null>(null)
   const [api3, setApi3] = useState<ApiType3Completion | null>(null)
-  const [alternance, setAlternance] = useState<Api3Alternance | null>(null)
 
   async function load() {
     setLoading(true)
@@ -52,18 +51,16 @@ export default function MisAsignaturas() {
     setMode('view')
     setDetailLoading(true)
     try {
-      const [comp, bc, a2, a3, alt] = await Promise.all([
+      const [comp, bc, a2, a3] = await Promise.all([
         listSubjectCompetencies(subject.id).catch(() => []),
         getBoundaryConditionBySubject(subject.id).catch(() => null),
         getApiType2CompletionBySubject(subject.id).catch(() => null),
         getApiType3CompletionBySubject(subject.id).catch(() => null),
-        getAlternanceBySubject(subject.id).catch(() => null),
       ])
       setCompetencies(Array.isArray(comp) ? comp : [])
       setBoundary(bc)
       setApi2(a2)
       setApi3(a3)
-      setAlternance(alt)
     } catch (_) {
       // ignorar
     } finally {
@@ -78,7 +75,6 @@ export default function MisAsignaturas() {
     setBoundary(null)
     setApi2(null)
     setApi3(null)
-    setAlternance(null)
   }
 
   if (mode === 'view' && selected) {
@@ -91,7 +87,6 @@ export default function MisAsignaturas() {
         boundary={boundary}
         api2={api2}
         api3={api3}
-        alternance={alternance}
       />
     )
   }
@@ -392,7 +387,6 @@ function SubjectDetailView({
   boundary,
   api2,
   api3,
-  alternance,
 }: {
   subject: Subject
   loading: boolean
@@ -401,14 +395,12 @@ function SubjectDetailView({
   boundary: CompanyBoundaryCondition | null
   api2: ApiType2Completion | null
   api3: ApiType3Completion | null
-  alternance: Api3Alternance | null
 }) {
   const [openInfo, setOpenInfo] = useState(true)
   const [openCompetencies, setOpenCompetencies] = useState(false)
   const [openBoundary, setOpenBoundary] = useState(false)
   const [openApi2, setOpenApi2] = useState(false)
   const [openApi3, setOpenApi3] = useState(false)
-  const [openAlternance, setOpenAlternance] = useState(false)
 
   useEffect(() => {
     setOpenInfo(true)
@@ -416,7 +408,6 @@ function SubjectDetailView({
     setOpenBoundary(false)
     setOpenApi2(false)
     setOpenApi3(false)
-    setOpenAlternance(false)
   }, [subject.id, subject.api_type])
 
   return (
@@ -535,26 +526,6 @@ function SubjectDetailView({
             </div>
           ) : (
             <p className="text-sm text-zinc-600">Sin información de API 3.</p>
-          )}
-        </CollapsibleSection>
-      ) : null}
-
-      {subject.api_type === 3 ? (
-        <CollapsibleSection
-          title="Alternancia (API 3)"
-          open={openAlternance}
-          onToggle={() => setOpenAlternance((v) => !v)}
-        >
-          {alternance ? (
-            <div className="grid gap-3 sm:grid-cols-2 text-sm text-zinc-800">
-              <InfoRow label="Rol del estudiante" value={alternance.student_role} />
-              <InfoRow label="Cupo estudiantes" value={alternance.students_quota} />
-              <InfoRow label="Horas de alternancia" value={alternance.alternance_hours} />
-              <InfoRow label="Tutor" value={alternance.tutor_name} />
-              <InfoRow label="Email tutor" value={alternance.tutor_email} />
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-600">Sin información de alternancia.</p>
           )}
         </CollapsibleSection>
       ) : null}
