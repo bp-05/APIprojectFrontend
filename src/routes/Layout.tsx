@@ -61,6 +61,7 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
         { to: '/dc/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/dc/asignaturas' },
         { to: '/dc/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/dc/empresas' },
         { to: '/dc/proyectos', label: 'Proyectos', icon: <IconTarget />, matchPrefix: '/dc/proyectos' },
+        { to: '/dc/alcances', label: 'Alcances contrapartes', icon: <IconTarget />, matchPrefix: '/dc/alcances' },
         { to: '/dc/posible-contraparte', label: 'Posibles Contrapartes', icon: <IconHandshake />, matchPrefix: '/dc/posible-contraparte' },
         { to: '/dc/fichas', label: 'Fichas', icon: <IconFileText />, matchPrefix: '/dc/fichas' },
       ],
@@ -72,7 +73,7 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
       items: [
         { to: '/vcm/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/vcm/empresas' },
         { to: '/vcm/proyectos', label: 'Proyectos', icon: <IconAlert />, matchPrefix: '/vcm/proyectos' },
-        { to: '/vcm/alcances', label: 'Alcances', icon: <IconTarget />, matchPrefix: '/vcm/alcances' },
+        { to: '/vcm/alcances', label: 'Alcances contrapartes', icon: <IconTarget />, matchPrefix: '/vcm/alcances' },
         { to: '/vcm/posible-contraparte', label: 'Posible contraparte', icon: <IconHandshake />, matchPrefix: '/vcm/posible-contraparte' },
         { to: '/vcm/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/vcm/asignaturas' },
       ],

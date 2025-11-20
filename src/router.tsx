@@ -27,6 +27,8 @@ import Proyectos from './routes/vcm/Proyectos'
 import ProblemaDetalle from './routes/vcm/ProblemaDetalle'
 import Alcances from './routes/vcm/Alcances'
 import AlcanceDetalle from './routes/vcm/AlcanceDetalle'
+import DCAlcances from './routes/dc/Alcances'
+import DCAlcanceDetalle from './routes/dc/AlcanceDetalle'
 import AsignaturasVCM from './routes/vcm/Asignaturas'
 import AsignaturaVCMDetalle from './routes/vcm/AsignaturaDetalle'
 import EmpresaDetalleVCM from './routes/vcm/EmpresaDetalle'
@@ -97,6 +99,8 @@ export const router = createBrowserRouter([
       { path: 'dc/empresas/:companyId', loader: requireRoleLoader('DC'), element: <DCEmpresaDetalle /> },
       { path: 'dc/proyectos', loader: requireRoleLoader('DC'), element: <DCProyectos /> },
       { path: 'dc/proyectos/:id', loader: requireRoleLoader('DC'), element: <ProyectoDetalle /> },
+      { path: 'dc/alcances', loader: requireRoleLoader('DC'), element: <DCAlcances /> },
+      { path: 'dc/alcances/:id', loader: requireRoleLoader('DC'), element: <DCAlcanceDetalle /> },
       { path: 'dc/posible-contraparte', loader: requireRoleLoader('DC'), element: <PosibleContraparteDC /> },
       { path: 'dc/posible-contraparte/:subjectId', loader: requireRoleLoader('DC'), element: <PosibleContraparteDetalle /> },
       { path: 'dc/fichas', loader: requireRoleLoader('DC'), element: <FichasDC /> },
