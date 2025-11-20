@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, type ReactNode } from 'react'
+﻿import { useEffect, useMemo, useState, type ReactNode, useCallback } from 'react'
 import { listSubjects, type Subject, listSubjectCodeSections, listCompanyRequirements, type CompanyRequirement } from '../../api/subjects'
 import { listCompanies, type Company } from '../../api/companies'
 import { useNavigate } from 'react-router'
@@ -12,6 +12,15 @@ export default function AsignaturasVCM() {
   const [requirements, setRequirements] = useState<CompanyRequirement[]>([])
   const [prospects, setProspects] = useState<Prospect[]>(() => loadProspects())
   const [subjectProspects, setSubjectProspects] = useState<Record<number, string[]>>(() => loadSubjectProspects())
+
+  const handleRowClick = useCallback(
+    (event: React.MouseEvent<HTMLTableRowElement>, subjectId: number) => {
+      const target = event.target as HTMLElement
+      if (target.closest('button, a, input, select, textarea, [role="button"]')) return
+      navigate(`/vcm/asignaturas/${subjectId}`)
+    },
+    [navigate]
+  )
 
   async function load() {
     setLoading(true)
@@ -89,26 +98,24 @@ export default function AsignaturasVCM() {
               <Th>Estado</Th>
               <Th className="text-center">Empresas</Th>
               <Th>Posibles contrapartes</Th>
-              <Th className="text-right">Acción</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Cargando…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Sin resultados</td></tr>
             ) : (
               filtered.map((s) => {
                 const m = getMetricsForSubject(s.id)
                 return (
-                  <tr key={s.id} className="hover:bg-zinc-50">
+                  <tr
+                    key={s.id}
+                    className="cursor-pointer hover:bg-zinc-50"
+                    onClick={(event) => handleRowClick(event, s.id)}
+                  >
                     <Td>
-                      <button
-                        className="text-left font-medium text-red-700 hover:underline"
-                        onClick={() => navigate(`/vcm/asignaturas/${s.id}`)}
-                      >
-                        {s.code}{s.section ? `-${s.section}` : ''}
-                      </button>
+                      <span className="text-red-700 font-medium">{s.code}{s.section ? `-${s.section}` : ''}</span>
                     </Td>
                     <Td>{s.name}</Td>
                     <Td>{s.career_name || '-'}</Td>
@@ -119,14 +126,6 @@ export default function AsignaturasVCM() {
                       </span>
                     </Td>
                     <Td>{renderCounterparts(s)}</Td>
-                    <Td className="text-right">
-                      <button
-                        className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
-                        onClick={() => navigate(`/vcm/asignaturas/${s.id}`)}
-                      >
-                        Ver
-                      </button>
-                    </Td>
                   </tr>
                 )
               })
@@ -148,7 +147,7 @@ export default function AsignaturasVCM() {
 
     const unique = Array.from(new Set(backendNames))
 
-    if (!unique.length) return '-'
+    if (!unique.length) return '—'
 
     return (
       <div className="flex flex-wrap gap-1" title={unique.join(', ')}>

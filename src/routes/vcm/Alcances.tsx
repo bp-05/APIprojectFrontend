@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, useId } from 'react'
+import { useEffect, useMemo, useState, useId, useCallback } from 'react'
 import { toast } from 'react-hot-toast'
+import { useNavigate } from 'react-router'
 import {
   createEngagementScope,
   deleteEngagementScope,
@@ -12,6 +13,7 @@ import {
 import { listSubjects, type Subject } from '../../api/subjects'
 
 export default function Alcances() {
+  const navigate = useNavigate()
   const [items, setItems] = useState<CompanyEngagementScope[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -55,6 +57,15 @@ export default function Alcances() {
     return m
   }, [subjects])
 
+  const handleRowClick = useCallback(
+    (event: React.MouseEvent<HTMLTableRowElement>, alcanceId: number) => {
+      const target = event.target as HTMLElement
+      if (target.closest('button, a, input, select, textarea, [role="button"]')) return
+      navigate(`/vcm/alcances/${alcanceId}`)
+    },
+    [navigate]
+  )
+
   function openCreate() {
     setEditing(null)
     setShowForm(true)
@@ -83,7 +94,7 @@ export default function Alcances() {
       </div>
 
       {error ? (
-        <div className="mb-3 rounded-md border border-red-2 00 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
       ) : null}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
@@ -93,18 +104,16 @@ export default function Alcances() {
               <Th>Empresa</Th>
               <Th>Asignatura</Th>
               <Th>Beneficios</Th>
-              
-              <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Cargando…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Sin resultados</td></tr>
             ) : (
               items.map((a) => (
-                <tr key={a.id} className="hover:bg-zinc-50">
+                <tr key={a.id} className="hover:bg-zinc-50 cursor-pointer" onClick={(event) => handleRowClick(event, a.id)}>
                   <Td>{companiesById.get(a.company)?.name || `#${a.company}`}</Td>
                   <Td>
                     {(() => {
@@ -114,21 +123,6 @@ export default function Alcances() {
                     })()}
                   </Td>
                   <Td>{a.benefits_from_student || '-'}</Td>
-                  
-                  <Td className="text-right">
-                    <button
-                      onClick={() => openEdit(a)}
-                      className="mr-2 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => onDelete(a)}
-                      className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
-                    >
-                      Eliminar
-                    </button>
-                  </Td>
                 </tr>
               ))
             )}

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import type React from 'react'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
+import { useNavigate } from 'react-router'
 import {
   createProblemStatement,
   deleteProblemStatement,
@@ -16,6 +17,7 @@ import { listSubjectCodeSections, type BasicSubject } from '../../api/subjects'
 
 export default function Problemas() {
 
+  const navigate = useNavigate()
   const [items, setItems] = useState<ProblemStatement[]>([])
 
   const [companies, setCompanies] = useState<Company[]>([])
@@ -124,6 +126,15 @@ export default function Problemas() {
 
   }, [items, search])
 
+  const handleRowClick = useCallback(
+    (event: React.MouseEvent<HTMLTableRowElement>, problemId: number) => {
+      const target = event.target as HTMLElement
+      if (target.closest('button, a, input, select, textarea, [role="button"]')) return
+      navigate(`/vcm/problemas/${problemId}`)
+    },
+    [navigate]
+  )
+
 
 
   function openCreate() {
@@ -224,8 +235,6 @@ export default function Problemas() {
 
               <Th>Stakeholders</Th>
 
-              <Th className="text-right">Acciones</Th>
-
             </tr>
 
           </thead>
@@ -234,11 +243,11 @@ export default function Problemas() {
 
             {loading ? (
 
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Cargando…</td></tr>
 
             ) : filtered.length === 0 ? (
 
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={5}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Sin resultados</td></tr>
 
             ) : (
 
@@ -250,7 +259,7 @@ export default function Problemas() {
 
                 return (
 
-                  <tr key={p.id} className="hover:bg-zinc-50">
+                  <tr key={p.id} className="hover:bg-zinc-50 cursor-pointer" onClick={(event) => handleRowClick(event, p.id)}>
 
                     <Td>{comp?.name || `#${p.company}`}</Td>
 
@@ -259,34 +268,6 @@ export default function Problemas() {
                     <Td>{p.problem_to_address || '-'}</Td>
 
                     <Td>{p.stakeholders || '-'}</Td>
-
-                    <Td className="text-right">
-
-                      <button
-
-                        onClick={() => openEdit(p)}
-
-                        className="mr-2 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
-
-                      >
-
-                        Editar
-
-                      </button>
-
-                      <button
-
-                        onClick={() => onDelete(p)}
-
-                        className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
-
-                      >
-
-                        Eliminar
-
-                      </button>
-
-                    </Td>
 
                   </tr>
 
