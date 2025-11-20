@@ -3,7 +3,7 @@ import type React from 'react'
 import { toast } from 'react-hot-toast'
 import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion, getAlternanceBySubject, type Api3Alternance } from '../api/subjects'
 
-type PanelMode = 'list' | 'view'
+type PanelMode = 'list' | 'view' | 'manage-units'
 
 export default function MisAsignaturas() {
   const [items, setItems] = useState<Subject[]>([])
@@ -13,6 +13,7 @@ export default function MisAsignaturas() {
   const [mode, setMode] = useState<PanelMode>('list')
   const [selected, setSelected] = useState<Subject | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [manageUnitsSubject, setManageUnitsSubject] = useState<Subject | null>(null)
 
   const [competencies, setCompetencies] = useState<SubjectCompetency[]>([])
   const [boundary, setBoundary] = useState<CompanyBoundaryCondition | null>(null)
@@ -95,6 +96,18 @@ export default function MisAsignaturas() {
     )
   }
 
+  if (mode === 'manage-units' && manageUnitsSubject) {
+    return (
+      <ManageUnitsView
+        subject={manageUnitsSubject}
+        onClose={() => {
+          setMode('list')
+          setManageUnitsSubject(null)
+        }}
+      />
+    )
+  }
+
   return (
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -127,33 +140,45 @@ export default function MisAsignaturas() {
               <Th>Área</Th>
               <Th>Carrera</Th>
               <Th>Semestre</Th>
+              <Th className="text-right">Proceso API</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={7}>Sin resultados</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Sin resultados</td>
               </tr>
             ) : (
               filtered.map((s: Subject) => (
                 <tr
                   key={s.id}
-                  onClick={() => handleSelect(s)}
-                  className="cursor-pointer transition-colors hover:bg-zinc-50"
+                  className="transition-colors hover:bg-zinc-50"
                 >
-                  <Td>
+                  <Td onClick={() => handleSelect(s)} className="cursor-pointer">
                     <DescriptorCellDoc subject={s} />
                   </Td>
-                  <Td>{s.code}</Td>
-                  <Td>{s.section}</Td>
-                  <Td>{s.name}</Td>
-                  <Td>{s.area_name}</Td>
-                  <Td>{s.career_name || '-'}</Td>
-                  <Td>{s.semester_name}</Td>
+                  <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.code}</Td>
+                  <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.section}</Td>
+                  <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.name}</Td>
+                  <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.area_name}</Td>
+                  <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.career_name || '-'}</Td>
+                  <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.semester_name}</Td>
+                  <Td className="text-right">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setManageUnitsSubject(s)
+                        setMode('manage-units')
+                      }}
+                      className="rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                    >
+                      Gestionar
+                    </button>
+                  </Td>
                 </tr>
               ))
             )}
@@ -172,8 +197,8 @@ function Th({ children, className = '' }: { children: any; className?: string })
   )
 }
 
-function Td({ children, className = '' }: { children: any; className?: string }) {
-  return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
+function Td({ children, className = '', onClick }: { children: any; className?: string; onClick?: () => void }) {
+  return <td onClick={onClick} className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
 
 function DescriptorCellDoc({ subject }: { subject: Subject }) {
@@ -603,34 +628,494 @@ function formatPeriod(subject: Subject) {
   return [season, year].filter(Boolean).join('-') || 'Sin periodo'
 }
 
+function ManageUnitsView({ subject, onClose }: { subject: Subject; onClose: () => void }) {
+  const [units, setUnits] = useState<SubjectUnit[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set())
 
+  async function loadUnits() {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await listSubjectUnits(subject.id)
+      setUnits(Array.isArray(data) ? data.sort((a, b) => a.number - b.number) : [])
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al cargar unidades'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
 
+  useEffect(() => {
+    loadUnits()
+  }, [subject.id])
 
+  function toggleUnit(unitId: number) {
+    setExpandedUnits((prev) => {
+      const next = new Set(prev)
+      if (next.has(unitId)) {
+        next.delete(unitId)
+      } else {
+        next.add(unitId)
+      }
+      return next
+    })
+  }
 
+  return (
+    <section className="p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-900">Gestionar unidades</h1>
+          <p className="text-sm text-zinc-600">
+            {subject.code}-{subject.section} — {subject.name}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+          >
+            + Agregar unidad
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
 
+      {error ? (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
 
+      {loading ? (
+        <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-600">
+          Cargando unidades…
+        </div>
+      ) : units.length === 0 ? (
+        <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-600">
+          No hay unidades registradas. Haz clic en "Agregar unidad" para crear una.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {units.map((unit) => {
+            const isExpanded = expandedUnits.has(unit.id)
+            return (
+              <div
+                key={unit.id}
+                className="overflow-hidden rounded-lg border border-zinc-200 bg-white transition hover:border-zinc-300"
+              >
+                <button
+                  onClick={() => toggleUnit(unit.id)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-zinc-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-base font-semibold text-zinc-900">Unidad {unit.number}</span>
+                    {unit.expected_learning ? (
+                      <span className="text-xs text-zinc-500">
+                        {unit.expected_learning.substring(0, 60)}
+                        {unit.expected_learning.length > 60 ? '...' : ''}
+                      </span>
+                    ) : (
+                      <span className="text-xs italic text-zinc-400">Sin contenido</span>
+                    )}
+                  </div>
+                  <span className="text-lg text-zinc-500">{isExpanded ? '▾' : '▸'}</span>
+                </button>
+                {isExpanded ? (
+                  <div className="border-t border-zinc-100 p-4">
+                    <UnitExpandedContent unit={unit} onSaved={loadUnits} />
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
+      {showAddForm ? (
+        <UnitFormDialog
+          subject={subject}
+          onClose={() => setShowAddForm(false)}
+          onSaved={async () => {
+            await loadUnits()
+            setShowAddForm(false)
+          }}
+        />
+      ) : null}
+    </section>
+  )
+}
 
+function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: () => void }) {
+  const [formData, setFormData] = useState({
+    expected_learning: unit.expected_learning || '',
+    unit_hours: unit.unit_hours ?? '',
+    activities_description: unit.activities_description || '',
+    evaluation_evidence: unit.evaluation_evidence || '',
+    evidence_detail: unit.evidence_detail || '',
+    counterpart_link: unit.counterpart_link || '',
+    place_mode_type: unit.place_mode_type || '',
+    counterpart_participant_name: unit.counterpart_participant_name || '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    try {
+      await updateSubjectUnit(unit.id, {
+        expected_learning: formData.expected_learning || null,
+        unit_hours: formData.unit_hours === '' ? null : Number(formData.unit_hours),
+        activities_description: formData.activities_description || null,
+        evaluation_evidence: formData.evaluation_evidence || null,
+        evidence_detail: formData.evidence_detail || null,
+        counterpart_link: formData.counterpart_link || null,
+        place_mode_type: formData.place_mode_type || null,
+        counterpart_participant_name: formData.counterpart_participant_name || null,
+      })
+      toast.success('Unidad actualizada')
+      onSaved()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al actualizar unidad'
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
 
+  return (
+    <div className="space-y-4">
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      ) : null}
+      
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+            Aprendizaje esperado
+          </label>
+          <textarea
+            value={formData.expected_learning}
+            onChange={(e) => setFormData({ ...formData, expected_learning: e.target.value })}
+            rows={3}
+            placeholder="Describe el aprendizaje esperado de esta unidad..."
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
 
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+            Horas de la unidad
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={formData.unit_hours}
+            onChange={(e) => setFormData({ ...formData, unit_hours: e.target.value === '' ? '' : e.target.value })}
+            placeholder="0"
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
 
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+            Tipo/modalidad del lugar
+          </label>
+          <input
+            type="text"
+            value={formData.place_mode_type}
+            onChange={(e) => setFormData({ ...formData, place_mode_type: e.target.value })}
+            placeholder="Ej: Presencial, Virtual, Híbrido..."
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
 
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+            Descripción de actividades
+          </label>
+          <textarea
+            value={formData.activities_description}
+            onChange={(e) => setFormData({ ...formData, activities_description: e.target.value })}
+            rows={3}
+            placeholder="Describe las actividades que se realizarán en esta unidad..."
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
 
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+            Evidencias de evaluación
+          </label>
+          <textarea
+            value={formData.evaluation_evidence}
+            onChange={(e) => setFormData({ ...formData, evaluation_evidence: e.target.value })}
+            rows={3}
+            placeholder="Describe las evidencias que se evaluarán..."
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
 
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+            Detalle de evidencias
+          </label>
+          <textarea
+            value={formData.evidence_detail}
+            onChange={(e) => setFormData({ ...formData, evidence_detail: e.target.value })}
+            rows={3}
+            placeholder="Proporciona detalles adicionales sobre las evidencias..."
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
 
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+            Nombre del participante contraparte
+          </label>
+          <input
+            type="text"
+            value={formData.counterpart_participant_name}
+            onChange={(e) => setFormData({ ...formData, counterpart_participant_name: e.target.value })}
+            placeholder="Nombre completo..."
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
 
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+            Enlace/vínculo con contraparte
+          </label>
+          <input
+            type="text"
+            value={formData.counterpart_link}
+            onChange={(e) => setFormData({ ...formData, counterpart_link: e.target.value })}
+            placeholder="URL, email, o descripción del vínculo..."
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          />
+        </div>
+      </div>
 
+      <div className="flex justify-end gap-2 pt-2">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+        >
+          {saving ? 'Guardando…' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
+function UnitFormDialog({
+  subject,
+  unit,
+  onClose,
+  onSaved,
+}: {
+  subject: Subject
+  unit?: SubjectUnit
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [number, setNumber] = useState(unit?.number ?? 1)
+  const [expectedLearning, setExpectedLearning] = useState(unit?.expected_learning ?? '')
+  const [unitHours, setUnitHours] = useState<number | ''>(unit?.unit_hours ?? '')
+  const [activitiesDescription, setActivitiesDescription] = useState(unit?.activities_description ?? '')
+  const [evaluationEvidence, setEvaluationEvidence] = useState(unit?.evaluation_evidence ?? '')
+  const [evidenceDetail, setEvidenceDetail] = useState(unit?.evidence_detail ?? '')
+  const [counterpartLink, setCounterpartLink] = useState(unit?.counterpart_link ?? '')
+  const [placeModeType, setPlaceModeType] = useState(unit?.place_mode_type ?? '')
+  const [counterpartParticipantName, setCounterpartParticipantName] = useState(unit?.counterpart_participant_name ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    try {
+      const payload = {
+        subject: subject.id,
+        number,
+        expected_learning: expectedLearning || null,
+        unit_hours: unitHours === '' ? null : unitHours,
+        activities_description: activitiesDescription || null,
+        evaluation_evidence: evaluationEvidence || null,
+        evidence_detail: evidenceDetail || null,
+        counterpart_link: counterpartLink || null,
+        place_mode_type: placeModeType || null,
+        counterpart_participant_name: counterpartParticipantName || null,
+      }
+      if (unit) {
+        await updateSubjectUnit(unit.id, payload)
+        toast.success('Unidad actualizada')
+      } else {
+        await createSubjectUnit(payload)
+        toast.success('Unidad creada')
+      }
+      onSaved()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al guardar unidad'
+      setError(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
 
-
-
-
-
-
-
-
-
-
-
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-2xl rounded-lg bg-white p-5 shadow-lg max-h-[90vh] overflow-y-auto">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold">{unit ? 'Editar unidad' : 'Nueva unidad'}</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">
+            Cerrar
+          </button>
+        </div>
+        {error ? (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        ) : null}
+        <div className="grid gap-4">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+              Número de unidad
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="4"
+              value={number}
+              onChange={(e) => setNumber(Number(e.target.value))}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+            <p className="mt-1 text-xs text-zinc-500">Debe estar entre 1 y 4</p>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+              Aprendizaje esperado
+            </label>
+            <textarea
+              value={expectedLearning}
+              onChange={(e) => setExpectedLearning(e.target.value)}
+              rows={3}
+              placeholder="Describe el aprendizaje esperado de esta unidad..."
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                Horas
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={unitHours}
+                onChange={(e) => setUnitHours(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="0"
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                Tipo/modalidad del lugar
+              </label>
+              <input
+                type="text"
+                value={placeModeType}
+                onChange={(e) => setPlaceModeType(e.target.value)}
+                placeholder="Ej: Presencial, Virtual..."
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+              Descripción de actividades
+            </label>
+            <textarea
+              value={activitiesDescription}
+              onChange={(e) => setActivitiesDescription(e.target.value)}
+              rows={3}
+              placeholder="Describe las actividades que se realizarán..."
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+              Evidencias de evaluación
+            </label>
+            <textarea
+              value={evaluationEvidence}
+              onChange={(e) => setEvaluationEvidence(e.target.value)}
+              rows={3}
+              placeholder="Describe las evidencias que se evaluarán..."
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+              Detalle de evidencias
+            </label>
+            <textarea
+              value={evidenceDetail}
+              onChange={(e) => setEvidenceDetail(e.target.value)}
+              rows={3}
+              placeholder="Proporciona detalles adicionales sobre las evidencias..."
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+              Nombre del participante contraparte
+            </label>
+            <input
+              type="text"
+              value={counterpartParticipantName}
+              onChange={(e) => setCounterpartParticipantName(e.target.value)}
+              placeholder="Nombre completo..."
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
+              Enlace/vínculo con contraparte
+            </label>
+            <input
+              type="text"
+              value={counterpartLink}
+              onChange={(e) => setCounterpartLink(e.target.value)}
+              placeholder="URL, email, o descripción del vínculo..."
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={saving}
+            onClick={handleSave}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+          >
+            {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
