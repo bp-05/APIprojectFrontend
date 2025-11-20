@@ -3,7 +3,7 @@ import type React from 'react'
 import { toast } from 'react-hot-toast'
 import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion } from '../../api/subjects'
 
-type PanelMode = 'list' | 'view' | 'manage-units'
+type PanelMode = 'list' | 'view' | 'manage-units' | 'manage-projects'
 
 export default function MisAsignaturas() {
   const [items, setItems] = useState<Subject[]>([])
@@ -14,6 +14,7 @@ export default function MisAsignaturas() {
   const [selected, setSelected] = useState<Subject | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [manageUnitsSubject, setManageUnitsSubject] = useState<Subject | null>(null)
+  const [manageProjectsSubject, setManageProjectsSubject] = useState<Subject | null>(null)
 
   const [competencies, setCompetencies] = useState<SubjectCompetency[]>([])
   const [boundary, setBoundary] = useState<CompanyBoundaryCondition | null>(null)
@@ -103,6 +104,18 @@ export default function MisAsignaturas() {
     )
   }
 
+  if (mode === 'manage-projects' && manageProjectsSubject) {
+    return (
+      <ManageProjectsView
+        subject={manageProjectsSubject}
+        onClose={() => {
+          setMode('list')
+          setManageProjectsSubject(null)
+        }}
+      />
+    )
+  }
+
   return (
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -134,7 +147,7 @@ export default function MisAsignaturas() {
               <Th>Nombre</Th>
               <Th>Área</Th>
               <Th>Carrera</Th>
-              <Th>Semestre</Th>
+              <Th className="text-right">Proyectos</Th>
               <Th className="text-right">Proceso API</Th>
             </tr>
           </thead>
@@ -161,7 +174,18 @@ export default function MisAsignaturas() {
                   <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.name}</Td>
                   <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.area_name}</Td>
                   <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.career_name || '-'}</Td>
-                  <Td onClick={() => handleSelect(s)} className="cursor-pointer">{s.semester_name}</Td>
+                  <Td className="text-right">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setManageProjectsSubject(s)
+                        setMode('manage-projects')
+                      }}
+                      className="rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                    >
+                      Gestionar
+                    </button>
+                  </Td>
                   <Td className="text-right">
                     <button
                       onClick={(e) => {
@@ -1025,5 +1049,38 @@ function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: ()
         </button>
       </div>
     </div>
+  )
+}
+
+function ManageProjectsView({
+  subject,
+  onClose,
+}: {
+  subject: Subject
+  onClose: () => void
+}) {
+  return (
+    <section className="p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-900">Gestionar proyectos</h1>
+          <p className="text-sm text-zinc-600">
+            {subject.code}-{subject.section} — {subject.name}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+        >
+          Cerrar
+        </button>
+      </div>
+
+      <div className="rounded-lg border border-zinc-200 bg-white p-6">
+        <p className="text-sm text-zinc-600">
+          Vista de gestión de proyectos. Contenido próximamente...
+        </p>
+      </div>
+    </section>
   )
 }
