@@ -11,6 +11,22 @@ import {
 } from '../../api/companies'
 import { listSubjectCodeSections, type BasicSubject } from '../../api/subjects'
 
+function HelpTooltip({ text }: { text: string }) {
+  return (
+    <div className="group relative inline-block ml-2">
+      <svg className="h-5 w-5 text-zinc-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <circle cx="12" cy="12" r="10" strokeWidth="2" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <circle cx="12" cy="17" r="0.5" fill="currentColor" strokeWidth="0" />
+      </svg>
+      <div className="invisible group-hover:visible absolute z-10 w-72 p-3 bg-zinc-800 text-white text-sm rounded-lg shadow-lg -top-2 left-8">
+        {text}
+        <div className="absolute top-3 -left-1 w-2 h-2 bg-zinc-800 transform rotate-45"></div>
+      </div>
+    </div>
+  )
+}
+
 export default function DCProyectoDetalle() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -201,7 +217,10 @@ export default function DCProyectoDetalle() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-800">Problema a abordar</span>
+              <span className="mb-1 flex items-center font-medium text-zinc-800">
+                Problema a abordar
+                <HelpTooltip text="¿Cuál es la problemática que necesitamos abordar?" />
+              </span>
               <textarea
                 value={form.problem_to_address}
                 onChange={(e) => setForm({ ...form, problem_to_address: e.target.value })}
@@ -211,7 +230,10 @@ export default function DCProyectoDetalle() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-800">Por qué es importante</span>
+              <span className="mb-1 flex items-center font-medium text-zinc-800">
+                Por qué es importante
+                <HelpTooltip text="¿Por qué esta problemática es importante para nosotros?" />
+              </span>
               <textarea
                 value={form.why_important}
                 onChange={(e) => setForm({ ...form, why_important: e.target.value })}
@@ -221,7 +243,10 @@ export default function DCProyectoDetalle() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-800">Stakeholders</span>
+              <span className="mb-1 flex items-center font-medium text-zinc-800">
+                Stakeholders
+                <HelpTooltip text="¿Para quienes es relevante? ¿A quién concierne? ¿Quiénes están involucrados y en qué medida?" />
+              </span>
               <textarea
                 value={form.stakeholders}
                 onChange={(e) => setForm({ ...form, stakeholders: e.target.value })}
@@ -231,7 +256,10 @@ export default function DCProyectoDetalle() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-800">Área relacionada</span>
+              <span className="mb-1 flex items-center font-medium text-zinc-800">
+                Área relacionada
+                <HelpTooltip text="¿Qué área está más directamente relacionada?" />
+              </span>
               <textarea
                 value={form.related_area}
                 onChange={(e) => setForm({ ...form, related_area: e.target.value })}
@@ -241,7 +269,10 @@ export default function DCProyectoDetalle() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-800">Beneficios corto/mediano/largo plazo</span>
+              <span className="mb-1 flex items-center font-medium text-zinc-800">
+                Beneficios corto/mediano/largo plazo
+                <HelpTooltip text="¿Cómo y en qué nos beneficiaría en el corto, mediano y largo plazo la solución a la problemática cuando esté resuelta?" />
+              </span>
               <textarea
                 value={form.benefits_short_medium_long_term}
                 onChange={(e) => setForm({ ...form, benefits_short_medium_long_term: e.target.value })}
@@ -251,7 +282,10 @@ export default function DCProyectoDetalle() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-zinc-800">Definición del problema</span>
+              <span className="mb-1 flex items-center font-medium text-zinc-800">
+                Definición del problema
+                <HelpTooltip text="A partir de las respuestas, define la problemática a trabajar en la asignatura." />
+              </span>
               <textarea
                 value={form.problem_definition}
                 onChange={(e) => setForm({ ...form, problem_definition: e.target.value })}
@@ -265,12 +299,42 @@ export default function DCProyectoDetalle() {
             <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <InfoItem label="Empresa" value={company?.name || '-'} />
               <InfoItem label="Asignatura" value={subject ? `${subject.code}-${subject.section} - ${subject.name}` : '-'} />
-              <InfoItem label="Problema a abordar" value={project.problem_to_address || '-'} className="sm:col-span-2" />
-              <InfoItem label="Por qué es importante" value={project.why_important || '-'} className="sm:col-span-2" />
-              <InfoItem label="Stakeholders" value={project.stakeholders || '-'} className="sm:col-span-2" />
-              <InfoItem label="Área relacionada" value={project.related_area || '-'} className="sm:col-span-2" />
-              <InfoItem label="Beneficios corto/mediano/largo plazo" value={project.benefits_short_medium_long_term || '-'} className="sm:col-span-2" />
-              <InfoItem label="Definición del problema" value={project.problem_definition || '-'} className="sm:col-span-2" />
+              <InfoItem 
+                label="Problema a abordar" 
+                value={project.problem_to_address || '-'} 
+                helpText="¿Cuál es la problemática que necesitamos abordar?"
+                className="sm:col-span-2" 
+              />
+              <InfoItem 
+                label="Por qué es importante" 
+                value={project.why_important || '-'} 
+                helpText="¿Por qué esta problemática es importante para nosotros?"
+                className="sm:col-span-2" 
+              />
+              <InfoItem 
+                label="Stakeholders" 
+                value={project.stakeholders || '-'} 
+                helpText="¿Para quienes es relevante? ¿A quién concierne? ¿Quiénes están involucrados y en qué medida?"
+                className="sm:col-span-2" 
+              />
+              <InfoItem 
+                label="Área relacionada" 
+                value={project.related_area || '-'} 
+                helpText="¿Qué área está más directamente relacionada?"
+                className="sm:col-span-2" 
+              />
+              <InfoItem 
+                label="Beneficios corto/mediano/largo plazo" 
+                value={project.benefits_short_medium_long_term || '-'} 
+                helpText="¿Cómo y en qué nos beneficiaría en el corto, mediano y largo plazo la solución a la problemática cuando esté resuelta?"
+                className="sm:col-span-2" 
+              />
+              <InfoItem 
+                label="Definición del problema" 
+                value={project.problem_definition || '-'} 
+                helpText="A partir de las respuestas, define la problemática a trabajar en la asignatura."
+                className="sm:col-span-2" 
+              />
             </dl>
           </div>
         )}
@@ -279,10 +343,13 @@ export default function DCProyectoDetalle() {
   )
 }
 
-function InfoItem({ label, value, className = '' }: { label: string; value: string; className?: string }) {
+function InfoItem({ label, value, helpText, className = '' }: { label: string; value: string; helpText?: string; className?: string }) {
   return (
     <div className={className}>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{label}</dt>
+      <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500 flex items-center">
+        {label}
+        {helpText && <HelpTooltip text={helpText} />}
+      </dt>
       <dd className="mt-1 text-sm text-zinc-900 whitespace-pre-wrap">{value}</dd>
     </div>
   )
