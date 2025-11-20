@@ -160,9 +160,7 @@ function Td({ children, className = '' }: { children: any; className?: string })
 
 function DescriptorCellDoc({ subject }: { subject: Subject }) {
   const [items, setItems] = useState<Descriptor[] | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
 
   async function refresh() {
     try {
@@ -173,6 +171,7 @@ function DescriptorCellDoc({ subject }: { subject: Subject }) {
       setItems([])
     }
   }
+
   useEffect(() => {
     let mounted = true
     listDescriptorsBySubject(subject.id)
@@ -181,73 +180,163 @@ function DescriptorCellDoc({ subject }: { subject: Subject }) {
         const filtered = Array.isArray(data) ? data.filter((d) => d.subject === subject.id) : []
         setItems(filtered)
       })
-      .catch(() => { if (mounted) setItems([]) })
-    return () => { mounted = false }
+      .catch(() => {
+        if (mounted) setItems([])
+      })
+    return () => {
+      mounted = false
+    }
   }, [subject.id])
 
   if (items === null) {
-    return <span className="inline-block h-3 w-3 animate-pulse rounded-sm bg-zinc-300" title="Cargando…" />
+    return <span className="inline-block h-3 w-3 animate-pulse rounded-sm bg-zinc-300" title="Cargando." />
   }
+
   if (!items.length) {
     return (
       <>
-        <input
-          ref={fileInputRef as any}
-          type="file"
-          accept="application/pdf,.pdf"
-          onChange={async (e) => {
-            const f = e.target.files?.[0] || null
-            if (!f) return
-            const name = f.name.toLowerCase()
-            if (!name.endsWith('.pdf')) { return }
-            try {
-              setUploading(true)
-              setUploadError(null)
-              const d = await uploadDescriptor(f, subject.id)
-              toast.success('Descriptor subido')
-              try { await processDescriptor(d.id); toast.success('Procesamiento iniciado') } catch {}
-              await refresh()
-            } catch (e: any) {
-              const backendMsg =
-                (e?.response?.data && (e.response.data.detail || e.response.data.error || e.response.data.file)) ||
-                (typeof e?.response?.data === 'string' ? e.response.data : null)
-              const msg = backendMsg || (e instanceof Error ? e.message : 'Error al subir descriptor')
-              setUploadError(String(msg))
-              toast.error(String(msg))
-            } finally {
-              setUploading(false)
-              try { if (fileInputRef.current) fileInputRef.current.value = '' } catch {}
-            }
-          }}
-          className="hidden"
-        />
-        {uploadError ? (
-          <div className="mb-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">{uploadError}</div>
-        ) : null}
         <button
-          onClick={() => (fileInputRef as any)?.current?.click()}
-          disabled={uploading}
-          className="inline-flex items-center rounded-md border border-dashed border-zinc-400 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
+          onClick={() => setOpen(true)}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-dashed border-zinc-400 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
           title="Subir descriptor (PDF)"
         >
-          {uploading ? 'Subiendo…' : 'Subir descriptor'}
+          +
         </button>
+        {open ? (
+          <UploadDescriptorDialogDoc
+            subject={subject}
+            onClose={() => setOpen(false)}
+            onUploaded={async () => {
+              await refresh()
+              setOpen(false)
+            }}
+          />
+        ) : null}
       </>
     )
   }
+
   const last = items[items.length - 1]
   return (
-    <a
-      href={last.file}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-xs font-medium text-red-700 hover:underline"
-      title="Ver descriptor"
-    >
-      Ver descriptor
-    </a>
+    <div className="flex items-center gap-2">
+      <span
+        title={last.processed_at ? 'Procesado' : 'Pendiente'}
+        className={`inline-block h-3 w-3 rounded-sm ${last.processed_at ? 'bg-green-600' : 'bg-zinc-400'}`}
+      />
+      <a
+        href={last.file}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs font-medium text-red-700 hover:underline"
+        title="Ver descriptor"
+      >
+        Ver
+      </a>
+    </div>
   )
-}function ManageSubjectPanel({ subject, units, selectedUnit, onSelectUnit, onUnitsReload, onClose }: {
+}
+
+function UploadDescriptorDialogDoc({ subject, onClose, onUploaded }: { subject: Subject; onClose: () => void; onUploaded: () => void }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (!file) {
+      setError('Seleccione un archivo PDF')
+      return
+    }
+    const ext = file.name.toLowerCase()
+    if (!ext.endsWith('.pdf')) {
+      setError('El archivo debe ser PDF')
+      return
+    }
+    try {
+      setLoading(true)
+      const d = await uploadDescriptor(file, subject.id)
+      toast.success('Descriptor subido')
+      try {
+        await processDescriptor(d.id)
+        toast.success('Procesamiento iniciado')
+      } catch (_) {
+        // ignorar si falla el disparo; el archivo ya quedo subido
+      }
+      await onUploaded()
+    } catch (e) {
+      let backendMsg: string | null = null
+      const backend: any = (e as any)?.response?.data ?? null
+      if (backend && typeof backend === 'object') {
+        backendMsg = (backend as any).detail || (backend as any).error || (backend as any).file || null
+      } else if (typeof backend === 'string') {
+        backendMsg = backend
+      }
+      const msg = backendMsg || (e instanceof Error ? e.message : 'Error al subir descriptor')
+      setError(String(msg))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Subir descriptor (PDF)</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+        </div>
+        {error ? (
+          <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        ) : null}
+        <form className="space-y-3" onSubmit={onSubmit}>
+          <div>
+            <input
+              ref={fileInputRef as any}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="hidden"
+            />
+            <div
+              onClick={() => {
+                (fileInputRef as any)?.current?.click()
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragOver(true)
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDragOver(false)
+                const f = e.dataTransfer.files?.[0]
+                if (f) setFile(f)
+              }}
+              role="button"
+              className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed ${dragOver ? 'border-red-500 bg-red-50' : 'border-zinc-300 bg-zinc-50'} px-4 py-8 text-center hover:bg-zinc-100`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6H16a4 4 0 010 8h-1m-4-8v10m0 0l-3-3m3 3l3-3" />
+              </svg>
+              <div className="text-sm text-zinc-700">
+                {file ? <span className="font-medium">{file.name}</span> : 'Haz clic o arrastra un PDF aqui'}
+              </div>
+              <p className="text-xs text-zinc-500">Solo archivos PDF.</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cancelar</button>
+            <button type="submit" disabled={loading} className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-60">{loading ? 'Subiendo...' : 'Subir'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+function ManageSubjectPanel({ subject, units, selectedUnit, onSelectUnit, onUnitsReload, onClose }: {
   subject: Subject
   units: SubjectUnit[] | null
   selectedUnit: SubjectUnit | null
@@ -579,6 +668,8 @@ function AutoTextarea({ className = '', value, onChange, ...rest }:React.Textare
     />
   )
 }
+
+
 
 
 
