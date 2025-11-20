@@ -30,7 +30,6 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
         { to: '/proceso-api', label: 'Proceso API', icon: <IconWorkflow />, matchPrefix: '/proceso-api' },
         { to: '/admin/periodos', label: 'Gestionar periodos', icon: <IconCalendar />, matchPrefix: '/admin/periodos' },
         { to: '/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/empresas' },
-        { to: '/problematicas', label: 'Problemáticas', icon: <IconAlert />, matchPrefix: '/problematicas' },
       ],
     },
   ],
@@ -69,7 +68,7 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
       title: 'Vinculación con el medio',
       items: [
         { to: '/vcm/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/vcm/empresas' },
-        { to: '/vcm/problemas', label: 'Problemáticas', icon: <IconAlert />, matchPrefix: '/vcm/problemas' },
+        { to: '/vcm/proyectos', label: 'Proyectos', icon: <IconAlert />, matchPrefix: '/vcm/proyectos' },
         { to: '/vcm/alcances', label: 'Alcances', icon: <IconTarget />, matchPrefix: '/vcm/alcances' },
         { to: '/vcm/posible-contraparte', label: 'Posible contraparte', icon: <IconHandshake />, matchPrefix: '/vcm/posible-contraparte' },
         { to: '/vcm/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/vcm/asignaturas' },
@@ -282,54 +281,102 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
-
-      {isAuthenticated && mobileNavOpen ? (
-        <div className="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true">
-          <div className="w-64 shrink-0 border-r border-zinc-200 bg-white p-4 shadow-lg">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm font-semibold text-zinc-800">Menú</div>
-              <button
-                onClick={() => setMobileNavOpen(false)}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm hover:bg-zinc-50"
-                aria-label="Cerrar menú"
-              >
-                ?
-              </button>
-            </div>
-            <nav className="space-y-4">
-              {sidebarSections?.map((section, idx) => {
-                const visibleItems = section.items.filter((item) => item.showOnMobile !== false)
-                if (visibleItems.length === 0) return null
-                return (
-                  <div key={`${section.title}-mobile-${idx}`}>
-                    <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">{section.title}</div>
-                    <div className="space-y-1">
-                      {visibleItems.map((item) => (
-                        <Link
-                          key={item.to}
-                          onClick={() => setMobileNavOpen(false)}
-                          to={item.to}
-                          className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                        >
-                          {item.label}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-              <Link onClick={() => setMobileNavOpen(false)} to="/profile" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Perfil</Link>
-              <button
-                onClick={() => { handleLogout(); setMobileNavOpen(false) }}
-                className="mt-2 block w-full rounded-md bg-red-600 px-3 py-1.5 text-left text-sm font-medium text-white hover:bg-red-700"
-              >
-                Salir
-              </button>
-            </nav>
-          </div>
-          <div className="flex-1 bg-black/30" onClick={() => setMobileNavOpen(false)} />
-        </div>
-      ) : null}
+
+
+      {isAuthenticated && mobileNavOpen ? (
+
+        <div className="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true">
+
+          <div className="w-64 shrink-0 border-r border-zinc-200 bg-white p-4 shadow-lg">
+
+            <div className="mb-3 flex items-center justify-between">
+
+              <div className="text-sm font-semibold text-zinc-800">Menú</div>
+
+              <button
+
+                onClick={() => setMobileNavOpen(false)}
+
+                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm hover:bg-zinc-50"
+
+                aria-label="Cerrar menú"
+
+              >
+
+                ?
+
+              </button>
+
+            </div>
+
+            <nav className="space-y-4">
+
+              {sidebarSections?.map((section, idx) => {
+
+                const visibleItems = section.items.filter((item) => item.showOnMobile !== false)
+
+                if (visibleItems.length === 0) return null
+
+                return (
+
+                  <div key={`${section.title}-mobile-${idx}`}>
+
+                    <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">{section.title}</div>
+
+                    <div className="space-y-1">
+
+                      {visibleItems.map((item) => (
+
+                        <Link
+
+                          key={item.to}
+
+                          onClick={() => setMobileNavOpen(false)}
+
+                          to={item.to}
+
+                          className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+
+                        >
+
+                          {item.label}
+
+                        </Link>
+
+                      ))}
+
+                    </div>
+
+                  </div>
+
+                )
+
+              })}
+
+              <Link onClick={() => setMobileNavOpen(false)} to="/profile" className="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">Perfil</Link>
+
+              <button
+
+                onClick={() => { handleLogout(); setMobileNavOpen(false) }}
+
+                className="mt-2 block w-full rounded-md bg-red-600 px-3 py-1.5 text-left text-sm font-medium text-white hover:bg-red-700"
+
+              >
+
+                Salir
+
+              </button>
+
+            </nav>
+
+          </div>
+
+          <div className="flex-1 bg-black/30" onClick={() => setMobileNavOpen(false)} />
+
+        </div>
+
+      ) : null}
+
 
     </div>
   )

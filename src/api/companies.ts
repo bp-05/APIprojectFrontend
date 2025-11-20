@@ -32,31 +32,35 @@ export async function listCounterpartContacts(params?: { company?: number }) {
 export async function listCompanies(params?: { search?: string }) {
   const { data } = await http.get<Company[]>('/companies/', { params })
   
-  // Cargar contactos para cada empresa
-  const companiesWithContacts = await Promise.all(
-    data.map(async (c) => {
-      let contacts: CounterpartContact[] = []
-      
-      // Si la API retorna contactos, usarlos
-      if (Array.isArray((c as any).counterpart_contacts)) {
-        contacts = (c as any).counterpart_contacts
-      } else if (c.id) {
-        // Si no, cargarlos por separado
+  // Asegurar que cada empresa tenga su array de contactos (puede venir vacío)
+  let companiesWithEmptyContacts = data.map((c) => ({
+    ...c,
+    counterpart_contacts: Array.isArray((c as any).counterpart_contacts) 
+      ? (c as any).counterpart_contacts 
+      : [],
+  }))
+  
+  // Cargar contactos por separado para cada empresa que no los tenga
+  // Hacer esto de forma paralela para cada empresa
+  const companiesWithLoadedContacts = await Promise.all(
+    companiesWithEmptyContacts.map(async (c) => {
+      if (c.counterpart_contacts.length === 0 && c.id) {
         try {
-          contacts = await listCounterpartContacts({ company: c.id })
+          const contacts = await listCounterpartContacts({ company: c.id })
+          return {
+            ...c,
+            counterpart_contacts: contacts,
+          }
         } catch (e) {
-          console.error(`Error cargando contactos para empresa ${c.id}:`, e)
+          // Silenciosamente ignorar errores de contactos individuales
+          return c
         }
       }
-      
-      return {
-        ...c,
-        counterpart_contacts: contacts,
-      }
+      return c
     })
   )
   
-  return companiesWithContacts
+  return companiesWithLoadedContacts
 }
 
 type CompanyPayload = Omit<Company, 'id'>

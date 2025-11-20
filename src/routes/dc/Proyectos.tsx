@@ -85,7 +85,7 @@ export default function DCProyectos() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold">Proyectos</h1>
-          <p className="text-sm text-zinc-600">Gestiona las problemáticas (problem statements) asociadas a tu área/carrera.</p>
+          <p className="text-sm text-zinc-600">Gestiona los proyectos (problem statements) asociados a tu área/carrera.</p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -242,7 +242,7 @@ function ProblemForm({
       return
     }
     if (!payload.problem_definition.trim()) {
-      toast.error('Define la problemática')
+      toast.error('Define el proyecto')
       return
     }
 
@@ -303,8 +303,8 @@ function ProblemForm({
             disabled={subjects.length === 0}
           />
 
-          <Area label="¿Cuál es la problemática que necesitamos abordar? *" value={form.problem_to_address} onChange={(v) => update('problem_to_address', v)} />
-          <Area label="¿Por qué esta problemática es importante para nosotros? *" value={form.why_important} onChange={(v) => update('why_important', v)} />
+          <Area label="¿Cuál es el proyecto que necesitamos abordar? *" value={form.problem_to_address} onChange={(v) => update('problem_to_address', v)} />
+          <Area label="¿Por qué este proyecto es importante para nosotros? *" value={form.why_important} onChange={(v) => update('why_important', v)} />
           <Area
             label="¿Para quiénes es relevante? ¿A quién concierne? ¿Quiénes están involucrados y en qué medida? *"
             value={form.stakeholders}
@@ -312,11 +312,11 @@ function ProblemForm({
           />
           <Area label="¿Qué área está más directamente relacionada? *" value={form.related_area} onChange={(v) => update('related_area', v)} />
           <Area
-            label="¿Cómo y en qué nos beneficiaría en el corto, mediano y largo plazo la solución a la problemática cuando esté resuelta? *"
+            label="¿Cómo y en qué nos beneficiaría en el corto, mediano y largo plazo la solución al proyecto cuando esté resuelto? *"
             value={form.benefits_short_medium_long_term}
             onChange={(v) => update('benefits_short_medium_long_term', v)}
           />
-          <Area label="A partir de las respuestas, define la problemática a trabajar en la asignatura. *" value={form.problem_definition} onChange={(v) => update('problem_definition', v)} />
+          <Area label="A partir de las respuestas, define el proyecto a trabajar en la asignatura. *" value={form.problem_definition} onChange={(v) => update('problem_definition', v)} />
 
           <div className="col-span-full mt-2 flex items-center justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm">

@@ -47,7 +47,7 @@ export default function EmpresasDoc() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Empresas asociadas</h1>
-          <p className="text-sm text-zinc-600">Empresas vinculadas a tus asignaturas a través de problemáticas.</p>
+          <p className="text-sm text-zinc-600">Empresas vinculadas a tus asignaturas a través de proyectos.</p>
         </div>
         <input
           value={search}
