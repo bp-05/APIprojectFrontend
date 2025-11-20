@@ -48,7 +48,10 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
   DOC: [
     {
       title: 'Docente',
-      items: [{ to: '/mis-asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/mis-asignaturas' }],
+      items: [
+        { to: '/mis-asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/mis-asignaturas' },
+        { to: '/doc/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/doc/empresas' },
+      ],
     },
   ],
   DC: [
