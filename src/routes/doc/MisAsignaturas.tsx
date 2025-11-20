@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import type React from 'react'
 import { toast } from 'react-hot-toast'
-import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion, exportSubjectAPISheet } from '../../api/subjects'
+import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion } from '../../api/subjects'
 import { listProblemStatements, type ProblemStatement, getCompany } from '../../api/companies'
 
 type PanelMode = 'list' | 'view' | 'manage-units' | 'manage-projects'
@@ -555,51 +555,6 @@ function SubjectDetailView({
           )}
         </CollapsibleSection>
       ) : null}
-
-      {/* Botón de exportación Ficha API */}
-      <div className="flex justify-end">
-        <button
-          onClick={async () => {
-            try {
-              toast.loading('Generando archivo Excel...')
-              const blob = await exportSubjectAPISheet(subject.id)
-              
-              // Crear enlace de descarga
-              const url = window.URL.createObjectURL(blob)
-              const link = document.createElement('a')
-              link.href = url
-              link.download = `Ficha_API_${subject.code}_${subject.section}.xlsx`
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-              window.URL.revokeObjectURL(url)
-              
-              toast.dismiss()
-              toast.success('Archivo descargado exitosamente')
-            } catch (error) {
-              toast.dismiss()
-              const msg = error instanceof Error ? error.message : 'Error al descargar archivo'
-              toast.error(msg)
-            }
-          }}
-          className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-        >
-          <svg 
-            className="h-5 w-5" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
-            />
-          </svg>
-          Exportar Ficha API
-        </button>
-      </div>
     </section>
   )
 }

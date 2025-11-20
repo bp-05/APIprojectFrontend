@@ -450,3 +450,11 @@ export async function exportSubjectAPISheet(subjectId: number): Promise<Blob> {
   })
   return response.data
 }
+
+// Exportar Proyecto API
+export async function exportSubjectProyectoAPI(subjectId: number): Promise<Blob> {
+  const response = await http.get(`/exports/subjects/${subjectId}/proyecto-api/`, {
+    responseType: 'blob',
+  })
+  return response.data
+}

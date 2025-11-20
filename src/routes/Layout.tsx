@@ -50,6 +50,7 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
       items: [
         { to: '/mis-asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/mis-asignaturas' },
         { to: '/doc/empresas', label: 'Empresas', icon: <IconBuilding />, matchPrefix: '/doc/empresas' },
+        { to: '/doc/fichas', label: 'Fichas', icon: <IconFileText />, matchPrefix: '/doc/fichas' },
       ],
     },
   ],
@@ -568,6 +569,18 @@ function IconLayers() {
       <path d="M12 2l9 4-9 4-9-4 9-4z" />
       <path d="M3 10l9 4 9-4" />
       <path d="M3 15l9 4 9-4" />
+    </svg>
+  )
+}
+
+function IconFileText() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M16 13H8" />
+      <path d="M16 17H8" />
+      <path d="M10 9H8" />
     </svg>
   )
 }
