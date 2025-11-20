@@ -442,3 +442,11 @@ export async function listApi3Completions(params?: { subject?: number }) {
   const { data } = await http.get<Api3Completion[]>(`/api3-completions/`, { params })
   return data
 }
+
+// Exportar Ficha API
+export async function exportSubjectAPISheet(subjectId: number): Promise<Blob> {
+  const response = await http.get(`/exports/subjects/${subjectId}/ficha-api/`, {
+    responseType: 'blob',
+  })
+  return response.data
+}
