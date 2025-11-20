@@ -967,7 +967,7 @@ function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: ()
 
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-            Tipo/modalidad del lugar
+            Lugar, modalidad y tipo de actividad
           </label>
           <input
             type="text"
@@ -980,7 +980,7 @@ function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: ()
 
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-            Descripción de actividades
+            Descripción general de actividades
           </label>
           <textarea
             value={formData.activities_description}
@@ -993,7 +993,7 @@ function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: ()
 
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-            Evidencias de evaluación
+            Evidencia sistema de evaluación (descriptor de asignatura)
           </label>
           <textarea
             value={formData.evaluation_evidence}
@@ -1006,7 +1006,7 @@ function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: ()
 
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-            Detalle de evidencias
+            Detalle evidencia / entregable (esperado por la contraparte)
           </label>
           <textarea
             value={formData.evidence_detail}
@@ -1019,7 +1019,7 @@ function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: ()
 
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-            Nombre del participante contraparte
+            Nombre participante contraparte
           </label>
           <input
             type="text"
@@ -1032,7 +1032,7 @@ function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: ()
 
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-            Enlace/vínculo con contraparte
+            Vinculación directa con contraparte (N° semana y objetivo)
           </label>
           <input
             type="text"
