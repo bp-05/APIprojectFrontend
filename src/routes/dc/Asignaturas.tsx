@@ -979,7 +979,7 @@ function SubjectDetailView({
         <div>
           <h1 className="text-xl font-semibold text-zinc-900">{subject.name}</h1>
           <p className="text-sm text-zinc-600">
-            {subject.code}-{subject.section} - {subject.semester_name || 'Sin semestre asignado'}
+            {subject.code}-{subject.section} - {formatPeriod(subject)}
           </p>
         </div>
         <button
@@ -1022,7 +1022,7 @@ function SubjectDetailView({
           <DetailRow label="Area" value={subject.area_name || '-'} />
           <DetailRow label="Carrera" value={subject.career_name || '-'} />
           <DetailRow label="Docente" value={subject.teacher_name || '-'} />
-          <DetailRow label="Semestre" value={subject.semester_name || '-'} />
+          <DetailRow label="Periodo" value={formatPeriod(subject)} />
         </dl>
       </CollapsibleSection>
 
@@ -1767,4 +1767,11 @@ function phaseLabel(v: string) {
     completado: 'Completado',
   }
   return map[v] || v
+}
+
+function formatPeriod(subject: Subject) {
+  if (subject.period_code) return subject.period_code
+  const season = subject.period_season ? subject.period_season.toUpperCase() : ''
+  const year = subject.period_year ? String(subject.period_year) : ''
+  return [season, year].filter(Boolean).join('-') || 'Sin periodo'
 }

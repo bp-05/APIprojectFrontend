@@ -95,7 +95,7 @@ export default function DCAsignaturaDetalle() {
               <DetailRow label="Área" value={subject.area_name || '-'} />
               <DetailRow label="Carrera" value={subject.career_name || '-'} />
               <DetailRow label="Docente" value={subject.teacher_name || '-'} />
-              <DetailRow label="Semestre" value={subject.semester_name || '-'} />
+              <DetailRow label="Periodo" value={formatPeriod(subject)} />
               <DetailRow label="Cupo estudiantes" value={subject.total_students ?? '-'} />
             </dl>
           </Card>
@@ -228,4 +228,11 @@ function phaseLabel(v: string) {
     completado: 'Completado',
   }
   return map[v] || v
+}
+
+function formatPeriod(subject: Subject) {
+  if (subject.period_code) return subject.period_code
+  const season = subject.period_season ? subject.period_season.toUpperCase() : ''
+  const year = subject.period_year ? String(subject.period_year) : ''
+  return [season, year].filter(Boolean).join('-') || 'Sin periodo'
 }
