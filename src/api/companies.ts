@@ -140,6 +140,16 @@ export async function listProblemStatements(params?: { subject?: number; company
   }))
 }
 
+export async function getProblemStatement(id: number) {
+  const { data } = await http.get<ProblemStatement>(`/problem-statements/${id}/`)
+  return {
+    ...data,
+    counterpart_contacts: Array.isArray((data as any).counterpart_contacts)
+      ? ((data as any).counterpart_contacts as CounterpartContact[])
+      : [],
+  }
+}
+
 export async function getCompany(id: number) {
   const { data } = await http.get<Company>(`/companies/${id}/`)
   return {

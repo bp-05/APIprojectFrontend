@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import type React from 'react'
-import axios from 'axios'
+import { useNavigate } from 'react-router'
 import { toast } from 'react-hot-toast'
 import {
   createProblemStatement,
-  deleteProblemStatement,
   listCompanies,
   listProblemStatements,
-  updateProblemStatement,
   type Company,
   type ProblemStatement,
 } from '../../api/companies'
 import { listSubjectCodeSections, type BasicSubject } from '../../api/subjects'
 
 export default function DCProyectos() {
+  const navigate = useNavigate()
   const [items, setItems] = useState<ProblemStatement[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [subjects, setSubjects] = useState<BasicSubject[]>([])
@@ -21,7 +20,6 @@ export default function DCProyectos() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState<ProblemStatement | null>(null)
 
   async function load() {
     setLoading(true)
@@ -64,20 +62,7 @@ export default function DCProyectos() {
   }, [items, search])
 
   function openCreate() {
-    setEditing(null)
     setShowForm(true)
-  }
-
-  function openEdit(p: ProblemStatement) {
-    setEditing(p)
-    setShowForm(true)
-  }
-
-  async function onDelete(p: ProblemStatement) {
-    if (!confirm('¿Eliminar proyecto seleccionado?')) return
-    await deleteProblemStatement(p.id)
-    toast.success('Proyecto eliminado')
-    await load()
   }
 
   return (
@@ -110,19 +95,18 @@ export default function DCProyectos() {
               <Th>Asignatura</Th>
               <Th>Problema a abordar</Th>
               <Th>Stakeholders</Th>
-              <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={5}>
+                <td className="p-4 text-sm text-zinc-600" colSpan={4}>
                   Cargando...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={5}>
+                <td className="p-4 text-sm text-zinc-600" colSpan={4}>
                   Sin resultados
                 </td>
               </tr>
@@ -131,22 +115,15 @@ export default function DCProyectos() {
                 const comp = companiesById.get(p.company)
                 const subj = subjectsById.get(p.subject)
                 return (
-                  <tr key={p.id} className="hover:bg-zinc-50">
+                  <tr 
+                    key={p.id} 
+                    onClick={() => navigate(`/dc/proyectos/${p.id}`)}
+                    className="cursor-pointer hover:bg-zinc-50 transition"
+                  >
                     <Td>{comp?.name || `#${p.company}`}</Td>
                     <Td>{subj ? `${subj.name || '(sin nombre)'} (${subj.code}-${subj.section})` : `#${p.subject}`}</Td>
                     <Td>{p.problem_to_address || '-'}</Td>
                     <Td>{p.stakeholders || '-'}</Td>
-                    <Td className="text-right">
-                      <button
-                        onClick={() => openEdit(p)}
-                        className="mr-2 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
-                      >
-                        Editar
-                      </button>
-                      <button onClick={() => onDelete(p)} className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700">
-                        Eliminar
-                      </button>
-                    </Td>
                   </tr>
                 )
               })
@@ -157,7 +134,6 @@ export default function DCProyectos() {
 
       {showForm ? (
         <ProblemForm
-          initial={editing || undefined}
           companies={companies}
           subjects={subjects}
           onClose={() => setShowForm(false)}
@@ -180,27 +156,25 @@ function Td({ children, className = '' }: { children: React.ReactNode; className
 }
 
 function ProblemForm({
-  initial,
   companies,
   subjects,
   onClose,
   onSaved,
 }: {
-  initial?: ProblemStatement
   companies: Company[]
   subjects: BasicSubject[]
   onClose: () => void
   onSaved: () => void | Promise<void>
 }) {
   const [form, setForm] = useState<Omit<ProblemStatement, 'id'>>({
-    company: initial?.company ?? 0,
-    subject: initial?.subject ?? 0,
-    problem_to_address: initial?.problem_to_address ?? '',
-    why_important: initial?.why_important ?? '',
-    stakeholders: initial?.stakeholders ?? '',
-    related_area: initial?.related_area ?? '',
-    benefits_short_medium_long_term: initial?.benefits_short_medium_long_term ?? '',
-    problem_definition: initial?.problem_definition ?? '',
+    company: 0,
+    subject: 0,
+    problem_to_address: '',
+    why_important: '',
+    stakeholders: '',
+    related_area: '',
+    benefits_short_medium_long_term: '',
+    problem_definition: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -248,32 +222,12 @@ function ProblemForm({
 
     setSaving(true)
     try {
-      if (initial) {
-        await updateProblemStatement(initial.id, payload)
-        toast.success('Proyecto actualizado')
-      } else {
-        await createProblemStatement(payload)
-        toast.success('Proyecto creado')
-      }
+      await createProblemStatement(payload)
+      toast.success('Proyecto creado')
       await onSaved()
     } catch (err) {
-      let msg = 'Error al guardar'
-      if (axios.isAxiosError(err)) {
-        const data = err.response?.data as any
-        if (typeof data === 'string') msg = data
-        else if (data && typeof data === 'object') {
-          try {
-            const parts = Object.entries(data).map(([k, v]) => {
-              const val = Array.isArray(v) ? v.join(', ') : String(v)
-              return `${k}: ${val}`
-            })
-            if (parts.length) msg = parts.join(' | ')
-          } catch {}
-        }
-      } else if (err instanceof Error) {
-        msg = err.message
-      }
-      toast.error(msg)
+      toast.error('Error al guardar el proyecto')
+      console.error(err)
     } finally {
       setSaving(false)
     }

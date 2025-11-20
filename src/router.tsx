@@ -47,6 +47,7 @@ import Areas from './routes/Areas'
 import Carreras from './routes/Carreras'
 import EmpresasDoc from './routes/doc/Empresas'
 import DCProyectos from './routes/dc/Proyectos'
+import ProyectoDetalle from './routes/dc/ProyectoDetalle'
 import Fichas from './routes/doc/Fichas'
 import FichasDC from './routes/dc/Fichas'
 
@@ -95,6 +96,7 @@ export const router = createBrowserRouter([
       { path: 'dc/empresas', loader: requireRoleLoader('DC'), element: <DCEmpresas /> },
       { path: 'dc/empresas/:companyId', loader: requireRoleLoader('DC'), element: <DCEmpresaDetalle /> },
       { path: 'dc/proyectos', loader: requireRoleLoader('DC'), element: <DCProyectos /> },
+      { path: 'dc/proyectos/:id', loader: requireRoleLoader('DC'), element: <ProyectoDetalle /> },
       { path: 'dc/posible-contraparte', loader: requireRoleLoader('DC'), element: <PosibleContraparteDC /> },
       { path: 'dc/posible-contraparte/:subjectId', loader: requireRoleLoader('DC'), element: <PosibleContraparteDetalle /> },
       { path: 'dc/fichas', loader: requireRoleLoader('DC'), element: <FichasDC /> },
