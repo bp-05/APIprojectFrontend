@@ -181,7 +181,7 @@ export default function MisAsignaturas() {
                         setManageProjectsSubject(s)
                         setMode('manage-projects')
                       }}
-                      className="rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                      className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
                     >
                       Gestionar
                     </button>
@@ -193,7 +193,7 @@ export default function MisAsignaturas() {
                         setManageUnitsSubject(s)
                         setMode('manage-units')
                       }}
-                      className="rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                      className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
                     >
                       Gestionar
                     </button>
