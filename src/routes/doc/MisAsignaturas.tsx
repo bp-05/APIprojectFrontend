@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, Fragment, useRef, useLayoutEffect, type ReactNode } from 'react'
+﻿import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import type React from 'react'
 import { toast } from 'react-hot-toast'
 import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion, getAlternanceBySubject, type Api3Alternance } from '../../api/subjects'
@@ -632,8 +632,8 @@ function ManageUnitsView({ subject, onClose }: { subject: Subject; onClose: () =
   const [units, setUnits] = useState<SubjectUnit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showAddForm, setShowAddForm] = useState(false)
   const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set())
+  const [showInitDialog, setShowInitDialog] = useState(false)
 
   async function loadUnits() {
     setLoading(true)
@@ -665,6 +665,8 @@ function ManageUnitsView({ subject, onClose }: { subject: Subject; onClose: () =
     })
   }
 
+  const hasUnits = units.length > 0
+
   return (
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -675,12 +677,14 @@ function ManageUnitsView({ subject, onClose }: { subject: Subject; onClose: () =
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
-          >
-            + Agregar unidad
-          </button>
+          {hasUnits ? null : (
+            <button
+              onClick={() => setShowInitDialog(true)}
+              className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+            >
+              Inicializar unidades
+            </button>
+          )}
           <button
             onClick={onClose}
             className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
@@ -699,8 +703,13 @@ function ManageUnitsView({ subject, onClose }: { subject: Subject; onClose: () =
           Cargando unidades…
         </div>
       ) : units.length === 0 ? (
-        <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center text-sm text-zinc-600">
-          No hay unidades registradas. Haz clic en "Agregar unidad" para crear una.
+        <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center">
+          <p className="text-sm text-zinc-600 mb-2">
+            Esta asignatura aún no tiene unidades configuradas.
+          </p>
+          <p className="text-sm text-zinc-500">
+            Haz clic en "Inicializar unidades" para comenzar.
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -739,17 +748,147 @@ function ManageUnitsView({ subject, onClose }: { subject: Subject; onClose: () =
         </div>
       )}
 
-      {showAddForm ? (
-        <UnitFormDialog
+      {showInitDialog ? (
+        <InitializeUnitsDialog
           subject={subject}
-          onClose={() => setShowAddForm(false)}
-          onSaved={async () => {
+          onClose={() => setShowInitDialog(false)}
+          onInitialized={async () => {
             await loadUnits()
-            setShowAddForm(false)
+            setShowInitDialog(false)
           }}
         />
       ) : null}
     </section>
+  )
+}
+
+function InitializeUnitsDialog({
+  subject,
+  onClose,
+  onInitialized,
+}: {
+  subject: Subject
+  onClose: () => void
+  onInitialized: () => void
+}) {
+  const [unitCount, setUnitCount] = useState<number>(4)
+  const [confirmed, setConfirmed] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleCreate() {
+    if (!confirmed) {
+      toast.error('Debes confirmar para continuar')
+      return
+    }
+
+    setCreating(true)
+    setError(null)
+    try {
+      // Crear todas las unidades vacías
+      const promises = []
+      for (let i = 1; i <= unitCount; i++) {
+        promises.push(
+          createSubjectUnit({
+            subject: subject.id,
+            number: i,
+            expected_learning: null,
+            unit_hours: null,
+            activities_description: null,
+            evaluation_evidence: null,
+            evidence_detail: null,
+            counterpart_link: null,
+            place_mode_type: null,
+            counterpart_participant_name: null,
+          })
+        )
+      }
+      await Promise.all(promises)
+      toast.success(`${unitCount} unidades creadas correctamente`)
+      onInitialized()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al crear unidades'
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-lg">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Inicializar unidades</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">
+            Cerrar
+          </button>
+        </div>
+
+        {error ? (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        ) : null}
+
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <p className="text-sm text-amber-800">
+            <strong>Importante:</strong> Una vez confirmado el número de unidades, no podrás modificarlo posteriormente.
+            Solo podrás editar el contenido de cada unidad.
+          </p>
+        </div>
+
+        <div className="mb-4">
+          <label className="mb-2 block text-sm font-semibold text-zinc-700">
+            ¿Cuántas unidades tendrá esta asignatura?
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map((num) => (
+              <button
+                key={num}
+                onClick={() => setUnitCount(num)}
+                className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
+                  unitCount === num
+                    ? 'border-red-600 bg-red-50 text-red-700'
+                    : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'
+                }`}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">Las asignaturas pueden tener entre 1 y 4 unidades</p>
+        </div>
+
+        <div className="mb-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+              className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600"
+            />
+            <span className="text-sm text-zinc-700">
+              Confirmo que esta asignatura tendrá <strong>{unitCount}</strong> {unitCount === 1 ? 'unidad' : 'unidades'}
+            </span>
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={!confirmed || creating}
+            onClick={handleCreate}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+          >
+            {creating ? 'Creando...' : 'Crear unidades'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -913,208 +1052,6 @@ function UnitExpandedContent({ unit, onSaved }: { unit: SubjectUnit; onSaved: ()
         >
           {saving ? 'Guardando…' : 'Guardar cambios'}
         </button>
-      </div>
-    </div>
-  )
-}
-
-function UnitFormDialog({
-  subject,
-  unit,
-  onClose,
-  onSaved,
-}: {
-  subject: Subject
-  unit?: SubjectUnit
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const [number, setNumber] = useState(unit?.number ?? 1)
-  const [expectedLearning, setExpectedLearning] = useState(unit?.expected_learning ?? '')
-  const [unitHours, setUnitHours] = useState<number | ''>(unit?.unit_hours ?? '')
-  const [activitiesDescription, setActivitiesDescription] = useState(unit?.activities_description ?? '')
-  const [evaluationEvidence, setEvaluationEvidence] = useState(unit?.evaluation_evidence ?? '')
-  const [evidenceDetail, setEvidenceDetail] = useState(unit?.evidence_detail ?? '')
-  const [counterpartLink, setCounterpartLink] = useState(unit?.counterpart_link ?? '')
-  const [placeModeType, setPlaceModeType] = useState(unit?.place_mode_type ?? '')
-  const [counterpartParticipantName, setCounterpartParticipantName] = useState(unit?.counterpart_participant_name ?? '')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSave() {
-    setSaving(true)
-    setError(null)
-    try {
-      const payload = {
-        subject: subject.id,
-        number,
-        expected_learning: expectedLearning || null,
-        unit_hours: unitHours === '' ? null : unitHours,
-        activities_description: activitiesDescription || null,
-        evaluation_evidence: evaluationEvidence || null,
-        evidence_detail: evidenceDetail || null,
-        counterpart_link: counterpartLink || null,
-        place_mode_type: placeModeType || null,
-        counterpart_participant_name: counterpartParticipantName || null,
-      }
-      if (unit) {
-        await updateSubjectUnit(unit.id, payload)
-        toast.success('Unidad actualizada')
-      } else {
-        await createSubjectUnit(payload)
-        toast.success('Unidad creada')
-      }
-      onSaved()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al guardar unidad'
-      setError(msg)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-2xl rounded-lg bg-white p-5 shadow-lg max-h-[90vh] overflow-y-auto">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">{unit ? 'Editar unidad' : 'Nueva unidad'}</h2>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">
-            Cerrar
-          </button>
-        </div>
-        {error ? (
-          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
-        ) : null}
-        <div className="grid gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-              Número de unidad
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="4"
-              value={number}
-              onChange={(e) => setNumber(Number(e.target.value))}
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-            <p className="mt-1 text-xs text-zinc-500">Debe estar entre 1 y 4</p>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-              Aprendizaje esperado
-            </label>
-            <textarea
-              value={expectedLearning}
-              onChange={(e) => setExpectedLearning(e.target.value)}
-              rows={3}
-              placeholder="Describe el aprendizaje esperado de esta unidad..."
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-                Horas
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={unitHours}
-                onChange={(e) => setUnitHours(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="0"
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-                Tipo/modalidad del lugar
-              </label>
-              <input
-                type="text"
-                value={placeModeType}
-                onChange={(e) => setPlaceModeType(e.target.value)}
-                placeholder="Ej: Presencial, Virtual..."
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-              Descripción de actividades
-            </label>
-            <textarea
-              value={activitiesDescription}
-              onChange={(e) => setActivitiesDescription(e.target.value)}
-              rows={3}
-              placeholder="Describe las actividades que se realizarán..."
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-              Evidencias de evaluación
-            </label>
-            <textarea
-              value={evaluationEvidence}
-              onChange={(e) => setEvaluationEvidence(e.target.value)}
-              rows={3}
-              placeholder="Describe las evidencias que se evaluarán..."
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-              Detalle de evidencias
-            </label>
-            <textarea
-              value={evidenceDetail}
-              onChange={(e) => setEvidenceDetail(e.target.value)}
-              rows={3}
-              placeholder="Proporciona detalles adicionales sobre las evidencias..."
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-              Nombre del participante contraparte
-            </label>
-            <input
-              type="text"
-              value={counterpartParticipantName}
-              onChange={(e) => setCounterpartParticipantName(e.target.value)}
-              placeholder="Nombre completo..."
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-              Enlace/vínculo con contraparte
-            </label>
-            <input
-              type="text"
-              value={counterpartLink}
-              onChange={(e) => setCounterpartLink(e.target.value)}
-              placeholder="URL, email, o descripción del vínculo..."
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-          </div>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
-          >
-            Cancelar
-          </button>
-          <button
-            disabled={saving}
-            onClick={handleSave}
-            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
-          >
-            {saving ? 'Guardando…' : 'Guardar'}
-          </button>
-        </div>
       </div>
     </div>
   )
