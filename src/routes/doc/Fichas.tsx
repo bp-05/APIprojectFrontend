@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { toast } from 'react-hot-toast'
 import { listSubjects, type Subject, exportSubjectAPISheet, exportSubjectProyectoAPI } from '../../api/subjects'
+import { listProblemStatements, type ProblemStatement } from '../../api/companies'
 import { useEffect } from 'react'
 
 export default function Fichas() {
   const [subjects, setSubjects] = useState<Subject[]>([])
+  const [problemStatements, setProblemStatements] = useState<ProblemStatement[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null)
   const [selectedSubjectProyecto, setSelectedSubjectProyecto] = useState<number | null>(null)
+  const [selectedProblemStatement, setSelectedProblemStatement] = useState<number | null>(null)
 
   async function loadSubjects() {
     setLoading(true)
@@ -24,6 +27,31 @@ export default function Fichas() {
   useEffect(() => {
     loadSubjects()
   }, [])
+
+  // Cargar problemStatements cuando se selecciona una asignatura para Proyecto API
+  useEffect(() => {
+    async function loadProblemStatements() {
+      if (!selectedSubjectProyecto) {
+        setProblemStatements([])
+        setSelectedProblemStatement(null)
+        return
+      }
+      try {
+        const data = await listProblemStatements({ subject: selectedSubjectProyecto })
+        setProblemStatements(data)
+        // Auto-seleccionar el primer problema si solo hay uno
+        if (data.length === 1) {
+          setSelectedProblemStatement(data[0].id)
+        } else {
+          setSelectedProblemStatement(null)
+        }
+      } catch (e) {
+        toast.error('Error al cargar proyectos')
+        setProblemStatements([])
+      }
+    }
+    loadProblemStatements()
+  }, [selectedSubjectProyecto])
 
   async function handleExportFichaAPI() {
     if (!selectedSubject) {
@@ -66,15 +94,26 @@ export default function Fichas() {
       return
     }
 
+    if (!selectedProblemStatement) {
+      toast.error('Selecciona un proyecto')
+      return
+    }
+
     const subject = subjects.find(s => s.id === selectedSubjectProyecto)
     if (!subject) {
       toast.error('Asignatura no encontrada')
       return
     }
 
+    const problemStatement = problemStatements.find(p => p.id === selectedProblemStatement)
+    if (!problemStatement) {
+      toast.error('Proyecto no encontrado')
+      return
+    }
+
     try {
       toast.loading('Generando archivo Excel...')
-      const blob = await exportSubjectProyectoAPI(selectedSubjectProyecto)
+      const blob = await exportSubjectProyectoAPI(selectedSubjectProyecto, selectedProblemStatement)
       
       // Crear enlace de descarga
       const url = window.URL.createObjectURL(blob)
@@ -187,9 +226,32 @@ export default function Fichas() {
                 </select>
               </div>
 
+              {selectedSubjectProyecto && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-zinc-700">
+                    Selecciona un proyecto
+                  </label>
+                  <select
+                    value={selectedProblemStatement || ''}
+                    onChange={(e) => setSelectedProblemStatement(Number(e.target.value) || null)}
+                    className="block w-full max-w-md rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                  >
+                    <option value="">-- Selecciona un proyecto --</option>
+                    {problemStatements.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        Proyecto #{p.id} - {p.problem_to_address ? p.problem_to_address.substring(0, 50) + '...' : 'Sin descripción'}
+                      </option>
+                    ))}
+                  </select>
+                  {problemStatements.length === 0 && (
+                    <p className="mt-2 text-sm text-amber-600">Esta asignatura no tiene proyectos asociados</p>
+                  )}
+                </div>
+              )}
+
               <button
                 onClick={handleExportProyectoAPI}
-                disabled={!selectedSubjectProyecto}
+                disabled={!selectedSubjectProyecto || !selectedProblemStatement}
                 className="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <svg 
