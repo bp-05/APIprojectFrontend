@@ -24,9 +24,12 @@ import DCEmpresas from './routes/dc/Empresas'
 import DCEmpresaDetalle from './routes/dc/EmpresaDetalle'
 import DCAsignaturaDetalle from './routes/dc/AsignaturaDetalle'
 import Problemas from './routes/vcm/Problemas'
+import ProblemaDetalle from './routes/vcm/ProblemaDetalle'
 import Alcances from './routes/vcm/Alcances'
+import AlcanceDetalle from './routes/vcm/AlcanceDetalle'
 import AsignaturasVCM from './routes/vcm/Asignaturas'
 import AsignaturaVCMDetalle from './routes/vcm/AsignaturaDetalle'
+import EmpresaDetalleVCM from './routes/vcm/EmpresaDetalle'
 import PosibleContraparte from './routes/vcm/PosibleContraparte'
 import AsignaturasCoord from './routes/coord/Asignaturas'
 import AsignaturaCoordDetalle from './routes/coord/AsignaturaDetalle'
@@ -71,15 +74,14 @@ export const router = createBrowserRouter([
       { path: 'admin/periodos', loader: requireRoleLoader('ADMIN'), element: <AdminPeriodos /> },
       { path: 'vcm', loader: requireRoleLoader('VCM'), element: <VCM /> },
       { path: 'vcm/empresas', loader: requireRoleLoader('VCM'), element: <EmpresasVCM /> },
+      { path: 'vcm/empresas/:id', loader: requireRoleLoader('VCM'), element: <EmpresaDetalleVCM /> },
       { path: 'vcm/problemas', loader: requireRoleLoader('VCM'), element: <Problemas /> },
-      { path: 'empresas', loader: requireRoleLoader('ADMIN'), element: <EmpresasAdmin /> },
-      { path: 'empresas/:id', loader: requireRoleLoader('ADMIN'), element: <EmpresaDetalleAdmin /> },
-      
-      { path: 'problematicas', loader: requireRoleLoader('ADMIN'), element: <Problemas /> },
+      { path: 'vcm/problemas/:id', loader: requireRoleLoader('VCM'), element: <ProblemaDetalle /> },
       { path: 'vcm/alcances', loader: requireRoleLoader('VCM'), element: <Alcances /> },
+      { path: 'vcm/alcances/:id', loader: requireRoleLoader('VCM'), element: <AlcanceDetalle /> },
       { path: 'vcm/asignaturas', loader: requireRoleLoader('VCM'), element: <AsignaturasVCM /> },
       { path: 'vcm/asignaturas/:id', loader: requireRoleLoader('VCM'), element: <AsignaturaVCMDetalle /> },
-            { path: 'vcm/posible-contraparte', loader: requireRoleLoader('VCM'), element: <PosibleContraparte /> },
+      { path: 'vcm/posible-contraparte', loader: requireRoleLoader('VCM'), element: <PosibleContraparte /> },
       { path: 'dac', loader: requireRoleLoader('DAC'), element: <DAC /> },
       { path: 'docentes', loader: requireRoleLoader('DAC'), element: <Docentes /> },
       { path: 'dc', loader: requireRoleLoader('DC'), element: <DC /> },

@@ -835,22 +835,24 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
                   <Th className="text-center">Empresas</Th>
                 </>
               )}
-              <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Cargando…</td></tr>
             ) : viewMode === 'company' ? (
               groupedByCompany.length === 0 ? (
-                <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Sin registros</td></tr>
+                <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Sin registros</td></tr>
               ) : (
                 groupedByCompany.map(([companyName, reqs]) => {
                   const isExpanded = !!expandedCompanies[companyName]
                   return (
                     <React.Fragment key={companyName}>
-                      <tr className="hover:bg-zinc-50 cursor-pointer" onClick={() => toggleCompany(companyName)}>
-                        <Td className="text-center p-3">
+                      <tr
+                        className="hover:bg-zinc-50 cursor-pointer"
+                        onClick={() => toggleCompany(companyName)}
+                      >
+                        <Td className="text-center p-3 w-8">
                           <span className={`inline-block transform transition-transform text-zinc-500 ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
                         </Td>
                         <Td className="font-medium">{companyName || '—'}</Td>
@@ -858,24 +860,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
                           <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
                             {reqs.length}
                           </span>
-                        </Td>
-                        <Td className="text-right whitespace-nowrap">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openEdit(reqs[0])
-                            }} 
-                            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 mr-2">
-                            Editar
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onDelete(reqs[0])
-                            }} 
-                            className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
-                            Eliminar
-                          </button>
                         </Td>
                       </tr>
                       {isExpanded && reqs.map((r) => {
@@ -893,31 +877,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
                                 <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">○ Sin interés</span>
                               )}
                             </Td>
-                            <Td className="text-right text-sm">
-                              <div className="flex items-center justify-end gap-2">
-                                <span className="text-zinc-700">
-                                  {r.responsible_name && r.responsible_name.trim() ? r.responsible_name : '—'}
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    openEdit(r)
-                                  }}
-                                  className="rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    onDelete(r)
-                                  }}
-                                  className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100"
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
-                            </Td>
                           </tr>
                         )
                       })}
@@ -927,7 +886,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
               )
             ) : (
               groupedBySubject.length === 0 ? (
-                <tr><td className="p-4 text-sm text-zinc-600" colSpan={4}>Sin registros</td></tr>
+                <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Sin registros</td></tr>
               ) : (
                 groupedBySubject.map(([subjectId, reqs]) => {
                   const isExpanded = !!expandedSubjects[subjectId]
@@ -936,8 +895,11 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
                     : 'Sin asignatura'
                   return (
                     <React.Fragment key={subjectId}>
-                      <tr className="hover:bg-zinc-50 cursor-pointer" onClick={() => toggleSubject(subjectId)}>
-                        <Td className="text-center p-3">
+                      <tr
+                        className="hover:bg-zinc-50 cursor-pointer"
+                        onClick={() => toggleSubject(subjectId)}
+                      >
+                        <Td className="text-center p-3 w-8">
                           <span className={`inline-block transform transition-transform text-zinc-500 ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
                         </Td>
                         <Td className="font-medium">{subjectName}</Td>
@@ -945,24 +907,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
                           <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
                             {reqs.length}
                           </span>
-                        </Td>
-                        <Td className="text-right whitespace-nowrap">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openEdit(reqs[0])
-                            }} 
-                            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 mr-2">
-                            Editar
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onDelete(reqs[0])
-                            }} 
-                            className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
-                            Eliminar
-                          </button>
                         </Td>
                       </tr>
                       {isExpanded && reqs.map((r) => (
@@ -975,31 +919,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
                             ) : (
                               <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">○ Sin interés</span>
                             )}
-                          </Td>
-                          <Td className="text-right text-sm">
-                            <div className="flex items-center justify-end gap-2">
-                              <span className="text-zinc-700">
-                                {r.responsible_name && r.responsible_name.trim() ? r.responsible_name : '—'}
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  openEdit(r)
-                                }}
-                                className="rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onDelete(r)
-                                }}
-                                className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100"
-                              >
-                                Eliminar
-                              </button>
-                            </div>
                           </Td>
                         </tr>
                       ))}

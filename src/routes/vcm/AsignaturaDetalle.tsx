@@ -50,6 +50,16 @@ export default function AsignaturaVCMDetalle() {
   const [subjectProspects, setSubjectProspects] = useState<SubjectProspects>(() => loadSubjectProspects())
   const [editingReq, setEditingReq] = useState<{req: CompanyRequirement; form: {quota: string; can: boolean}} | null>(null)
   const [selectedUnit, setSelectedUnit] = useState<SubjectUnit | null>(null)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    info: true,
+    competencies: true,
+    units: false,
+    boundary: false,
+    requirements: false,
+    api2: false,
+    api3: false,
+    alternancia: false,
+  })
 
   async function loadData() {
     try {
@@ -88,7 +98,7 @@ export default function AsignaturaVCMDetalle() {
 
   useEffect(() => {
     if (!Number.isFinite(subjectId)) {
-      setError('Asignatura invalida')
+      setError('Asignatura inválida')
       setLoading(false)
       return
     }
@@ -617,12 +627,13 @@ export default function AsignaturaVCMDetalle() {
           <p className="text-sm text-zinc-600">{subject.code}-{subject.section} · {subject.career_name || 'Carrera sin definir'}</p>
         </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 mb-6">
+      <div className="rounded-lg border border-zinc-200 bg-white mb-6 p-4">
+        <h2 className="text-base font-semibold text-zinc-900 mb-4">Información de la asignatura</h2>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <DetailItem label="Codigo">{subject.code}</DetailItem>
-          <DetailItem label="Seccion">{subject.section}</DetailItem>
+          <DetailItem label="Código">{subject.code}</DetailItem>
+          <DetailItem label="Sección">{subject.section}</DetailItem>
           <DetailItem label="Carrera">{subject.career_name || '-'}</DetailItem>
-          <DetailItem label="Area">{subject.area_name || '-'}</DetailItem>
+          <DetailItem label="Área">{subject.area_name || '-'}</DetailItem>
           <DetailItem label="Semestre">{subject.semester_name || '-'}</DetailItem>
           <DetailItem label="Campus">{subject.campus || '-'}</DetailItem>
           <DetailItem label="Jornada">{subject.shift || '-'}</DetailItem>
@@ -640,7 +651,7 @@ export default function AsignaturaVCMDetalle() {
         </dl>
 
         <div className="mt-6">
-          <h2 className="text-base font-semibold text-zinc-900">Posibles contrapartes</h2>
+          <h3 className="text-base font-semibold text-zinc-900">Posibles contrapartes</h3>
           {counterpartNames.length ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {counterpartNames.map((name) => (
@@ -653,175 +664,211 @@ export default function AsignaturaVCMDetalle() {
         </div>
       </div>
 
-      {/* Competencias Técnicas */}
+      {/* Competencias técnicas */}
       {competencies.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Competencias Técnicas de la Asignatura</h2>
-          <div className="space-y-2">
-            {competencies.map((comp) => (
-              <div key={comp.id} className="rounded-lg border border-zinc-200 bg-white p-3">
-                <p className="text-sm text-zinc-700">
-                  <span className="font-semibold text-zinc-900">Competencia {comp.number}:</span> {comp.description}
-                </p>
+        <div className="rounded-lg border border-zinc-200 bg-white mb-6">
+          <button
+            onClick={() => setExpandedSections(prev => ({ ...prev, competencies: !prev.competencies }))}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+          >
+            <h2 className="text-base font-semibold text-zinc-900">Competencias técnicas</h2>
+            <span className={`inline-block transition-transform ${expandedSections.competencies ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {expandedSections.competencies && (
+            <div className="border-t border-zinc-200 p-4">
+              <div className="space-y-2">
+                {competencies.map((comp) => (
+                  <div key={comp.id} className="rounded-lg border border-zinc-200 bg-white p-3">
+                    <p className="text-sm text-zinc-700">
+                      <span className="font-semibold text-zinc-900">Competencia {comp.number}:</span> {comp.description}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Unidades de la Asignatura */}
+      {/* Unidades de la asignatura */}
       {units.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Unidades de la Asignatura</h2>
-          <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <div className="mb-4 flex flex-wrap gap-2">
-              {units.map((unit) => (
-                <button
-                  key={unit.id}
-                  onClick={() => setSelectedUnit(unit)}
-                  className={`rounded-md px-3 py-1 text-xs transition-colors ${
-                    selectedUnit?.id === unit.id
-                      ? 'bg-red-600 text-white'
-                      : 'border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'
-                  }`}
-                >
-                  Unidad {unit.number}
-                </button>
-              ))}
-            </div>
-            {selectedUnit && (
-              <div className="space-y-4 border-t border-zinc-200 pt-4">
-                {selectedUnit.expected_learning && (
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Aprendizaje esperado</label>
-                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.expected_learning}</p>
-                  </div>
-                )}
-                {selectedUnit.unit_hours && (
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Horas de la unidad</label>
-                    <p className="text-sm text-zinc-700">{selectedUnit.unit_hours}h</p>
-                  </div>
-                )}
-                {selectedUnit.activities_description && (
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Descripción general de actividades</label>
-                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.activities_description}</p>
-                  </div>
-                )}
-                {selectedUnit.evaluation_evidence && (
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Evidencia sistema de evaluación</label>
-                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.evaluation_evidence}</p>
-                  </div>
-                )}
-                {selectedUnit.evidence_detail && (
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Detalle de evidencia</label>
-                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.evidence_detail}</p>
-                  </div>
-                )}
-                {selectedUnit.counterpart_link && (
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Vínculo con contraparte</label>
-                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.counterpart_link}</p>
-                  </div>
-                )}
-                {selectedUnit.place_mode_type && (
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Lugar/Modo</label>
-                    <p className="text-sm text-zinc-700">{selectedUnit.place_mode_type}</p>
-                  </div>
-                )}
-                {selectedUnit.counterpart_participant_name && (
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-700 mb-2">Participante de contraparte</label>
-                    <p className="text-sm text-zinc-700">{selectedUnit.counterpart_participant_name}</p>
-                  </div>
-                )}
+        <div className="rounded-lg border border-zinc-200 bg-white mb-6">
+          <button
+            onClick={() => setExpandedSections(prev => ({ ...prev, units: !prev.units }))}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+          >
+            <h2 className="text-base font-semibold text-zinc-900">Unidades de la asignatura</h2>
+            <span className={`inline-block transition-transform ${expandedSections.units ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {expandedSections.units && (
+            <div className="border-t border-zinc-200 p-4">
+              <div className="mb-4 flex flex-wrap gap-2">
+                {units.map((unit) => (
+                  <button
+                    key={unit.id}
+                    onClick={() => setSelectedUnit(unit)}
+                    className={`rounded-md px-3 py-1 text-xs transition-colors ${
+                      selectedUnit?.id === unit.id
+                        ? 'bg-red-600 text-white'
+                        : 'border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'
+                    }`}
+                  >
+                    Unidad {unit.number}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Company Boundary Condition */}
-      {boundaryCondition && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Condiciones Límite de la Empresa</h2>
-          <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <div className="space-y-3 text-sm">
-              <div>
-                <h4 className="font-semibold text-zinc-900 mb-1">Tipo de Empresas</h4>
-                <div className="flex flex-wrap gap-2">
-                  {boundaryCondition.large_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Gran Empresa</span>}
-                  {boundaryCondition.medium_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Mediana Empresa</span>}
-                  {boundaryCondition.small_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Pequeña Empresa</span>}
-                  {boundaryCondition.family_enterprise && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Empresa Familiar</span>}
-                  {boundaryCondition.not_relevant && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">No Relevante</span>}
-                </div>
-              </div>
-              {boundaryCondition.company_type_description && (
-                <div>
-                  <h4 className="font-semibold text-zinc-900 mb-1">Descripción de Tipo de Empresa</h4>
-                  <p className="text-zinc-700 whitespace-pre-wrap">{boundaryCondition.company_type_description}</p>
-                </div>
-              )}
-              {boundaryCondition.company_requirements_for_level_2_3 && (
-                <div>
-                  <h4 className="font-semibold text-zinc-900 mb-1">Requerimientos para API 2/3</h4>
-                  <p className="text-zinc-700 whitespace-pre-wrap">{boundaryCondition.company_requirements_for_level_2_3}</p>
-                </div>
-              )}
-              {boundaryCondition.project_minimum_elements && (
-                <div>
-                  <h4 className="font-semibold text-zinc-900 mb-1">Elementos Mínimos del Proyecto</h4>
-                  <p className="text-zinc-700 whitespace-pre-wrap">{boundaryCondition.project_minimum_elements}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Requerimientos de Empresas */}
-      {requirements.filter(r => r.subject === subject.id).length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Requerimientos de Empresas</h2>
-          <div className="space-y-3">
-            {requirements.filter(r => r.subject === subject.id).map((req) => {
-              const company = companies.find(c => c.id === req.company)
-              return (
-                <div key={req.id} className="rounded-lg border border-red-200 bg-red-50 p-4">
-                  <div className="flex items-start justify-between">
+              {selectedUnit && (
+                <div className="space-y-4 border-t border-zinc-200 pt-4">
+                  {selectedUnit.expected_learning && (
                     <div>
-                      <h3 className="font-semibold text-red-900">{company?.name || `Empresa ${req.company}`}</h3>
-                      <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
-                        <p><span className="font-medium">Sector:</span> {req.sector || '-'}</p>
-                        <p><span className="font-medium">Ha trabajado:</span> {req.worked_before ? 'Sí' : 'No'}</p>
-                        <p><span className="font-medium">Desea colaborar:</span> {req.interest_collaborate ? 'Sí' : 'No'}</p>
-                        <p><span className="font-medium">Tipo interacción:</span> {req.interaction_type ? (Array.isArray(req.interaction_type) ? req.interaction_type.join(', ') : req.interaction_type) : '-'}</p>
-                      </div>
-                      {req.can_receive_alternance && (
-                        <div className="mt-3 rounded bg-green-100 p-2">
-                          <p className="text-sm font-medium text-green-700">✓ Acepta alternancia</p>
-                          <p className="text-xs text-green-600 mt-1">Cupos disponibles: {req.alternance_students_quota || 0} estudiantes</p>
-                        </div>
-                      )}
+                      <label className="block text-xs font-semibold text-zinc-700 mb-2">Aprendizaje esperado</label>
+                      <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.expected_learning}</p>
                     </div>
-                    {isVCM && (
-                      <button
-                        onClick={() => setEditingReq({ req, form: { quota: String(req.alternance_students_quota || ''), can: req.can_receive_alternance } })}
-                        className="ml-4 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
-                      >
-                        Editar
-                      </button>
-                    )}
+                  )}
+                  {selectedUnit.unit_hours && (
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-2">Horas de la unidad</label>
+                      <p className="text-sm text-zinc-700">{selectedUnit.unit_hours}h</p>
+                    </div>
+                  )}
+                  {selectedUnit.activities_description && (
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-2">Descripción general de actividades</label>
+                      <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.activities_description}</p>
+                    </div>
+                  )}
+                  {selectedUnit.evaluation_evidence && (
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-2">Evidencia sistema de evaluación</label>
+                      <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.evaluation_evidence}</p>
+                    </div>
+                  )}
+                  {selectedUnit.evidence_detail && (
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-2">Detalle de evidencia</label>
+                      <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.evidence_detail}</p>
+                    </div>
+                  )}
+                  {selectedUnit.counterpart_link && (
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-2">Vínculo con contraparte</label>
+                      <p className="text-sm text-zinc-700 whitespace-pre-wrap">{selectedUnit.counterpart_link}</p>
+                    </div>
+                  )}
+                  {selectedUnit.place_mode_type && (
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-2">Lugar/Modo</label>
+                      <p className="text-sm text-zinc-700">{selectedUnit.place_mode_type}</p>
+                    </div>
+                  )}
+                  {selectedUnit.counterpart_participant_name && (
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-2">Participante de contraparte</label>
+                      <p className="text-sm text-zinc-700">{selectedUnit.counterpart_participant_name}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Condiciones de borde de la empresa */}
+      {boundaryCondition && (
+        <div className="rounded-lg border border-zinc-200 bg-white mb-6">
+          <button
+            onClick={() => setExpandedSections(prev => ({ ...prev, boundary: !prev.boundary }))}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+          >
+            <h2 className="text-base font-semibold text-zinc-900">Condiciones de borde</h2>
+            <span className={`inline-block transition-transform ${expandedSections.boundary ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {expandedSections.boundary && (
+            <div className="border-t border-zinc-200 p-4">
+              <div className="space-y-3 text-sm">
+                <div>
+                  <h4 className="font-semibold text-zinc-900 mb-1">Tipo de Empresas</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {boundaryCondition.large_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Gran Empresa</span>}
+                    {boundaryCondition.medium_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Mediana Empresa</span>}
+                    {boundaryCondition.small_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Pequeña Empresa</span>}
+                    {boundaryCondition.family_enterprise && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Empresa Familiar</span>}
+                    {boundaryCondition.not_relevant && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">No Relevante</span>}
                   </div>
                 </div>
-              )
-            })}
-          </div>
+                {boundaryCondition.company_type_description && (
+                  <div>
+                    <h4 className="font-semibold text-zinc-900 mb-1">Descripción de Tipo de Empresa</h4>
+                    <p className="text-zinc-700 whitespace-pre-wrap">{boundaryCondition.company_type_description}</p>
+                  </div>
+                )}
+                {boundaryCondition.company_requirements_for_level_2_3 && (
+                  <div>
+                    <h4 className="font-semibold text-zinc-900 mb-1">Requerimientos para API 2/3</h4>
+                    <p className="text-zinc-700 whitespace-pre-wrap">{boundaryCondition.company_requirements_for_level_2_3}</p>
+                  </div>
+                )}
+                {boundaryCondition.project_minimum_elements && (
+                  <div>
+                    <h4 className="font-semibold text-zinc-900 mb-1">Elementos Mínimos del Proyecto</h4>
+                    <p className="text-zinc-700 whitespace-pre-wrap">{boundaryCondition.project_minimum_elements}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Requerimientos de empresas */}
+      {requirements.filter(r => r.subject === subject.id).length > 0 && (
+        <div className="rounded-lg border border-zinc-200 bg-white mb-6">
+          <button
+            onClick={() => setExpandedSections(prev => ({ ...prev, requirements: !prev.requirements }))}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+          >
+            <h2 className="text-base font-semibold text-zinc-900">Requerimientos de empresas</h2>
+            <span className={`inline-block transition-transform ${expandedSections.requirements ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {expandedSections.requirements && (
+            <div className="border-t border-zinc-200 p-4">
+              <div className="space-y-3">
+                {requirements.filter(r => r.subject === subject.id).map((req) => {
+                  const company = companies.find(c => c.id === req.company)
+                  return (
+                    <div key={req.id} className="rounded-lg border border-red-200 bg-red-50 p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-red-900">{company?.name || `Empresa ${req.company}`}</h3>
+                          <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+                            <p><span className="font-medium">Sector:</span> {req.sector || '-'}</p>
+                            <p><span className="font-medium">Ha trabajado:</span> {req.worked_before ? 'Sí' : 'No'}</p>
+                            <p><span className="font-medium">Desea colaborar:</span> {req.interest_collaborate ? 'Sí' : 'No'}</p>
+                            <p><span className="font-medium">Tipo interacción:</span> {req.interaction_type ? (Array.isArray(req.interaction_type) ? req.interaction_type.join(', ') : req.interaction_type) : '-'}</p>
+                          </div>
+                          {req.can_receive_alternance && (
+                            <div className="mt-3 rounded bg-green-100 p-2">
+                              <p className="text-sm font-medium text-green-700">✓ Acepta alternancia</p>
+                              <p className="text-xs text-green-600 mt-1">Cupos disponibles: {req.alternance_students_quota || 0} estudiantes</p>
+                            </div>
+                          )}
+                        </div>
+                        {isVCM && (
+                          <button
+                            onClick={() => setEditingReq({ req, form: { quota: String(req.alternance_students_quota || ''), can: req.can_receive_alternance } })}
+                            className="ml-4 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                          >
+                            Editar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -881,55 +928,85 @@ export default function AsignaturaVCMDetalle() {
 
       {/* API 2 Completion */}
       {showApi2 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-zinc-900 mb-3">API Tipo 2 - Información del Proyecto</h2>
-          {api2Completion ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <CompletionBox label="Objetivo para estudiantes" value={api2Completion.project_goal_students} color="border-red-200 bg-red-50" />
-              <CompletionBox label="Entregables al final" value={api2Completion.deliverables_at_end} color="border-red-200 bg-red-50" />
-              <CompletionBox label="Participación esperada" value={api2Completion.company_expected_participation} color="border-red-200 bg-red-50" />
-              <CompletionBox label="Otras actividades" value={api2Completion.other_activities} color="border-red-200 bg-red-50" />
+        <div className="rounded-lg border border-zinc-200 bg-white mb-6">
+          <button
+            onClick={() => setExpandedSections(prev => ({ ...prev, api2: !prev.api2 }))}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+          >
+            <h2 className="text-base font-semibold text-zinc-900">API Tipo 2</h2>
+            <span className={`inline-block transition-transform ${expandedSections.api2 ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {expandedSections.api2 && (
+            <div className="border-t border-zinc-200 p-4">
+              {api2Completion ? (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <CompletionBox label="Objetivo para estudiantes" value={api2Completion.project_goal_students} color="border-blue-200 bg-blue-50" />
+                  <CompletionBox label="Entregables al final" value={api2Completion.deliverables_at_end} color="border-blue-200 bg-blue-50" />
+                  <CompletionBox label="Participación esperada" value={api2Completion.company_expected_participation} color="border-blue-200 bg-blue-50" />
+                  <CompletionBox label="Otras actividades" value={api2Completion.other_activities} color="border-blue-200 bg-blue-50" />
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-600">Sin información registrada.</p>
+              )}
             </div>
-          ) : (
-            <p className="text-sm text-zinc-600">Sin información registrada.</p>
           )}
         </div>
       )}
 
       {/* API 3 Completion */}
       {showApi3 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-zinc-900 mb-3">API Tipo 3 - Información del Proyecto</h2>
-          {api3Completion ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <CompletionBox label="Objetivo para estudiantes" value={api3Completion.project_goal_students} color="border-red-200 bg-red-50" />
-              <CompletionBox label="Entregables al final" value={api3Completion.deliverables_at_end} color="border-red-200 bg-red-50" />
-              <CompletionBox label="Rol esperado del estudiante" value={api3Completion.expected_student_role} color="border-red-200 bg-red-50" />
-              <CompletionBox label="Otras actividades" value={api3Completion.other_activities} color="border-red-200 bg-red-50" />
-              <CompletionBox label="Apoyo maestro guía" value={api3Completion.master_guide_expected_support} color="border-red-200 bg-red-50" />
+        <div className="rounded-lg border border-zinc-200 bg-white mb-6">
+          <button
+            onClick={() => setExpandedSections(prev => ({ ...prev, api3: !prev.api3 }))}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+          >
+            <h2 className="text-base font-semibold text-zinc-900">API Tipo 3</h2>
+            <span className={`inline-block transition-transform ${expandedSections.api3 ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {expandedSections.api3 && (
+            <div className="border-t border-zinc-200 p-4">
+              {api3Completion ? (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <CompletionBox label="Objetivo para estudiantes" value={api3Completion.project_goal_students} color="border-purple-200 bg-purple-50" />
+                  <CompletionBox label="Entregables al final" value={api3Completion.deliverables_at_end} color="border-purple-200 bg-purple-50" />
+                  <CompletionBox label="Rol esperado del estudiante" value={api3Completion.expected_student_role} color="border-purple-200 bg-purple-50" />
+                  <CompletionBox label="Otras actividades" value={api3Completion.other_activities} color="border-purple-200 bg-purple-50" />
+                  <CompletionBox label="Apoyo maestro guía" value={api3Completion.master_guide_expected_support} color="border-purple-200 bg-purple-50" />
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-600">Sin información registrada.</p>
+              )}
             </div>
-          ) : (
-            <p className="text-sm text-zinc-600">Sin información registrada.</p>
           )}
         </div>
       )}
 
       {/* API 3 Alternancia */}
       {showApi3 && acceptsAlternance && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-zinc-900 mb-3">Alternancia (API 3)</h2>
-          {alternance ? (
-            <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <TextBlock label="Rol del estudiante" value={alternance.student_role} />
-                <TextBlock label="Cupos" value={alternance.students_quota ? `${alternance.students_quota} estudiantes` : '-'} />
-                <TextBlock label="Tutor" value={alternance.tutor_name} />
-                <TextBlock label="Correo tutor" value={alternance.tutor_email} />
-                <TextBlock label="Horas de alternancia" value={alternance.alternance_hours ? `${alternance.alternance_hours} horas` : '-'} />
-              </div>
+        <div className="rounded-lg border border-zinc-200 bg-white mb-6">
+          <button
+            onClick={() => setExpandedSections(prev => ({ ...prev, alternancia: !prev.alternancia }))}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+          >
+            <h2 className="text-base font-semibold text-zinc-900">Alternancia</h2>
+            <span className={`inline-block transition-transform ${expandedSections.alternancia ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {expandedSections.alternancia && (
+            <div className="border-t border-zinc-200 p-4">
+              {alternance ? (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <TextBlock label="Rol del estudiante" value={alternance.student_role} />
+                    <TextBlock label="Cupos" value={alternance.students_quota ? `${alternance.students_quota} estudiantes` : '-'} />
+                    <TextBlock label="Tutor" value={alternance.tutor_name} />
+                    <TextBlock label="Correo tutor" value={alternance.tutor_email} />
+                    <TextBlock label="Horas de alternancia" value={alternance.alternance_hours ? `${alternance.alternance_hours} horas` : '-'} />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-600">Sin datos de alternancia registrados.</p>
+              )}
             </div>
-          ) : (
-            <p className="text-sm text-zinc-600">Sin datos de alternancia registrados.</p>
           )}
         </div>
       )}
