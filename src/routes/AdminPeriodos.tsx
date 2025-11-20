@@ -38,7 +38,6 @@ function parseSeasonToken(value: string | PeriodSeason | null | undefined): Peri
 export default function AdminPeriodos() {
   const [items, setItems] = useState<PeriodPhaseSchedule[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [phaseState, setPhaseState] = useState<PhaseState>(() => defaultPhaseState())
   const season = usePeriodStore((s) => s.season)
@@ -119,33 +118,33 @@ export default function AdminPeriodos() {
     }
   }
 
-  async function handleSave() {
-    setSaving(true)
+  const [savingPhases, setSavingPhases] = useState<Record<string, boolean>>({})
+
+  async function handleSavePhase(phase: string) {
+    setSavingPhases((prev) => ({ ...prev, [phase]: true }))
     setError(null)
     try {
-      await updatePeriodSetting({ period_year: year, period_season: season })
-      const promises = PHASES.map(({ value }) => {
-        const record = phaseState[value] ?? { start: '', end: '' }
-        const payload = {
-          period_year: year,
-          period_season: season,
-          phase: value,
-          start_date: record.start || null,
-          end_date: record.end || null,
-        }
-        if (record.id) {
-          return updatePeriodPhaseSchedule(record.id, payload)
-        }
-        return createPeriodPhaseSchedule(payload)
-      })
-      await Promise.all(promises)
-      toast.success('Periodo actualizado correctamente')
+      const record = phaseState[phase] ?? { start: '', end: '' }
+      const payload = {
+        period_year: year,
+        period_season: season,
+        phase: phase,
+        start_date: record.start || null,
+        end_date: record.end || null,
+      }
+      if (record.id) {
+        await updatePeriodPhaseSchedule(record.id, payload)
+      } else {
+        await createPeriodPhaseSchedule(payload)
+      }
+      toast.success(`Fase ${PHASES.find(p => p.value === phase)?.label} guardada correctamente`)
       await loadSchedules()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'No se pudo guardar el periodo'
+      const msg = e instanceof Error ? e.message : 'No se pudo guardar la fase'
       setError(msg)
+      toast.error(msg)
     } finally {
-      setSaving(false)
+      setSavingPhases((prev) => ({ ...prev, [phase]: false }))
     }
   }
 
@@ -227,16 +226,17 @@ export default function AdminPeriodos() {
           </p>
         </div>
         <div className="divide-y divide-zinc-100">
-          <div className="grid grid-cols-1 gap-4 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 sm:grid-cols-4">
             <span>Fase</span>
             <span>Inicio</span>
             <span>Término</span>
+            <span className="text-right">Acción</span>
           </div>
           {loading ? (
             <div className="px-4 py-6 text-sm text-zinc-600">Cargando configuraciones…</div>
           ) : (
             PHASES.map(({ value, label }) => (
-              <div key={value} className="grid grid-cols-1 gap-4 px-4 py-3 sm:grid-cols-3">
+              <div key={value} className="grid grid-cols-1 gap-4 px-4 py-3 sm:grid-cols-4 sm:items-center">
                 <div className="text-sm font-medium text-zinc-800">{label}</div>
                 <div>
                   <input
@@ -254,6 +254,16 @@ export default function AdminPeriodos() {
                     className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
                   />
                 </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={savingPhases[value]}
+                    onClick={() => handleSavePhase(value)}
+                    className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                  >
+                    {savingPhases[value] ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
               </div>
             ))
           )}
@@ -265,14 +275,6 @@ export default function AdminPeriodos() {
             className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
           >
             Refrescar
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={handleSave}
-            className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
-          >
-            {saving ? 'Guardando…' : 'Guardar periodo'}
           </button>
         </div>
       </div>
