@@ -4,7 +4,6 @@ import {
   createPeriodPhaseSchedule,
   listPeriodPhaseSchedules,
   updatePeriodPhaseSchedule,
-  updatePeriodSetting,
   type PeriodPhaseSchedule,
 } from '../api/periods'
 import { PeriodSeason, normalizePeriodSeason } from '../lib/period'
@@ -123,7 +122,9 @@ export default function AdminPeriodos() {
     setSaving(true)
     setError(null)
     try {
-      await updatePeriodSetting({ period_year: year, period_season: season })
+      // Note: updatePeriodSetting endpoint is not available in backend
+      // The PeriodSetting singleton must be managed through Django admin
+      // Only update the phase schedules
       const promises = PHASES.map(({ value }) => {
         const record = phaseState[value] ?? { start: '', end: '' }
         const payload = {

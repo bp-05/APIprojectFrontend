@@ -1,6 +1,8 @@
-﻿import { useEffect, useMemo, useState, useRef } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, type Subject } from '../../api/subjects'
+import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
 import { useSearchParams, Link } from 'react-router'
+import { usePeriodStore } from '../../store/period'
 
 type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
 type LocalStatus = { status: ProjectState; timestamps?: Partial<Record<ProjectState, string>> }
@@ -13,19 +15,27 @@ export default function EstadoCoord() {
   const [searchParams] = useSearchParams()
   const [editTarget, setEditTarget] = useState<{ id: number; state: ProjectState } | null>(null)
   const [editSelection, setEditSelection] = useState<ProjectState>('Borrador')
-  const [cycleTarget, setCycleTarget] = useState<{ id: number } | null>(null)
-  const [phaseSel, setPhaseSel] = useState<'Fase 1' | 'Fase 2' | 'Fase 3'>('Fase 1')
-  const [startText, setStartText] = useState('')
-  const [endText, setEndText] = useState('')
-  const startPickerRef = useRef<HTMLInputElement | null>(null)
-  const endPickerRef = useRef<HTMLInputElement | null>(null)
+
+  // Admin phase schedules from database
+  const [adminPhaseSchedules, setAdminPhaseSchedules] = useState<PeriodPhaseSchedule[]>([])
+  const season = usePeriodStore((s) => s.season)
+  const year = usePeriodStore((s) => s.year)
 
   const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
   })
-  type PhaseName = 'Fase 1' | 'Fase 2' | 'Fase 3'
+  type PhaseName = 'Fase: Inicio' | 'Fase 1' | 'Fase 2' | 'Fase 3' | 'Fase: Completado'
   type PhaseDates = { start?: string; end?: string }
   type LocalCycleEntry = { phase: PhaseName; start?: string; end?: string; phases?: Record<PhaseName, PhaseDates> }
+  
+  const PHASES = [
+    { value: 'Fase: Inicio' as PhaseName, label: 'Inicio' },
+    { value: 'Fase 1' as PhaseName, label: 'Formulación de requerimientos' },
+    { value: 'Fase 2' as PhaseName, label: 'Gestión de requerimientos' },
+    { value: 'Fase 3' as PhaseName, label: 'Validación de requerimientos' },
+    { value: 'Fase: Completado' as PhaseName, label: 'Completado' },
+  ]
+  
   const [localCycle, setLocalCycle] = useState<Record<number, LocalCycleEntry>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} }
   })
@@ -60,6 +70,12 @@ export default function EstadoCoord() {
     try {
       const data = await listSubjects()
       setItems(data)
+      // Load admin phase schedules for current period
+      const schedules = await listPeriodPhaseSchedules({
+        period_year: year,
+        period_season: season,
+      })
+      setAdminPhaseSchedules(schedules)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar asignaturas'
       setError(msg)
@@ -68,7 +84,7 @@ export default function EstadoCoord() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [season, year])
 
   function mapStatus(s: any): ProjectState {
     const local = localStatus[s.id]?.status
@@ -93,15 +109,31 @@ export default function EstadoCoord() {
 
   function phaseOf(s: Subject) {
     const local = localCycle[s.id]?.phase
-    return local || (s as any)?.phase || '-'
+    return local || (s as any)?.phase || 'Fase: Inicio'
   }
 
   function phaseLabel(p?: string | null) {
     const v = String(p || '').toLowerCase()
+    if (v === 'fase: inicio') return 'Fase: Inicio'
     if (v === 'fase 1') return 'Fase 1: Formulación de Requerimientos'
     if (v === 'fase 2') return 'Fase 2: Gestión de Requerimientos'
     if (v === 'fase 3') return 'Fase 3: Validación de requerimientos'
+    if (v === 'fase: completado') return 'Fase: Completado'
     return p || '-'
+  }
+
+  function getAdminPhaseInfo(phaseName: PhaseName): { start?: string; end?: string } | null {
+    // Map frontend phase names to backend phase names
+    const backendPhaseMap: Record<PhaseName, string> = {
+      'Fase: Inicio': 'inicio',
+      'Fase 1': 'formulacion',
+      'Fase 2': 'gestion',
+      'Fase 3': 'validacion',
+      'Fase: Completado': 'completado',
+    }
+    const backendPhaseName = backendPhaseMap[phaseName]
+    const schedule = adminPhaseSchedules.find((s) => s.phase.toLowerCase() === backendPhaseName.toLowerCase())
+    return schedule ? { start: schedule.start_date || undefined, end: schedule.end_date || undefined } : null
   }
 
   function statusLabel(st: ProjectState) {
@@ -167,7 +199,7 @@ export default function EstadoCoord() {
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargandoâ€¦</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargando…</td></tr>
             ) : filtered.length === 0 ? (
               <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Sin resultados</td></tr>
             ) : (
@@ -202,7 +234,28 @@ export default function EstadoCoord() {
                       )
                     })()}
                   </Td>
-                  <Td><span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{phaseLabel(phaseOf(s))}</span></Td>
+                  <Td className="align-top">
+                    <select
+                      value={phaseOf(s)}
+                      onChange={(e) => {
+                        const phase = e.target.value as PhaseName
+                        const prev = localCycle[s.id] || { phase: 'Fase: Inicio' } as LocalCycleEntry
+                        const prevPhases = { ...(prev.phases || {}) } as Record<PhaseName, PhaseDates>
+                        prevPhases[phase] = prevPhases[phase] || { start: undefined, end: undefined }
+                        const nextEntry: LocalCycleEntry = { phase, phases: prevPhases }
+                        saveCycle({
+                          ...localCycle,
+                          [s.id]: nextEntry,
+                        })
+                      }}
+                      className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                      title="Seleccionar fase"
+                    >
+                      {PHASES.map(({ value: phase, label }) => (
+                        <option key={phase} value={phase}>{label}</option>
+                      ))}
+                    </select>
+                  </Td>
                   <Td className="text-right">
                     <div className="flex flex-col items-end gap-1">
                       <button
@@ -210,20 +263,6 @@ export default function EstadoCoord() {
                         className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                       >
                         Ver información
-                      </button>
-                      <button
-                        onClick={() => {
-                          setCycleTarget({ id: s.id })
-                          const c = localCycle[s.id]
-                          const ph = (c?.phase || 'Fase 1') as PhaseName
-                          setPhaseSel(ph)
-                          const dates = c?.phases?.[ph] || { start: c?.start, end: c?.end }
-                          setStartText(dates?.start || '')
-                          setEndText(dates?.end || '')
-                        }}
-                        className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
-                      >
-                        Editar ciclo
                       </button>
                     </div>
                   </Td>
@@ -245,19 +284,24 @@ export default function EstadoCoord() {
               {(() => {
                 const id = editTarget?.id
                 const info = id != null ? localCycle[id] : undefined
+                const currentPhase = (info?.phase || 'Fase: Inicio') as PhaseName
+                // Get admin dates for current phase
+                const adminInfo = getAdminPhaseInfo(currentPhase)
+                const startDate = adminInfo?.start || 'No asignadas'
+                const endDate = adminInfo?.end || 'No asignadas'
                 return (
                   <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
                     <div className="sm:col-span-2">
                       <dt className="text-xs text-zinc-500">Fase del proyecto</dt>
-                      <dd className="font-medium text-zinc-800">{phaseLabel(info?.phase)}</dd>
+                      <dd className="font-medium text-zinc-800">{phaseLabel(currentPhase)}</dd>
                     </div>
                     <div>
                       <dt className="text-xs text-zinc-500">Fecha de inicio</dt>
-                      <dd className="font-medium text-zinc-800">{(() => { const ph = (info?.phase as any); const cur = ph && (info as any)?.phases ? (info as any).phases[ph] : { start: (info as any)?.start }; return cur?.start || '-' })()}</dd>
+                      <dd className="font-medium text-zinc-800">{startDate}</dd>
                     </div>
                     <div>
                       <dt className="text-xs text-zinc-500">Fecha límite</dt>
-                      <dd className="font-medium text-zinc-800">{(() => { const ph = (info?.phase as any); const cur = ph && (info as any)?.phases ? (info as any).phases[ph] : { end: (info as any)?.end }; return cur?.end || '-' })()}</dd>
+                      <dd className="font-medium text-zinc-800">{endDate}</dd>
                     </div>
                   </dl>
                 )
@@ -269,100 +313,8 @@ export default function EstadoCoord() {
           </div>
         </div>
       ) : null}
-
-      {cycleTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setCycleTarget(null)}>
-          <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">Editar ciclo del proyecto</h2>
-              <button onClick={() => setCycleTarget(null)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
-            </div>
-            <div className="mb-3">
-              <label className="mb-1 block text-xs font-medium text-zinc-700">Fase del proyecto</label>
-              <select
-                value={phaseSel}
-                onChange={(e) => {
-                  const next = e.target.value as PhaseName
-                  setPhaseSel(next)
-                  if (cycleTarget) {
-                    const c = localCycle[cycleTarget.id]
-                    const dates = c?.phases?.[next] || { start: c?.start, end: c?.end }
-                    setStartText(dates?.start || '')
-                    setEndText(dates?.end || '')
-                  }
-                }}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-              >
-                <option value="Fase 1">Fase 1: Formulación de Requerimientos</option>
-                <option value="Fase 2">Fase 2: Gestión de Requerimientos</option>
-                <option value="Fase 3">Fase 3: Validación de requerimientos</option>
-              </select>
-            </div>
-            <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700">Fecha de inicio</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    value={startText}
-                    onChange={(e) => setStartText(formatDateMask(e.target.value))}
-                    placeholder="DD-MM-AAAA"
-                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-                  />
-                  <input ref={startPickerRef} type="date" className="hidden" onChange={(e) => { const v = e.target.value; if (v) { const [y,m,d] = v.split('-'); setStartText(`${d}-${m}-${y}`) } }} />
-                  <button onClick={() => { const el = startPickerRef.current as any; if (el?.showPicker) el.showPicker(); else el?.click() }} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Abrir calendario</button>
-                </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700">Fecha límite</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    value={endText}
-                    onChange={(e) => setEndText(formatDateMask(e.target.value))}
-                    placeholder="DD-MM-AAAA"
-                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-                  />
-                  <input ref={endPickerRef} type="date" className="hidden" onChange={(e) => { const v = e.target.value; if (v) { const [y,m,d] = v.split('-'); setEndText(`${d}-${m}-${y}`) } }} />
-                  <button onClick={() => { const el = endPickerRef.current as any; if (el?.showPicker) el.showPicker(); else el?.click() }} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Abrir calendario</button>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setCycleTarget(null)} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cancelar</button>
-              <button
-                onClick={() => {
-                  if (!cycleTarget) return
-                  const prev = localCycle[cycleTarget.id] || { phase: phaseSel } as LocalCycleEntry
-                  const prevPhases = { ...(prev.phases || {}) } as Record<PhaseName, PhaseDates>
-                  prevPhases[phaseSel] = { start: startText || undefined, end: endText || undefined }
-                  const nextEntry: LocalCycleEntry = { phase: phaseSel, phases: prevPhases }
-                  saveCycle({
-                    ...localCycle,
-                    [cycleTarget.id]: nextEntry,
-                  })
-                  setCycleTarget(null)
-                }}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
-              >
-                Guardar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   )
-}
-
-function formatDateMask(input: string) {
-  const digits = input.replace(/\D/g, '').slice(0, 8)
-  if (digits.length <= 2) {
-    return digits
-  }
-  if (digits.length <= 4) {
-    // Evita guion de arrastre cuando hay exactamente 2 o 4 dÃ­gitos
-    return digits.slice(0, 2) + '-' + digits.slice(2)
-  }
-  return digits.slice(0, 2) + '-' + digits.slice(2, 4) + '-' + digits.slice(4)
 }
 
 function Th({ children, className = '' }: { children: any; className?: string }) {

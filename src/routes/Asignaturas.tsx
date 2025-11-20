@@ -55,12 +55,11 @@ export default function Asignaturas() {
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.EventSource === 'undefined') return
     if (!accessToken) return
     const expectedSeason = (periodSeason || '').toUpperCase()
     let cancelled = false
-    let retryHandle: number | null = null
-    let stream: EventSource | null = null
+    let retryHandle: ReturnType<typeof setTimeout> | null = null
+    let controller: AbortController | null = null
 
     async function syncSubject(subjectId: number) {
       try {
@@ -77,10 +76,10 @@ export default function Asignaturas() {
       }
     }
 
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = (data: string) => {
       if (cancelled) return
       try {
-        const payload = JSON.parse(event.data || '{}')
+        const payload = JSON.parse(data || '{}')
         const subjectId = Number(payload.subject_id)
         if (!subjectId) return
         const eventType = String(payload.event || '').toLowerCase()
@@ -110,30 +109,70 @@ export default function Asignaturas() {
         }
         void syncSubject(subjectId)
       } catch {
-        // Ignorar payload invǭlido
+        // Ignorar payload inválido
       }
     }
 
     const handleError = () => {
       if (cancelled) return
-      if (stream) {
-        stream.close()
-        stream = null
+      if (controller) {
+        controller.abort()
+        controller = null
       }
       retryHandle = window.setTimeout(connect, 5000)
     }
 
-    function connect() {
+    async function connect() {
       if (cancelled) return
       const baseUrl = apiBaseUrl()
       const normalized = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
       const url = `${normalized}/subjects/stream/?token=${encodeURIComponent(accessToken)}`
+      
       try {
-        stream = new EventSource(url)
-        stream.onmessage = handleMessage
-        stream.onerror = handleError
+        controller = new AbortController()
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        })
+        
+        if (!response.ok) {
+          handleError()
+          return
+        }
+
+        const reader = response.body?.getReader()
+        if (!reader) {
+          handleError()
+          return
+        }
+
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            if (cancelled) break
+
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6)
+                if (data) handleMessage(data)
+              }
+            }
+          }
+        } catch {
+          if (!cancelled) handleError()
+        }
       } catch {
-        retryHandle = window.setTimeout(connect, 5000)
+        if (!cancelled) retryHandle = window.setTimeout(connect, 5000)
       }
     }
 
@@ -142,7 +181,7 @@ export default function Asignaturas() {
     return () => {
       cancelled = true
       if (retryHandle) window.clearTimeout(retryHandle)
-      if (stream) stream.close()
+      if (controller) controller.abort()
     }
   }, [accessToken, periodSeason, periodYear, removeSubject, upsertSubject])
 

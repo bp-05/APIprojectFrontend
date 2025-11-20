@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { getPeriodSetting } from '../api/periods'
 import { derivePeriodFromDate, makePeriodCode, normalizePeriodSeason, parsePeriodCode, PeriodSeason } from '../lib/period'
 
 const STORAGE_KEY = 'current_period'
@@ -69,21 +68,10 @@ export const usePeriodStore = create<PeriodState>((set) => {
       })
     },
     syncFromServer: async () => {
-      try {
-        const data = await getPeriodSetting()
-        if (!data) return null
-        const normalized = normalizePeriodSeason(data.period_season)
-        if (!normalized || typeof data.period_year !== 'number') return null
-        const code = makePeriodCode(normalized, data.period_year)
-        if (!code) return null
-        try {
-          localStorage.setItem(STORAGE_KEY, code)
-        } catch {}
-        set({ season: normalized, year: data.period_year, periodCode: code })
-        return { season: normalized, year: data.period_year }
-      } catch {
-        return null
-      }
+      // Note: The /period-setting/ endpoint is not available in the current API
+      // Period is managed through localStorage or derived from the current date
+      // This function is kept for compatibility but returns null immediately
+      return null
     },
   }
 })
