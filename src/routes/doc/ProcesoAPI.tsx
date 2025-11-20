@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listSubjects, type Subject, updateSubject } from '../api/subjects'
+import { listSubjects, type Subject, updateSubject } from '../../api/subjects'
 import { toast } from 'react-hot-toast'
 
 export default function ProcesoAPI() {

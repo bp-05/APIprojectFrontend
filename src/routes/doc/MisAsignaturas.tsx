@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState, Fragment, useRef, useLayoutEffect, type ReactNode } from 'react'
 import type React from 'react'
 import { toast } from 'react-hot-toast'
-import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion, getAlternanceBySubject, type Api3Alternance } from '../api/subjects'
+import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit, updateSubjectUnit, listDescriptorsBySubject, type Descriptor, createSubjectUnit, uploadDescriptor, processDescriptor, listSubjectCompetencies, type SubjectCompetency, getBoundaryConditionBySubject, type CompanyBoundaryCondition, getApiType2CompletionBySubject, type ApiType2Completion, getApiType3CompletionBySubject, type ApiType3Completion, getAlternanceBySubject, type Api3Alternance } from '../../api/subjects'
 
 type PanelMode = 'list' | 'view' | 'manage-units'
 
