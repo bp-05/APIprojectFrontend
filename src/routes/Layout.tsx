@@ -184,48 +184,69 @@ export default function Layout() {
   }
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <header className="flex flex-col gap-3 border-b border-zinc-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2">
-          {isAuthenticated ? (
-            <button
-              onClick={() => setMobileNavOpen(true)}
-              className="mr-2 inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-50 md:hidden"
-              aria-label="Abrir menú"
-            >
-              ☰
-            </button>
-          ) : null}
-          <Link to={pathForRole(role)} className="group flex items-center gap-2 hover:text-red-600">
-            <img src="/favicon.ico" alt="Logo" className="h-6 w-6 rounded-sm transition-transform duration-150 group-hover:scale-105" />
-            <div className="text-sm font-semibold tracking-wide text-zinc-800 group-hover:text-red-600">Gestor API</div>
-          </Link>
-        </div>
-        <div className="flex flex-col-reverse items-start gap-3 sm:flex-row sm:items-center sm:justify-end md:flex-row md:items-center md:gap-4">
-          <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 sm:text-sm">
-            <span>Periodo actual:</span>
-            <span className="rounded bg-zinc-100 px-2 py-0.5 text-zinc-800">{currentPeriod}</span>
+      <header className="border-b border-zinc-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            {isAuthenticated ? (
+              <button
+                onClick={() => setMobileNavOpen(true)}
+                className="mr-2 inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-800 hover:bg-zinc-50 md:hidden"
+                aria-label="Abrir menú"
+              >
+                ☰
+              </button>
+            ) : null}
+            <Link to={pathForRole(role)} className="group flex items-center gap-2 hover:text-red-600">
+              <img src="/favicon.ico" alt="Logo" className="h-6 w-6 rounded-sm transition-transform duration-150 group-hover:scale-105" />
+              <div className="text-sm font-semibold tracking-wide text-zinc-800 group-hover:text-red-600">Gestor API</div>
+            </Link>
           </div>
+
           {isAuthenticated && (
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="text-sm text-zinc-700">
-                {nameCase(user?.full_name || `${user?.first_name ?? ''} ${user?.last_name ?? ''}`) || user?.username}
-                {role ? (
-                  <span className="ml-2 rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
-                    {roleLabelMap[role] || role}
-                  </span>
-                ) : null}
+            <div className="flex items-center gap-3">
+              {/* Periodo actual */}
+              <div className="hidden items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 sm:flex">
+                <svg className="h-4 w-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xs text-zinc-500">Periodo:</span>
+                  <span className="text-sm font-semibold text-zinc-900">{currentPeriod}</span>
+                </div>
               </div>
+
+              {/* Usuario y rol - Clickable para ir al perfil */}
               <Link
                 to="/profile"
-                className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+                className="hidden items-center gap-2 rounded-lg border border-zinc-200 bg-gradient-to-br from-white to-zinc-50 px-3 py-1.5 transition-all hover:border-zinc-300 hover:shadow-sm lg:flex"
               >
-                Perfil
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-sm font-semibold text-red-700">
+                  {(user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase()}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-zinc-900">
+                    {nameCase(user?.full_name || `${user?.first_name ?? ''} ${user?.last_name ?? ''}`) || user?.username}
+                  </span>
+                  {role && (
+                    <span className="text-xs text-zinc-600">
+                      {roleLabelMap[role] || role}
+                    </span>
+                  )}
+                </div>
               </Link>
+
+              {/* Botón de salir */}
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center justify-center rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-600/20"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-red-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
               >
-                Salir
+                <span>Salir</span>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
               </button>
             </div>
           )}
