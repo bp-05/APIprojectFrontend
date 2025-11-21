@@ -76,6 +76,7 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
         { to: '/vcm/alcances', label: 'Alcances contrapartes', icon: <IconTarget />, matchPrefix: '/vcm/alcances' },
         { to: '/vcm/posible-contraparte', label: 'Posible contraparte', icon: <IconHandshake />, matchPrefix: '/vcm/posible-contraparte' },
         { to: '/vcm/asignaturas', label: 'Asignaturas', icon: <IconBook />, matchPrefix: '/vcm/asignaturas' },
+        { to: '/vcm/fichas', label: 'Fichas', icon: <IconFileText />, matchPrefix: '/vcm/fichas' },
       ],
     },
   ],
