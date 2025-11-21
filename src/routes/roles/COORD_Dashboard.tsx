@@ -278,8 +278,18 @@ export default function COORD_DASH() {
 
   return (
     <section className="p-6">
-      <div className="mb-6 mt-2 text-center">
+      <div className="mb-6 mt-2 flex items-center justify-between">
         <h1 className="text-2xl">Panel de Coordinador</h1>
+        <div className="flex gap-2">
+          <button onClick={exportCsvPhases} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            CSV
+          </button>
+          <button onClick={exportPdfPhases} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            PDF
+          </button>
+        </div>
       </div>
       {/* KPI Cards */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -341,11 +351,6 @@ export default function COORD_DASH() {
         </div>
       </div>
 
-      <div className="mb-4 flex items-center justify-end gap-2">
-        <button onClick={exportCsvPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (CSV)</button>
-        <button onClick={exportPdfPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (PDF)</button>
-      </div>
-
       {/* Modal: Proyectos en Riesgo Detallado */}
       {showMoreRisk ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setShowMoreRisk(false)}>
@@ -404,10 +409,6 @@ export default function COORD_DASH() {
         </div>
       ) : null}
 
-      <div className="mb-4 flex items-center justify-end gap-2">
-        <button onClick={exportCsvPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (CSV)</button>
-        <button onClick={exportPdfPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (PDF)</button>
-      </div>
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Proyectos API en curso</h1>
@@ -660,21 +661,163 @@ function exportPdfPhases() {
   if (!w) return
   const d = new Date()
   const html = `<!doctype html><html><head><meta charset="utf-8" /><title>KPIs Coordinador</title>
-    <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;padding:24px;color:#111} h1{font-size:20px;margin:0 0 12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ddd;padding:8px;text-align:left} th{background:#f5f5f5}</style>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: #f9fafb;
+        padding: 40px 20px;
+        color: #1f2937;
+        min-height: 100vh;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        overflow: hidden;
+      }
+      .header {
+        background: white;
+        border-bottom: 1px solid #d1d5db;
+        padding: 32px 24px;
+        text-align: left;
+      }
+      .header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 4px;
+      }
+      .header p {
+        font-size: 14px;
+        color: #6b7280;
+      }
+      .content {
+        padding: 32px 24px;
+      }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .meta-item {
+        font-size: 13px;
+        color: #6b7280;
+      }
+      .meta-item strong {
+        color: #1f2937;
+        font-weight: 600;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0;
+      }
+      th {
+        background: #f3f4f6;
+        color: #1f2937;
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 13px;
+        border-bottom: 2px solid #d1d5db;
+      }
+      td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 13px;
+      }
+      tbody tr:hover {
+        background-color: #f9fafb;
+      }
+      tbody tr:last-child td {
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .metric {
+        color: #374151;
+        font-weight: 500;
+      }
+      .value {
+        color: #1f2937;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .footer {
+        text-align: center;
+        padding: 16px 24px;
+        background: #f3f4f6;
+        border-top: 1px solid #e5e7eb;
+        font-size: 11px;
+        color: #9ca3af;
+      }
+      .print-hint {
+        text-align: center;
+        padding: 12px 24px;
+        background: #fee2e2;
+        border-bottom: 1px solid #fecaca;
+        font-size: 12px;
+        color: #991b1b;
+      }
+      @media print {
+        body { background: white; padding: 0; }
+        .container { box-shadow: none; border-radius: 0; }
+        .print-hint { display: none; }
+      }
+    </style>
   </head><body>
-    <h1>KPIs Coordinador</h1>
-    <div>Fecha: ${d.toLocaleString()}</div>
-    <table style="margin-top:12px">
-      <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
-      <tbody>
-        <tr><td>Fase 1: Formulación de requerimientos</td><td>${(window as any).phaseKpi?.['Fase 1'] ?? ''}</td></tr>
-        <tr><td>Fase 2: Gestión de Requerimientos</td><td>${(window as any).phaseKpi?.['Fase 2'] ?? ''}</td></tr>
-        <tr><td>Fase 3: Validación de requerimientos</td><td>${(window as any).phaseKpi?.['Fase 3'] ?? ''}</td></tr>
-        <tr><td>Aprobada</td><td>${(window as any).kpi?.Aprobada ?? ''}</td></tr>
-        <tr><td>% con atraso</td><td>${(window as any).delayedPct ?? ''}%</td></tr>
-      </tbody>
-    </table>
-    <script>window.onload = () => setTimeout(() => window.print(), 300)</script>
+    <div class="container">
+      <div class="header">
+        <h1>KPIs Coordinador</h1>
+        <p>Reporte de Métricas y Desempeño</p>
+      </div>
+      <div class="print-hint">
+        Usa Ctrl+P o Cmd+P para imprimir este documento como PDF
+      </div>
+      <div class="content">
+        <div class="meta">
+          <div class="meta-item"><strong>Período:</strong> ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+          <div class="meta-item"><strong>Hora:</strong> ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Métrica</th>
+              <th>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="metric">Fase 1: Formulación de requerimientos</td>
+              <td class="value">${(window as any).phaseKpi?.['Fase 1'] ?? '-'} proyectos</td>
+            </tr>
+            <tr>
+              <td class="metric">Fase 2: Gestión de Requerimientos</td>
+              <td class="value">${(window as any).phaseKpi?.['Fase 2'] ?? '-'} proyectos</td>
+            </tr>
+            <tr>
+              <td class="metric">Fase 3: Validación de requerimientos</td>
+              <td class="value">${(window as any).phaseKpi?.['Fase 3'] ?? '-'} proyectos</td>
+            </tr>
+            <tr>
+              <td class="metric">Aprobada</td>
+              <td class="value">${(window as any).kpi?.Aprobada ?? '-'} proyectos</td>
+            </tr>
+            <tr>
+              <td class="metric">% con atraso</td>
+              <td class="value">${(window as any).delayedPct ?? '-'}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer">
+        API Projects Management System - Documento generado automáticamente
+      </div>
+    </div>
   </body></html>`
   w.document.open()
   w.document.write(html)
