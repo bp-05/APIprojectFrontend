@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getCompany, listProblemStatements, type Company, type ProblemStatement } from '../../api/companies'
+import { getSubject, type Subject } from '../../api/subjects'
 
 export default function EmpresaDetalle() {
   const { id, companyId } = useParams()
   const subjectId = Number(id)
   const compId = Number(companyId)
   const [company, setCompany] = useState<Company | null>(null)
+  const [subject, setSubject] = useState<Subject | null>(null)
   const [problems, setProblems] = useState<ProblemStatement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -17,12 +19,14 @@ export default function EmpresaDetalle() {
       setLoading(true)
       setError(null)
       try {
-        const [c, probs] = await Promise.all([
+        const [c, s, probs] = await Promise.all([
           getCompany(compId),
+          getSubject(subjectId),
           listProblemStatements({ subject: subjectId, company: compId }),
         ])
         if (!mounted) return
         setCompany(c)
+        setSubject(s)
         setProblems(probs || [])
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'No se pudo cargar la empresa'
@@ -67,7 +71,7 @@ export default function EmpresaDetalle() {
         <div className="grid grid-cols-1 gap-4">
           <Section title="Problematica">
             {problems.length === 0 ? (
-              <div className="text-sm text-zinc-600">Sin problemática registrada</div>
+              <div className="text-sm text-zinc-600">Sin problemática registrada. Por favor, completa este formulario en la asignatura.</div>
             ) : (
               problems.map((p) => (
                 <div key={p.id} className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
@@ -79,11 +83,12 @@ export default function EmpresaDetalle() {
 
           <Section title="Alcance con contraparte">
             {problems.length === 0 ? (
-              <div className="text-sm text-zinc-600">Sin información</div>
+              <div className="text-sm text-zinc-600">Sin información. Por favor, completa este formulario en la asignatura.</div>
             ) : (
               problems.map((p) => (
                 <div key={p.id} className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
                   <Field label="Beneficios (corto/mediano/largo plazo)" value={p.benefits_short_medium_long_term || '-'} />
+                  <Field label="Partes interesadas" value={p.stakeholders || '-'} />
                 </div>
               ))
             )}
@@ -91,7 +96,7 @@ export default function EmpresaDetalle() {
 
           <Section title="Requisitos de la empresa">
             {problems.length === 0 ? (
-              <div className="text-sm text-zinc-600">Sin información</div>
+              <div className="text-sm text-zinc-600">Sin información. Por favor, completa este formulario en la asignatura.</div>
             ) : (
               problems.map((p) => (
                 <div key={p.id} className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
@@ -104,7 +109,7 @@ export default function EmpresaDetalle() {
 
           <Section title="Área relacionada">
             {problems.length === 0 ? (
-              <div className="text-sm text-zinc-600">Sin información</div>
+              <div className="text-sm text-zinc-600">Sin información. Por favor, completa este formulario en la asignatura.</div>
             ) : (
               problems.map((p) => (
                 <div key={p.id} className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
@@ -113,6 +118,23 @@ export default function EmpresaDetalle() {
               ))
             )}
           </Section>
+
+          {company?.counterpart_contacts && company.counterpart_contacts.length > 0 && (
+            <Section title="Contactos de contrapartes">
+              <div className="space-y-3">
+                {company.counterpart_contacts.map((contact) => (
+                  <div key={contact.id} className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                    <Field label="Nombre" value={contact.name || '-'} />
+                    <Field label="RUT" value={contact.rut || '-'} />
+                    <Field label="Correo" value={contact.email || '-'} />
+                    <Field label="Teléfono" value={contact.phone || '-'} />
+                    <Field label="Área" value={contact.counterpart_area || '-'} />
+                    <Field label="Rol" value={contact.role || '-'} />
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
         </div>
       )}
     </section>
