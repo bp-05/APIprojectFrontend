@@ -75,6 +75,8 @@ export const router = createBrowserRouter([
       },
       { path: 'admin', loader: requireRoleLoader('ADMIN'), element: <Admin /> },
       { path: 'usuarios', loader: requireRoleLoader('ADMIN'), element: <Usuarios /> },
+      { path: 'empresas', loader: requireRoleLoader('ADMIN'), element: <EmpresasAdmin /> },
+      { path: 'empresas/:id', loader: requireRoleLoader('ADMIN'), element: <EmpresaDetalleAdmin /> },
       { path: 'asignaturas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Asignaturas /> },
       { path: 'asignaturas/:id', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <AsignaturaDetalle /> },
       { path: 'areas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Areas /> },
