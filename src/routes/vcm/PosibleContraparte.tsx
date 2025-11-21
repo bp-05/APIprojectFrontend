@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'react-hot-toast'
 import { listCompanies, listProblemStatements, type Company, type ProblemStatement, listCounterpartContacts } from '../../api/companies'
-import { listSubjectCodeSections, type BasicSubject, createCompanyRequirement, listCompanyRequirements, type CompanyRequirement, updateCompanyRequirement } from '../../api/subjects'
+import { listSubjectCodeSections, type BasicSubject, createCompanyRequirement, listCompanyRequirements, type CompanyRequirement, updateCompanyRequirement, deleteCompanyRequirement } from '../../api/subjects'
 import http from '../../lib/http'
 
 // Persistencia local como respaldo
@@ -1016,7 +1016,54 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
                 <Item label="RUT responsable">{viewing.responsible_rut || '—'}</Item>
               </dl>
             </div>
-            <div className="px-6 py-3 border-t flex justify-end">
+            <div className="px-6 py-3 border-t flex justify-between">
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    const idx = items.findIndex((p) => p.id === viewing.id)
+                    if (idx >= 0) {
+                      const item = items[idx]
+                      setEditName(item.company_name || '')
+                      setEditSector(item.sector || '')
+                      setEditInterest(!!item.interest_collaborate)
+                      setEditWorkedBefore(!!item.worked_before)
+                      setEditCanDevelopActivities(!!item.can_develop_activities)
+                      setEditWillingDesignProject(!!item.willing_design_project)
+                      setEditInteractionTypes(Array.isArray(item.interaction_types) ? item.interaction_types.slice() : [])
+                      setEditHasGuide(!!item.has_guide)
+                      setEditCanReceiveAlternance(!!item.can_receive_alternance)
+                      setEditQuotaStr(item.can_receive_alternance ? String(item.alternance_students_quota ?? '') : '')
+                      setEditAssignedSubjects(subjectsForProspect(item.id, subjectProspectsMap))
+                      setEditing(item)
+                      setViewing(null)
+                    }
+                  }}
+                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
+                >
+                  Modificar
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (!confirm(`¿Eliminar contraparte "${viewing.company_name}"?`)) return
+                    try {
+                      if (viewing.source === 'db' && viewing.requirement_id) {
+                        await deleteCompanyRequirement(viewing.requirement_id)
+                        toast.success('Contraparte eliminada de la base de datos')
+                      } else {
+                        toast.success('Contraparte eliminada')
+                      }
+                      setItems((prev) => prev.filter((p) => p.id !== viewing.id))
+                      setViewing(null)
+                    } catch (e) {
+                      const msg = e instanceof Error ? e.message : 'No se pudo eliminar'
+                      toast.error(msg)
+                    }
+                  }}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+                >
+                  Eliminar
+                </button>
+              </div>
               <button onClick={() => setViewing(null)} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cerrar</button>
             </div>
           </div>
