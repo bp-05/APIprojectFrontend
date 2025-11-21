@@ -119,7 +119,7 @@ export default function Fichas() {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `Proyecto_API_${subject.code}_${subject.section}.xlsx`
+      link.download = `Proyecto_API_${subject.code}_${subject.section}_Proyecto${problemStatement.id}.xlsx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
