@@ -4,7 +4,6 @@ import {
   createPeriodPhaseSchedule,
   listPeriodPhaseSchedules,
   updatePeriodPhaseSchedule,
-  updatePeriodSetting,
   type PeriodPhaseSchedule,
 } from '../api/periods'
 import { PeriodSeason, normalizePeriodSeason } from '../lib/period'
