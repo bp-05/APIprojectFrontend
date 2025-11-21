@@ -191,8 +191,8 @@ export default function COORD_DASH() {
       .sort((a, b) => b.score - a.score)
   }, [items])
   const topRisk = useMemo(() => allRisk.slice(0, 1), [allRisk])
-  const [showMoreRisk, setShowMoreRisk] = useState(false)
-  const [selectedRiskDetail, setSelectedRiskDetail] = useState<{ s: Subject; score: number } | null>(null)
+  const [showExpandedRisk, setShowExpandedRisk] = useState(false)
+  const [showRiskModal, setShowRiskModal] = useState(false)
 
   useEffect(() => {
     try {
@@ -305,13 +305,13 @@ export default function COORD_DASH() {
         <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ring-zinc-200">
           <div className="mb-2 flex items-center justify-between">
             <div className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Proyectos en Riesgo</div>
-            <button onClick={() => setShowMoreRisk(true)} className="text-xs font-medium text-red-700 hover:underline">Ver detalle</button>
+            <button onClick={() => setShowRiskModal(true)} className="text-xs font-medium text-red-700 hover:underline">Ver detalle</button>
           </div>
-          {(showMoreRisk ? allRisk : topRisk).length === 0 ? (
+          {(showExpandedRisk ? allRisk : topRisk).length === 0 ? (
             <div className="text-sm text-zinc-600">Sin datos</div>
           ) : (
             <ul className="space-y-2">
-              {(showMoreRisk ? allRisk : topRisk).map(({ s, score }) => (
+              {(showExpandedRisk ? allRisk : topRisk).map(({ s, score }) => (
                 <li key={(s as any).id} className="flex items-center justify-between text-sm">
                   <div className="min-w-0">
                     <div className="truncate font-medium">{s.name}</div>
@@ -333,16 +333,16 @@ export default function COORD_DASH() {
           <div className="mt-3 border-t border-zinc-200" />
           <div className="mt-2 flex justify-center">
             <button
-              onClick={() => setShowMoreRisk((v) => !v)}
+              onClick={() => setShowExpandedRisk((v) => !v)}
               aria-label="Alternar lista completa de proyectos en riesgo"
-              title={showMoreRisk ? 'Colapsar' : 'Ver más'}
+              title={showExpandedRisk ? 'Colapsar' : 'Ver más'}
               className="inline-flex items-center rounded-full border border-zinc-300 bg-white p-1 text-zinc-700 hover:bg-zinc-50"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 20 20"
                 fill="currentColor"
-                className={`h-4 w-4 transform transition-transform ${showMoreRisk ? 'rotate-180' : ''}`}
+                className={`h-4 w-4 transform transition-transform ${showExpandedRisk ? 'rotate-180' : ''}`}
               >
                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
               </svg>
@@ -352,12 +352,12 @@ export default function COORD_DASH() {
       </div>
 
       {/* Modal: Proyectos en Riesgo Detallado */}
-      {showMoreRisk ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setShowMoreRisk(false)}>
+      {showRiskModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setShowRiskModal(false)}>
           <div className="w-full max-w-3xl rounded-lg border border-zinc-200 bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between border-b border-zinc-200 p-4">
               <h2 className="text-lg font-semibold">Proyectos en Riesgo</h2>
-              <button onClick={() => setShowMoreRisk(false)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
+              <button onClick={() => setShowRiskModal(false)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
             </div>
             <div className="max-h-[70vh] overflow-auto p-4">
               {allRisk.length === 0 ? (
