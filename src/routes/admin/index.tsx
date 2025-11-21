@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { listCompanies, listProblemStatements } from '../../api/companies'
-import { listSubjects, listAreas, listCareers, type Subject, type Area, type Career } from '../../api/subjects'
+import { listCompanies, listProblemStatements, listEngagementScopes } from '../../api/companies'
+import { listSubjects, listAreas, listCareers, listCompanyRequirements, type Subject, type Area, type Career } from '../../api/subjects'
 import { usePeriodStore } from '../../store/period'
 
 export default function AdminDashboard() {
@@ -11,6 +11,8 @@ export default function AdminDashboard() {
   const [companyTotal, setCompanyTotal] = useState<number | null>(null)
   const [problemTotal, setProblemTotal] = useState<number | null>(null)
   const [problems, setProblems] = useState<Awaited<ReturnType<typeof listProblemStatements>>>([])
+  const [engagementScopesTotal, setEngagementScopesTotal] = useState<number | null>(null)
+  const [companyRequirementsTotal, setCompanyRequirementsTotal] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,12 +20,14 @@ export default function AdminDashboard() {
     setLoading(true)
     setError(null)
     try {
-      const [subjectList, companies, problemsRes, areaList, careerList] = await Promise.all([
+      const [subjectList, companies, problemsRes, areaList, careerList, engagementScopes, companyReqs] = await Promise.all([
         listSubjects(),
         listCompanies(),
         listProblemStatements(),
         listAreas(),
         listCareers(),
+        listEngagementScopes(),
+        listCompanyRequirements(),
       ])
       const subjectsArr = Array.isArray(subjectList) ? subjectList : []
       setSubjects(subjectsArr)
@@ -33,6 +37,8 @@ export default function AdminDashboard() {
       const problemsSafe = Array.isArray(problemsRes) ? problemsRes : []
       setProblems(problemsSafe)
       setProblemTotal(problemsSafe.length)
+      setEngagementScopesTotal(Array.isArray(engagementScopes) ? engagementScopes.length : 0)
+      setCompanyRequirementsTotal(Array.isArray(companyReqs) ? companyReqs.length : 0)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo cargar el dashboard'
       setError(message)
@@ -89,7 +95,9 @@ export default function AdminDashboard() {
     totalAreas > 0 ||
     totalCareers > 0 ||
     (companyTotal !== null && companyTotal > 0) ||
-    (problemTotal !== null && problemTotal > 0)
+    (problemTotal !== null && problemTotal > 0) ||
+    (engagementScopesTotal !== null && engagementScopesTotal > 0) ||
+    (companyRequirementsTotal !== null && companyRequirementsTotal > 0)
 
   return (
     <section className="space-y-8 p-6">
@@ -119,7 +127,7 @@ export default function AdminDashboard() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Periodo actual" value={periodCode || '--'} subtitle="Configuracion vigente" tone="zinc" />
         <StatCard
           title="Asignaturas activas"
@@ -139,6 +147,9 @@ export default function AdminDashboard() {
           subtitle="Inventario global"
           tone="violet"
         />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Empresas registradas"
           value={companyTotal ?? '--'}
@@ -146,10 +157,22 @@ export default function AdminDashboard() {
           tone="green"
         />
         <StatCard
-          title="Problematicas levantadas"
+          title="Proyectos registrados"
           value={problemTotal ?? '--'}
           subtitle="Todas las empresas"
           tone="amber"
+        />
+        <StatCard
+          title="Alcances contrapartes"
+          value={engagementScopesTotal ?? '--'}
+          subtitle="Asignaturas con alcance"
+          tone="cyan"
+        />
+        <StatCard
+          title="Posibles contrapartes"
+          value={companyRequirementsTotal ?? '--'}
+          subtitle="Requisitos por asignatura"
+          tone="purple"
         />
       </div>
 
@@ -161,7 +184,7 @@ export default function AdminDashboard() {
   )
 }
 
-type StatTone = 'zinc' | 'blue' | 'green' | 'amber' | 'indigo' | 'violet'
+type StatTone = 'zinc' | 'blue' | 'green' | 'amber' | 'indigo' | 'violet' | 'cyan' | 'purple'
 
 function StatCard({
   title,
@@ -181,6 +204,8 @@ function StatCard({
     amber: 'text-amber-600',
     indigo: 'text-indigo-600',
     violet: 'text-violet-600',
+    cyan: 'text-cyan-600',
+    purple: 'text-purple-600',
   } as const
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white/90 px-4 py-5 shadow-sm">
