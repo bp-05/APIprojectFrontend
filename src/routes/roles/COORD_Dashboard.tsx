@@ -89,26 +89,63 @@ export default function COORD_DASH() {
     return result
   }, [items, localStatusMap])
 
-  // % con atraso (heurística: estados Observada considerados con atraso)
-  const delayedPct = useMemo(() => {
-    if (!items.length) return 0
-    const delayed = items.filter((s) => mapStatus(s) === 'Observada').length
-    return Math.round((delayed / items.length) * 100)
-  }, [items, localStatusMap])
+  // Función para obtener estados guardados localmente en Gantt
+  function readGanttMarks(): Record<number, Record<number, string>> {
+    try { return JSON.parse(localStorage.getItem('coordGanttMarks') || '{}') } catch { return {} }
+  }
 
-  // Tiempo de ciclo promedio en días (si hay algún campo de duración, usarlo; de lo contrario, mostrar '-')
-  const avgCycleDays = useMemo(() => {
-    const values: number[] = []
-    for (const s of items as any[]) {
-      const d = Number(s?.cycle_days ?? s?.duration_days ?? s?.avg_cycle_days)
-      if (Number.isFinite(d) && d > 0) values.push(d)
+  // Función para calcular % de atraso de una asignatura
+  function calculateSubjectDelayPct(subject: Subject): number {
+    const ganttMarks = readGanttMarks()
+    const subjectMarks = ganttMarks[subject.id] || {}
+    
+    let delayCount = 0
+    let totalPhases = 0
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    for (let phaseNum = 1; phaseNum <= 3; phaseNum++) {
+      const phaseMark = subjectMarks[phaseNum]
+      
+      // Buscar la fecha de inicio y término para esta fase
+      const phaseSchedule = adminPhases.find(p => {
+        const phaseKey = String(p.phase || '').toLowerCase()
+        return phaseNum === 1 ? phaseKey === 'formulacion'
+             : phaseNum === 2 ? phaseKey === 'gestion'
+             : phaseNum === 3 ? phaseKey === 'validacion'
+             : false
+      })
+
+      if (phaseSchedule && phaseSchedule.start_date && phaseSchedule.end_date) {
+        totalPhases++
+        const startDate = new Date(phaseSchedule.start_date)
+        startDate.setHours(0, 0, 0, 0)
+        const endDate = new Date(phaseSchedule.end_date)
+        endDate.setHours(0, 0, 0, 0)
+        
+        if (phaseMark !== 'rz') {
+          if (today < startDate || today > endDate) {
+            delayCount++
+          }
+        }
+      }
     }
-    if (!values.length) return null
-    const sum = values.reduce((a, b) => a + b, 0)
-    return Math.round(sum / values.length)
-  }, [items, localStatusMap])
 
-  // Top 5 proyectos en riesgo (heurística)
+    if (totalPhases === 0) return 0
+    return Math.round((delayCount / totalPhases) * 100)
+  }
+
+  // % con atraso (cálculo basado en fases atrasadas por fechas asignadas)
+  const delayedPct = useMemo(() => {
+    if (!items.length || !adminPhases.length) return 0
+
+    const delayScores = items.map(s => calculateSubjectDelayPct(s))
+    if (delayScores.length === 0) return 0
+    const avg = delayScores.reduce((a, b) => a + b, 0) / delayScores.length
+    return Math.round(avg)
+  }, [items, adminPhases, cycleVersion])
+
+  // Escuchar cambios en el almacenamiento local para actualizar KPIs
   function riskScore(s: any) {
     let score = 0
     const st = mapStatus(s)
@@ -116,8 +153,30 @@ export default function COORD_DASH() {
     if (!s?.teacher) score += 2
     if (!s?.career_name) score += 1
     if (!s?.area_name) score += 1
+    
+    // Agregar puntuación por atraso
+    const delayPct = calculateSubjectDelayPct(s)
+    if (delayPct >= 50) score += 4  // Alto riesgo por atraso significativo
+    else if (delayPct >= 30) score += 2  // Riesgo moderado
+    
     return score
   }
+  // Función para obtener detalles del riesgo
+  function getRiskDetails(s: Subject, score: number): string[] {
+    const details: string[] = []
+    const st = mapStatus(s)
+    if (st === 'Observada') details.push('Estado: Observada')
+    if (!s?.teacher) details.push('Sin docente asignado')
+    if (!s?.career_name) details.push('Sin carrera asignada')
+    if (!s?.area_name) details.push('Sin área asignada')
+    
+    const delayPct = calculateSubjectDelayPct(s)
+    if (delayPct >= 50) details.push(`${delayPct}% de fases en atraso`)
+    else if (delayPct >= 30) details.push(`${delayPct}% de fases en atraso`)
+    
+    return details
+  }
+
   // Clasificación de riesgo y listado (solo proyectos con riesgo > 0)
   function riskLevel(score: number): 'Sin riesgo' | 'Bajo' | 'Medio' | 'Alto' {
     if (score <= 0) return 'Sin riesgo'
@@ -133,14 +192,14 @@ export default function COORD_DASH() {
   }, [items])
   const topRisk = useMemo(() => allRisk.slice(0, 1), [allRisk])
   const [showMoreRisk, setShowMoreRisk] = useState(false)
+  const [selectedRiskDetail, setSelectedRiskDetail] = useState<{ s: Subject; score: number } | null>(null)
 
   useEffect(() => {
     try {
       ;(window as any).kpi = kpi
       ;(window as any).delayedPct = delayedPct
-      ;(window as any).avgCycleDays = avgCycleDays
     } catch {}
-  }, [kpi, delayedPct, avgCycleDays])
+  }, [kpi, delayedPct])
 
   function norm(s: string) {
     try { return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase() } catch { return s.toLowerCase() }
@@ -231,13 +290,12 @@ export default function COORD_DASH() {
       </div>
 
       {/* KPIs avanzados */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
         <KpiCard title="% con atraso" value={`${delayedPct}%`} tone="amber" linkTo="/coord/asignaturas?filter=atraso" subtitle="Sobre el total de proyectos" />
-        <KpiCard title="Tiempo de ciclo promedio" value={avgCycleDays === null ? '-' : `${avgCycleDays} días`} tone="zinc" subtitle="Promedio estimado" />
         <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ring-zinc-200">
           <div className="mb-2 flex items-center justify-between">
             <div className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Proyectos en Riesgo</div>
-            <a href="/coord/asignaturas?filter=riesgo" className="text-xs font-medium text-red-700 hover:underline">Ver detalle</a>
+            <button onClick={() => setShowMoreRisk(true)} className="text-xs font-medium text-red-700 hover:underline">Ver detalle</button>
           </div>
           {(showMoreRisk ? allRisk : topRisk).length === 0 ? (
             <div className="text-sm text-zinc-600">Sin datos</div>
@@ -282,6 +340,69 @@ export default function COORD_DASH() {
           </div>
         </div>
       </div>
+
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <button onClick={exportCsvPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (CSV)</button>
+        <button onClick={exportPdfPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (PDF)</button>
+      </div>
+
+      {/* Modal: Proyectos en Riesgo Detallado */}
+      {showMoreRisk ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setShowMoreRisk(false)}>
+          <div className="w-full max-w-3xl rounded-lg border border-zinc-200 bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between border-b border-zinc-200 p-4">
+              <h2 className="text-lg font-semibold">Proyectos en Riesgo</h2>
+              <button onClick={() => setShowMoreRisk(false)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
+            </div>
+            <div className="max-h-[70vh] overflow-auto p-4">
+              {allRisk.length === 0 ? (
+                <div className="text-sm text-zinc-600">No hay proyectos en riesgo</div>
+              ) : (
+                <div className="space-y-4">
+                  {allRisk.map(({ s, score }) => {
+                    const lvl = riskLevel(score)
+                    const details = getRiskDetails(s, score)
+                    const cls = lvl === 'Alto'
+                      ? 'border-red-200 bg-red-50'
+                      : lvl === 'Medio' || lvl === 'Bajo'
+                      ? 'border-amber-200 bg-amber-50'
+                      : 'border-zinc-200 bg-zinc-50'
+                    const headCls = lvl === 'Alto'
+                      ? 'text-red-700'
+                      : lvl === 'Medio' || lvl === 'Bajo'
+                      ? 'text-amber-700'
+                      : 'text-zinc-700'
+                    const badgeCls = lvl === 'Alto'
+                      ? 'bg-red-100 text-red-700'
+                      : lvl === 'Medio' || lvl === 'Bajo'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-zinc-100 text-zinc-700'
+                    return (
+                      <div key={(s as any).id} className={`rounded-lg border-2 p-4 ${cls}`}>
+                        <div className="mb-2 flex items-start justify-between">
+                          <div>
+                            <h3 className={`font-semibold ${headCls}`}>{s.name}</h3>
+                            <p className="text-xs text-zinc-600">{s.code}-{s.section}</p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${badgeCls}`}>{lvl}</span>
+                        </div>
+                        <div className="text-sm">
+                          <p className="mb-2 font-medium text-zinc-700">Motivos del riesgo:</p>
+                          <ul className="space-y-1 pl-4">
+                            {details.map((detail, idx) => (
+                              <li key={idx} className="list-disc text-zinc-600">{detail}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mb-4 flex items-center justify-end gap-2">
         <button onClick={exportCsvPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (CSV)</button>
@@ -478,7 +599,6 @@ function exportCsv() {
     ['Observada', String((window as any).kpi?.Observada ?? '')],
     ['Aprobada', String((window as any).kpi?.Aprobada ?? '')],
     ['% con atraso', String((window as any).delayedPct ?? '')],
-    ['Tiempo de ciclo promedio (días)', String((window as any).avgCycleDays ?? '')],
   ]
   const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -507,7 +627,6 @@ function exportPdf() {
         <tr><td>Observada</td><td>${(window as any).kpi?.Observada ?? ''}</td></tr>
         <tr><td>Aprobada</td><td>${(window as any).kpi?.Aprobada ?? ''}</td></tr>
         <tr><td>% con atraso</td><td>${(window as any).delayedPct ?? ''}%</td></tr>
-        <tr><td>Tiempo de ciclo promedio (días)</td><td>${(window as any).avgCycleDays ?? '-'}</td></tr>
       </tbody>
     </table>
     <script>window.onload = () => setTimeout(() => window.print(), 300)</script>
@@ -525,7 +644,6 @@ function exportCsvPhases() {
     ['Fase 3: Validación de requerimientos', String((window as any).phaseKpi?.['Fase 3'] ?? '')],
     ['Aprobada', String((window as any).kpi?.Aprobada ?? '')],
     ['% con atraso', String((window as any).delayedPct ?? '')],
-    ['Tiempo de ciclo promedio (días)', String((window as any).avgCycleDays ?? '')],
   ]
   const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -554,7 +672,6 @@ function exportPdfPhases() {
         <tr><td>Fase 3: Validación de requerimientos</td><td>${(window as any).phaseKpi?.['Fase 3'] ?? ''}</td></tr>
         <tr><td>Aprobada</td><td>${(window as any).kpi?.Aprobada ?? ''}</td></tr>
         <tr><td>% con atraso</td><td>${(window as any).delayedPct ?? ''}%</td></tr>
-        <tr><td>Tiempo de ciclo promedio (días)</td><td>${(window as any).avgCycleDays ?? '-'}</td></tr>
       </tbody>
     </table>
     <script>window.onload = () => setTimeout(() => window.print(), 300)</script>

@@ -53,6 +53,7 @@ import ProyectoDetalle from './routes/dc/ProyectoDetalle'
 import Fichas from './routes/doc/Fichas'
 import FichasDC from './routes/dc/Fichas'
 import FichasVCM from './routes/vcm/Fichas'
+import FichasCoord from './routes/coord/Fichas'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -117,6 +118,7 @@ export const router = createBrowserRouter([
       { path: 'coord/asignaturas/:id', loader: requireRoleLoader('COORD'), element: <AsignaturaCoordDetalle /> },
       { path: 'coord/asignaturas/:id/empresa/:companyId', loader: requireRoleLoader('COORD'), element: <EmpresaDetalle /> },
       { path: 'coord/docentes', loader: requireRoleLoader('COORD'), element: <DocentesCoord /> },
+      { path: 'coord/fichas', loader: requireRoleLoader('COORD'), element: <FichasCoord /> },
       { path: 'coord/estado', loader: requireRoleLoader('COORD'), element: <EstadoCoord /> },
       { path: 'coord/gantt', loader: requireRoleLoader('COORD'), element: <Gantt /> },
       { path: 'coord/reportes', loader: requireRoleLoader('COORD'), element: <Reportes /> },

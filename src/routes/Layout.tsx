@@ -88,6 +88,7 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
         { to: '/coord/gantt', label: 'Gantt', icon: <IconCalendar />, matchPrefix: '/coord/gantt' },
         { to: '/coord/reportes', label: 'Reportes', icon: <IconChart />, matchPrefix: '/coord/reportes' },
         { to: '/coord/notificaciones', label: 'Notificaciones', icon: <IconBell />, matchPrefix: '/coord/notificaciones' },
+        { to: '/coord/fichas', label: 'Fichas', icon: <IconFileText />, matchPrefix: '/coord/fichas' },
         { to: '/coord/docentes', label: 'Docentes', icon: <IconUsers />, matchPrefix: '/coord/docentes', showOnDesktop: false },
       ],
     },

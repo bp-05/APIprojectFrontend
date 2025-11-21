@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, type Subject } from '../../api/subjects'
+import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
+import { usePeriodStore } from '../../store/period'
 
 type PhaseMark = 'nr' | 'ec' | 'rz'
 type PhaseMarks = { 1?: PhaseMark; 2?: PhaseMark; 3?: PhaseMark }
 
 export default function Gantt() {
   const [items, setItems] = useState<Subject[]>([])
+  const [adminPhases, setAdminPhases] = useState<PeriodPhaseSchedule[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -14,6 +17,9 @@ export default function Gantt() {
   const [marksMap, setMarksMap] = useState<Record<number, PhaseMarks>>(() => {
     try { return JSON.parse(localStorage.getItem('coordGanttMarks') || '{}') } catch { return {} }
   })
+  const season = usePeriodStore((s) => s.season)
+  const year = usePeriodStore((s) => s.year)
+
   function saveMarksMap(next: Record<number, PhaseMarks>) {
     setMarksMap(next)
     try { localStorage.setItem('coordGanttMarks', JSON.stringify(next)) } catch {}
@@ -23,8 +29,12 @@ export default function Gantt() {
     setLoading(true)
     setError(null)
     try {
-      const data = await listSubjects()
+      const [data, phases] = await Promise.all([
+        listSubjects(),
+        listPeriodPhaseSchedules({ period_year: year, period_season: season }),
+      ])
       setItems(data)
+      setAdminPhases(phases || [])
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar asignaturas'
       setError(msg)
@@ -32,11 +42,44 @@ export default function Gantt() {
       setLoading(false)
     }
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [season, year])
 
   function openGantt(s: Subject) {
     setGanttTarget(s)
-    setMarks(marksMap[s.id] || {})
+    const currentMarks = marksMap[s.id] || {}
+    // Auto-marcar fases vencidas sin marca como "no realizado"
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const updatedMarks = { ...currentMarks }
+    
+    for (let phaseNum = 1; phaseNum <= 3; phaseNum++) {
+      // Solo auto-marcar si no hay marca previa
+      if (!updatedMarks[phaseNum as 1 | 2 | 3]) {
+        const phaseSchedule = adminPhases.find(p => {
+          const phaseKey = String(p.phase || '').toLowerCase()
+          return phaseNum === 1 ? phaseKey === 'formulacion'
+               : phaseNum === 2 ? phaseKey === 'gestion'
+               : phaseNum === 3 ? phaseKey === 'validacion'
+               : false
+        })
+        
+        if (phaseSchedule && phaseSchedule.end_date) {
+          const endDate = new Date(phaseSchedule.end_date)
+          endDate.setHours(0, 0, 0, 0)
+          // Si la fecha ya pasó y no hay marca, marcar como "no realizado"
+          if (today > endDate) {
+            updatedMarks[phaseNum as 1 | 2 | 3] = 'nr'
+          }
+        }
+      }
+    }
+    
+    setMarks(updatedMarks)
+    // Si hubo cambios, guardar
+    if (JSON.stringify(updatedMarks) !== JSON.stringify(currentMarks)) {
+      const mapNext = { ...marksMap, [s.id]: updatedMarks }
+      saveMarksMap(mapNext)
+    }
   }
 
   function updateMark(phase: 1 | 2 | 3, t: PhaseMark) {
