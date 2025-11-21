@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, type Subject } from '../../api/subjects'
+import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
+import { usePeriodStore } from '../../store/period'
 
 export default function COORD_DASH() {
   const [items, setItems] = useState<Subject[]>([])
@@ -10,13 +12,21 @@ export default function COORD_DASH() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterInput, setFilterInput] = useState('')
   const [filters, setFilters] = useState<Array<{ key: 'docente' | 'carrera' | 'area'; value?: string }>>([])
+  const [adminPhases, setAdminPhases] = useState<PeriodPhaseSchedule[]>([])
+  const [showPhasesModal, setShowPhasesModal] = useState<number | null>(null)
+  const season = usePeriodStore((s) => s.season)
+  const year = usePeriodStore((s) => s.year)
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      const data = await listSubjects()
+      const [data, phases] = await Promise.all([
+        listSubjects(),
+        listPeriodPhaseSchedules({ period_year: year, period_season: season }),
+      ])
       setItems(Array.isArray(data) ? data : [])
+      setAdminPhases(phases || [])
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar proyectos'
       setError(msg)
@@ -25,7 +35,7 @@ export default function COORD_DASH() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [season, year])
 
   // Escuchar cambios de estado local de proyectos para sincronizar KPIs
   useEffect(() => {
@@ -177,15 +187,6 @@ export default function COORD_DASH() {
   useEffect(() => {
     try { (window as any).phaseKpi = phaseKpi } catch {}
   }, [phaseKpi])
-  function startDateLabel(subjectId: number) {
-    const c = (localCycleMap as any)[subjectId] as LocalCycle | undefined
-    const ph = c?.phase
-    const iso = ph && c?.phases ? c.phases[ph]?.start : c?.start
-    if (!iso) return '-'
-    const d = new Date(iso)
-    if (isNaN(d.getTime())) return '-'
-    try { return d.toLocaleDateString() } catch { return iso.slice(0, 10) }
-  }
 
   function addFilterFromInput() {
     const raw = filterInput.trim()
@@ -333,21 +334,20 @@ export default function COORD_DASH() {
               <Th>Asignatura</Th>
               <Th>Área</Th>
               <Th>Carrera</Th>
-              <Th>Fecha de inicio</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={4}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={5}>No hay proyectos activos</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={4}>No hay proyectos activos</td>
               </tr>
             ) : (
               filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-zinc-50">
+                <tr key={s.id} onClick={() => setShowPhasesModal(s.id)} className="cursor-pointer hover:bg-zinc-100 transition-colors">
                   <Td>{s.teacher_name || '-'}</Td>
                   <Td>
                     <div className="text-sm">{s.name}</div>
@@ -355,15 +355,80 @@ export default function COORD_DASH() {
                   </Td>
                   <Td>{s.area_name || '-'}</Td>
                   <Td>{s.career_name || '-'}</Td>
-                  <Td>{startDateLabel(s.id)}</Td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {showPhasesModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setShowPhasesModal(null)}>
+          <div className="w-full max-w-2xl rounded-lg border border-zinc-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Fechas de fases asignadas</h2>
+              <button onClick={() => setShowPhasesModal(null)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {adminPhases.length === 0 ? (
+                <div className="text-sm text-zinc-600">Sin fases configuradas</div>
+              ) : (
+                sortPhases(adminPhases).map((phase) => (
+                  <div key={phase.id} className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-xs font-medium text-zinc-600">Fase:</div>
+                        <div className="text-zinc-800">{formatPhaseName(phase.phase)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-zinc-600">Fecha de inicio:</div>
+                        <div className="text-zinc-800">{formatDate(phase.start_date) || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-zinc-600">Fecha de término:</div>
+                        <div className="text-zinc-800">{formatDate(phase.end_date) || '-'}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
+
+  function formatPhaseName(phase: string): string {
+    const labels: Record<string, string> = {
+      'inicio': 'Inicio',
+      'formulacion': 'Formulación de requerimientos',
+      'gestion': 'Gestión de requerimientos',
+      'validacion': 'Validación de requerimientos',
+      'completado': 'Completado',
+    }
+    return labels[phase] || phase
+  }
+
+  function sortPhases(phases: PeriodPhaseSchedule[]): PeriodPhaseSchedule[] {
+    const order = ['inicio', 'formulacion', 'gestion', 'validacion', 'completado']
+    return [...phases].sort((a, b) => {
+      const indexA = order.indexOf(a.phase)
+      const indexB = order.indexOf(b.phase)
+      return indexA - indexB
+    })
+  }
+
+  function formatDate(dateStr: string | null): string {
+    if (!dateStr) return ''
+    try {
+      const d = new Date(dateStr)
+      if (isNaN(d.getTime())) return ''
+      return d.toLocaleDateString('es-CL')
+    } catch {
+      return ''
+    }
+  }
 }
 
 function Th({ children, className = '' }: { children: any; className?: string }) {
