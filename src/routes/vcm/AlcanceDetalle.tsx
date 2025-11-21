@@ -1,63 +1,36 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import toast from 'react-hot-toast'
-import { listCompanies, type Company } from '../../api/companies'
+import {
+  getEngagementScope,
+  updateEngagementScope,
+  deleteEngagementScope,
+  type CompanyEngagementScope,
+} from '../../api/companies'
 import { getSubject, type Subject } from '../../api/subjects'
-
-interface EngagementScope {
-  id: number
-  scope_description: string
-  benefits: string
-  subject: number
-  company: number
-}
-
-// Simulación temporal - reemplazar con API real cuando esté disponible
-async function listEngagementScopes() {
-  return [] as EngagementScope[]
-}
 
 export default function AlcanceDetalle() {
   const navigate = useNavigate()
   const { id } = useParams()
   const alcanceId = Number(id)
-  const [alcance, setAlcance] = useState<EngagementScope | null>(null)
+  const [alcance, setAlcance] = useState<CompanyEngagementScope | null>(null)
   const [subject, setSubject] = useState<Subject | null>(null)
-  const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editMode, setEditMode] = useState(false)
-  const [formData, setFormData] = useState({
-    scope_description: '',
-    benefits: '',
-  })
+  const [formData, setFormData] = useState<Partial<CompanyEngagementScope>>({})
 
   useEffect(() => {
     const loadAlcance = async () => {
       try {
         setLoading(true)
-        const scopes = await listEngagementScopes()
-        const found = scopes.find(a => a.id === alcanceId)
+        const scope = await getEngagementScope(alcanceId)
+        setAlcance(scope)
+        setFormData(scope)
         
-        if (found) {
-          setAlcance(found)
-          setFormData({
-            scope_description: found.scope_description || '',
-            benefits: found.benefits || '',
-          })
-          
-          // Cargar información de empresa y asignatura
-          const [companies, subj] = await Promise.all([
-            listCompanies(),
-            getSubject(found.subject),
-          ])
-          
-          const foundCompany = companies.find(c => c.id === found.company)
-          if (foundCompany) setCompany(foundCompany)
-          if (subj) setSubject(subj)
-        } else {
-          setError('Alcance no encontrado')
-        }
+        // Cargar información de asignatura
+        const subj = await getSubject(scope.subject)
+        if (subj) setSubject(subj)
         setError(null)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Error al cargar el alcance')
@@ -71,7 +44,7 @@ export default function AlcanceDetalle() {
   const handleDelete = async () => {
     if (!confirm('¿Estás seguro de que deseas eliminar este alcance? Esta acción no se puede deshacer.')) return
     try {
-      // Implementar llamada a API cuando esté disponible
+      await deleteEngagementScope(alcanceId)
       toast.success('Alcance eliminado')
       navigate('/vcm/alcances')
     } catch (e) {
@@ -82,8 +55,8 @@ export default function AlcanceDetalle() {
   const handleUpdate = async () => {
     if (!alcance) return
     try {
-      // Implementar llamada a API cuando esté disponible
-      setAlcance(prev => prev ? { ...prev, ...formData } : null)
+      await updateEngagementScope(alcanceId, formData as Omit<CompanyEngagementScope, 'id'>)
+      setAlcance(prev => prev ? { ...prev, ...formData } as CompanyEngagementScope : null)
       toast.success('Alcance actualizado')
       setEditMode(false)
     } catch (e) {
@@ -116,10 +89,7 @@ export default function AlcanceDetalle() {
               <button
                 onClick={() => {
                   setEditMode(false)
-                  setFormData({
-                    scope_description: alcance.scope_description || '',
-                    benefits: alcance.benefits || '',
-                  })
+                  setFormData(alcance)
                 }}
                 className="rounded-md bg-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-400"
               >
@@ -148,7 +118,7 @@ export default function AlcanceDetalle() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-zinc-900">Alcance #{alcance.id}</h1>
         <p className="text-sm text-zinc-600 mt-2">
-          {subject?.name && company?.name && `${subject.name} · ${company.name}`}
+          {subject && `${subject.name} (${subject.code}-${subject.section})`}
         </p>
       </div>
 
@@ -156,38 +126,73 @@ export default function AlcanceDetalle() {
         {editMode ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-2">Descripción del alcance</label>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">¿Qué beneficios podría aportar un estudiante a su organización?</label>
               <textarea
-                value={formData.scope_description}
-                onChange={(e) => setFormData({ ...formData, scope_description: e.target.value })}
-                rows={4}
+                value={formData.benefits_from_student || ''}
+                onChange={(e) => setFormData({ ...formData, benefits_from_student: e.target.value })}
+                rows={3}
                 className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-2">Beneficios</label>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">¿Cuánto tiempo le gustaría disponer para esta experiencia? ¿Podría participar durante el semestre?</label>
               <textarea
-                value={formData.benefits}
-                onChange={(e) => setFormData({ ...formData, benefits: e.target.value })}
-                rows={4}
+                value={formData.time_availability_and_participation || ''}
+                onChange={(e) => setFormData({ ...formData, time_availability_and_participation: e.target.value })}
+                rows={3}
                 className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">¿Qué horarios de reunión tiene disponible?</label>
+              <textarea
+                value={formData.meeting_schedule_availability || ''}
+                onChange={(e) => setFormData({ ...formData, meeting_schedule_availability: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.has_value_or_research_project || false}
+                onChange={(e) => setFormData({ ...formData, has_value_or_research_project: e.target.checked })}
+                className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600"
+              />
+              <label className="text-sm text-zinc-700">¿Tiene un proyecto de investigación o de valor agregado?</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.workplace_has_conditions_for_group || false}
+                onChange={(e) => setFormData({ ...formData, workplace_has_conditions_for_group: e.target.checked })}
+                className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-600"
+              />
+              <label className="text-sm text-zinc-700">¿Su lugar de trabajo presenta condiciones para recibir al grupo de estudiantes?</label>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
-            {alcance.scope_description && (
-              <div>
-                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Descripción del alcance</h2>
-                <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{alcance.scope_description}</p>
-              </div>
-            )}
-            {alcance.benefits && (
-              <div>
-                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Beneficios</h2>
-                <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{alcance.benefits}</p>
-              </div>
-            )}
+            <div>
+              <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Beneficios que podría aportar un estudiante</h2>
+              <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{alcance.benefits_from_student || '-'}</p>
+            </div>
+            <div>
+              <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Tiempo disponible y participación</h2>
+              <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{alcance.time_availability_and_participation || '-'}</p>
+            </div>
+            <div>
+              <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Horarios de reunión disponibles</h2>
+              <p className="mt-2 text-sm text-zinc-900 whitespace-pre-wrap">{alcance.meeting_schedule_availability || '-'}</p>
+            </div>
+            <div>
+              <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">¿Tiene proyecto de investigación o valor agregado?</h2>
+              <p className="mt-2 text-sm text-zinc-900">{alcance.has_value_or_research_project ? 'Sí' : 'No'}</p>
+            </div>
+            <div>
+              <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">¿Lugar de trabajo con condiciones para el grupo?</h2>
+              <p className="mt-2 text-sm text-zinc-900">{alcance.workplace_has_conditions_for_group ? 'Sí' : 'No'}</p>
+            </div>
           </div>
         )}
       </div>

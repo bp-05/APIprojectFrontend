@@ -3,11 +3,8 @@ import { toast } from 'react-hot-toast'
 import { useNavigate } from 'react-router'
 import {
   createEngagementScope,
-  deleteEngagementScope,
-  listCompanies,
   listEngagementScopes,
   updateEngagementScope,
-  type Company,
   type CompanyEngagementScope,
 } from '../../api/companies'
 import { listSubjects, type Subject } from '../../api/subjects'
@@ -15,7 +12,6 @@ import { listSubjects, type Subject } from '../../api/subjects'
 export default function Alcances() {
   const navigate = useNavigate()
   const [items, setItems] = useState<CompanyEngagementScope[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,13 +22,11 @@ export default function Alcances() {
     setLoading(true)
     setError(null)
     try {
-      const [as, cs, ss] = await Promise.all([
+      const [as, ss] = await Promise.all([
         listEngagementScopes(),
-        listCompanies(),
         listSubjects(),
       ])
       setItems(as)
-      setCompanies(cs)
       setSubjects(ss)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar datos'
@@ -46,14 +40,9 @@ export default function Alcances() {
     load()
   }, [])
 
-  const companiesById = useMemo(() => {
-    const m = new Map<number, Company>()
-    companies.forEach((c) => m.set(c.id, c))
-    return m
-  }, [companies])
-  const subjectsByCodeSection = useMemo(() => {
-    const m = new Map<string, Subject>()
-    subjects.forEach((s) => m.set(`${s.code}-${s.section}`, s))
+  const subjectsById = useMemo(() => {
+    const m = new Map<number, Subject>()
+    subjects.forEach((s) => m.set(s.id, s))
     return m
   }, [subjects])
 
@@ -69,16 +58,6 @@ export default function Alcances() {
   function openCreate() {
     setEditing(null)
     setShowForm(true)
-  }
-  function openEdit(a: CompanyEngagementScope) {
-    setEditing(a)
-    setShowForm(true)
-  }
-  async function onDelete(a: CompanyEngagementScope) {
-    if (!confirm('¿Eliminar alcance seleccionado?')) return
-    await deleteEngagementScope(a.id)
-    toast.success('Alcance eliminado')
-    await load()
   }
 
   return (
@@ -101,25 +80,22 @@ export default function Alcances() {
         <table className="min-w-full divide-y divide-zinc-200">
           <thead className="bg-zinc-50">
             <tr>
-              <Th>Empresa</Th>
               <Th>Asignatura</Th>
               <Th>Beneficios</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={2}>Cargando…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={3}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={2}>Sin resultados</td></tr>
             ) : (
               items.map((a) => (
                 <tr key={a.id} className="hover:bg-zinc-50 cursor-pointer" onClick={(event) => handleRowClick(event, a.id)}>
-                  <Td>{companiesById.get(a.company)?.name || `#${a.company}`}</Td>
                   <Td>
                     {(() => {
-                      const key = `${a.subject_code}-${a.subject_section}`
-                      const subj = subjectsByCodeSection.get(key)
-                      return subj ? `${subj.name} (${key})` : key
+                      const subj = subjectsById.get(a.subject)
+                      return subj ? `${subj.code}-${subj.section} - ${subj.name}` : `#${a.subject}`
                     })()}
                   </Td>
                   <Td>{a.benefits_from_student || '-'}</Td>
@@ -133,7 +109,6 @@ export default function Alcances() {
       {showForm && (
         <AlcanceForm
           initial={editing || undefined}
-          companies={companies}
           subjects={subjects}
           onClose={() => setShowForm(false)}
           onSaved={async () => {
@@ -157,25 +132,18 @@ function Td({ children, className = '' }: { children: React.ReactNode; className
 
 function AlcanceForm({
   initial,
-  companies,
   subjects,
   onClose,
   onSaved,
 }: {
   initial?: CompanyEngagementScope
-  companies: Company[]
   subjects: Subject[]
   onClose: () => void
   onSaved: () => void | Promise<void>
 }) {
-  const [company, setCompany] = useState<number>(initial?.company || 0)
-  const [subjectId, setSubjectId] = useState<number>(initial ? -1 : 0)
+  const [subjectId, setSubjectId] = useState<number>(initial?.subject || 0)
   const [form, setForm] = useState<Omit<CompanyEngagementScope, 'id'>>({
-    company,
-    subject_code: initial?.subject_code || '',
-    subject_section: initial?.subject_section || '',
-    subject_period_season: initial?.subject_period_season || '',
-    subject_period_year: initial?.subject_period_year || new Date().getFullYear(),
+    subject: initial?.subject || 0,
     benefits_from_student: initial?.benefits_from_student || '',
     has_value_or_research_project: initial?.has_value_or_research_project || false,
     time_availability_and_participation: initial?.time_availability_and_participation || '',
@@ -185,22 +153,8 @@ function AlcanceForm({
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    setForm((f) => ({ ...f, company }))
-  }, [company])
-
-  useEffect(() => {
-    if (initial) return
-    const subj = subjects.find((s) => s.id === subjectId)
-    if (subj) {
-      setForm((f) => ({ 
-        ...f, 
-        subject_code: subj.code, 
-        subject_section: subj.section,
-        subject_period_season: subj.period_season,
-        subject_period_year: subj.period_year,
-      }))
-    }
-  }, [subjectId, subjects, initial])
+    setForm((f) => ({ ...f, subject: subjectId }))
+  }, [subjectId])
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -210,11 +164,7 @@ function AlcanceForm({
     e.preventDefault()
     
     // Validaciones
-    if (!company) {
-      toast.error('Selecciona una Empresa')
-      return
-    }
-    if (!form.subject_code || !form.subject_section) {
+    if (!subjectId) {
       toast.error('Selecciona una Asignatura')
       return
     }
@@ -233,14 +183,9 @@ function AlcanceForm({
     
     setSaving(true)
     try {
-      // Asegurar que se envía el company actualizado
-      const payload = { ...form, company }
+      // Asegurar que se envía el subject actualizado
+      const payload = { ...form, subject: subjectId }
       
-      if (!initial) {
-        if (!company || !payload.subject_code || !payload.subject_section) {
-          throw new Error('Seleccione empresa y asignatura')
-        }
-      }
       if (initial) {
         await updateEngagementScope(initial.id, payload)
         toast.success('Alcance actualizado')
@@ -274,18 +219,10 @@ function AlcanceForm({
           {/* Botón Cerrar superior eliminado para unificar formato */}
         </div>
         <form className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 sm:px-6" onSubmit={onSubmit}>
-          <Select
-            label="Empresa"
-            value={String(company || '')}
-            onChange={(v) => setCompany(Number(v))}
-            options={companies.map((c) => ({ value: String(c.id), label: c.name }))}
-            placeholder={companies.length === 0 ? 'Sin empresas disponibles' : 'Seleccionar empresa'}
-            disabled={companies.length === 0}
-          />
           {initial ? (
             <Text
-              label="Asignatura (code-section)"
-              value={`${form.subject_code}-${form.subject_section}`}
+              label="Asignatura"
+              value={subjects.find(s => s.id === initial.subject)?.name || `#${initial.subject}`}
               onChange={() => {}}
               readOnly
             />

@@ -181,19 +181,18 @@ export type CompanyEngagementScope = {
   time_availability_and_participation: string
   workplace_has_conditions_for_group: boolean
   meeting_schedule_availability: string
-  company: number
-  subject_code: string
-  subject_section: string
-  subject_period_season: string
-  subject_period_year: number
+  subject: number
 }
 
 export async function listEngagementScopes(params?: {
-  company?: number
-  subject_code?: string
-  subject_section?: string
+  subject?: number
 }) {
   const { data } = await http.get<CompanyEngagementScope[]>('/engagement-scopes/', { params })
+  return data
+}
+
+export async function getEngagementScope(id: number) {
+  const { data } = await http.get<CompanyEngagementScope>(`/engagement-scopes/${id}/`)
   return data
 }
 
