@@ -33,30 +33,29 @@ function formatRutInput(value: string): string {
   
   const input = value.toUpperCase()
   
+  // Extraer solo dígitos y K
   let cleaned = ''
   for (let i = 0; i < input.length; i++) {
     const char = input[i]
-    if (/[0-9K.\-]/.test(char)) {
+    if (/[0-9K]/.test(char)) {
       cleaned += char
     }
   }
   
-  const withoutHyphen = cleaned.replace('-', '')
-  
+  // Separar número base y dígito verificador
   let numPart = ''
   let dvPart = ''
   
-  for (let i = 0; i < withoutHyphen.length; i++) {
-    const char = withoutHyphen[i]
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i]
     if (/[0-9]/.test(char) && numPart.length < 8) {
       numPart += char
-    } else if (/[0-9K]/.test(char)) {
-      dvPart += char
+    } else if (/[0-9K]/.test(char) && !dvPart) {
+      dvPart = char
     }
   }
   
-  dvPart = dvPart.slice(0, 1)
-  
+  // Formatear con puntos
   let formatted = ''
   if (numPart.length <= 2) {
     formatted = numPart
@@ -66,10 +65,9 @@ function formatRutInput(value: string): string {
     formatted = numPart.slice(0, 2) + '.' + numPart.slice(2, 5) + '.' + numPart.slice(5, 8)
   }
   
-  if (numPart.length === 8 && dvPart) {
+  // Agregar guión y dígito verificador solo si existe
+  if (dvPart) {
     formatted += '-' + dvPart
-  } else if (numPart.length === 8 && dvPart === '') {
-    formatted += '-'
   }
   
   return formatted
