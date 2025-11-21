@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, type Subject } from '../../api/subjects'
+import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
+import { usePeriodStore } from '../../store/period'
 
 export default function COORD_DASH() {
   const [items, setItems] = useState<Subject[]>([])
@@ -10,13 +12,21 @@ export default function COORD_DASH() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterInput, setFilterInput] = useState('')
   const [filters, setFilters] = useState<Array<{ key: 'docente' | 'carrera' | 'area'; value?: string }>>([])
+  const [adminPhases, setAdminPhases] = useState<PeriodPhaseSchedule[]>([])
+  const [showPhasesModal, setShowPhasesModal] = useState<number | null>(null)
+  const season = usePeriodStore((s) => s.season)
+  const year = usePeriodStore((s) => s.year)
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      const data = await listSubjects()
+      const [data, phases] = await Promise.all([
+        listSubjects(),
+        listPeriodPhaseSchedules({ period_year: year, period_season: season }),
+      ])
       setItems(Array.isArray(data) ? data : [])
+      setAdminPhases(phases || [])
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar proyectos'
       setError(msg)
@@ -25,7 +35,7 @@ export default function COORD_DASH() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [season, year])
 
   // Escuchar cambios de estado local de proyectos para sincronizar KPIs
   useEffect(() => {
@@ -79,26 +89,63 @@ export default function COORD_DASH() {
     return result
   }, [items, localStatusMap])
 
-  // % con atraso (heurística: estados Observada considerados con atraso)
-  const delayedPct = useMemo(() => {
-    if (!items.length) return 0
-    const delayed = items.filter((s) => mapStatus(s) === 'Observada').length
-    return Math.round((delayed / items.length) * 100)
-  }, [items, localStatusMap])
+  // Función para obtener estados guardados localmente en Gantt
+  function readGanttMarks(): Record<number, Record<number, string>> {
+    try { return JSON.parse(localStorage.getItem('coordGanttMarks') || '{}') } catch { return {} }
+  }
 
-  // Tiempo de ciclo promedio en días (si hay algún campo de duración, usarlo; de lo contrario, mostrar '-')
-  const avgCycleDays = useMemo(() => {
-    const values: number[] = []
-    for (const s of items as any[]) {
-      const d = Number(s?.cycle_days ?? s?.duration_days ?? s?.avg_cycle_days)
-      if (Number.isFinite(d) && d > 0) values.push(d)
+  // Función para calcular % de atraso de una asignatura
+  function calculateSubjectDelayPct(subject: Subject): number {
+    const ganttMarks = readGanttMarks()
+    const subjectMarks = ganttMarks[subject.id] || {}
+    
+    let delayCount = 0
+    let totalPhases = 0
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    for (let phaseNum = 1; phaseNum <= 3; phaseNum++) {
+      const phaseMark = subjectMarks[phaseNum]
+      
+      // Buscar la fecha de inicio y término para esta fase
+      const phaseSchedule = adminPhases.find(p => {
+        const phaseKey = String(p.phase || '').toLowerCase()
+        return phaseNum === 1 ? phaseKey === 'formulacion'
+             : phaseNum === 2 ? phaseKey === 'gestion'
+             : phaseNum === 3 ? phaseKey === 'validacion'
+             : false
+      })
+
+      if (phaseSchedule && phaseSchedule.start_date && phaseSchedule.end_date) {
+        totalPhases++
+        const startDate = new Date(phaseSchedule.start_date)
+        startDate.setHours(0, 0, 0, 0)
+        const endDate = new Date(phaseSchedule.end_date)
+        endDate.setHours(0, 0, 0, 0)
+        
+        if (phaseMark !== 'rz') {
+          if (today < startDate || today > endDate) {
+            delayCount++
+          }
+        }
+      }
     }
-    if (!values.length) return null
-    const sum = values.reduce((a, b) => a + b, 0)
-    return Math.round(sum / values.length)
-  }, [items, localStatusMap])
 
-  // Top 5 proyectos en riesgo (heurística)
+    if (totalPhases === 0) return 0
+    return Math.round((delayCount / totalPhases) * 100)
+  }
+
+  // % con atraso (cálculo basado en fases atrasadas por fechas asignadas)
+  const delayedPct = useMemo(() => {
+    if (!items.length || !adminPhases.length) return 0
+
+    const delayScores = items.map(s => calculateSubjectDelayPct(s))
+    if (delayScores.length === 0) return 0
+    const avg = delayScores.reduce((a, b) => a + b, 0) / delayScores.length
+    return Math.round(avg)
+  }, [items, adminPhases, cycleVersion])
+
+  // Escuchar cambios en el almacenamiento local para actualizar KPIs
   function riskScore(s: any) {
     let score = 0
     const st = mapStatus(s)
@@ -106,8 +153,30 @@ export default function COORD_DASH() {
     if (!s?.teacher) score += 2
     if (!s?.career_name) score += 1
     if (!s?.area_name) score += 1
+    
+    // Agregar puntuación por atraso
+    const delayPct = calculateSubjectDelayPct(s)
+    if (delayPct >= 50) score += 4  // Alto riesgo por atraso significativo
+    else if (delayPct >= 30) score += 2  // Riesgo moderado
+    
     return score
   }
+  // Función para obtener detalles del riesgo
+  function getRiskDetails(s: Subject, score: number): string[] {
+    const details: string[] = []
+    const st = mapStatus(s)
+    if (st === 'Observada') details.push('Estado: Observada')
+    if (!s?.teacher) details.push('Sin docente asignado')
+    if (!s?.career_name) details.push('Sin carrera asignada')
+    if (!s?.area_name) details.push('Sin área asignada')
+    
+    const delayPct = calculateSubjectDelayPct(s)
+    if (delayPct >= 50) details.push(`${delayPct}% de fases en atraso`)
+    else if (delayPct >= 30) details.push(`${delayPct}% de fases en atraso`)
+    
+    return details
+  }
+
   // Clasificación de riesgo y listado (solo proyectos con riesgo > 0)
   function riskLevel(score: number): 'Sin riesgo' | 'Bajo' | 'Medio' | 'Alto' {
     if (score <= 0) return 'Sin riesgo'
@@ -123,14 +192,14 @@ export default function COORD_DASH() {
   }, [items])
   const topRisk = useMemo(() => allRisk.slice(0, 1), [allRisk])
   const [showMoreRisk, setShowMoreRisk] = useState(false)
+  const [selectedRiskDetail, setSelectedRiskDetail] = useState<{ s: Subject; score: number } | null>(null)
 
   useEffect(() => {
     try {
       ;(window as any).kpi = kpi
       ;(window as any).delayedPct = delayedPct
-      ;(window as any).avgCycleDays = avgCycleDays
     } catch {}
-  }, [kpi, delayedPct, avgCycleDays])
+  }, [kpi, delayedPct])
 
   function norm(s: string) {
     try { return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase() } catch { return s.toLowerCase() }
@@ -177,15 +246,6 @@ export default function COORD_DASH() {
   useEffect(() => {
     try { (window as any).phaseKpi = phaseKpi } catch {}
   }, [phaseKpi])
-  function startDateLabel(subjectId: number) {
-    const c = (localCycleMap as any)[subjectId] as LocalCycle | undefined
-    const ph = c?.phase
-    const iso = ph && c?.phases ? c.phases[ph]?.start : c?.start
-    if (!iso) return '-'
-    const d = new Date(iso)
-    if (isNaN(d.getTime())) return '-'
-    try { return d.toLocaleDateString() } catch { return iso.slice(0, 10) }
-  }
 
   function addFilterFromInput() {
     const raw = filterInput.trim()
@@ -218,8 +278,18 @@ export default function COORD_DASH() {
 
   return (
     <section className="p-6">
-      <div className="mb-6 mt-2 text-center">
+      <div className="mb-6 mt-2 flex items-center justify-between">
         <h1 className="text-2xl">Panel de Coordinador</h1>
+        <div className="flex gap-2">
+          <button onClick={exportCsvPhases} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            CSV
+          </button>
+          <button onClick={exportPdfPhases} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            PDF
+          </button>
+        </div>
       </div>
       {/* KPI Cards */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -230,13 +300,12 @@ export default function COORD_DASH() {
       </div>
 
       {/* KPIs avanzados */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
         <KpiCard title="% con atraso" value={`${delayedPct}%`} tone="amber" linkTo="/coord/asignaturas?filter=atraso" subtitle="Sobre el total de proyectos" />
-        <KpiCard title="Tiempo de ciclo promedio" value={avgCycleDays === null ? '-' : `${avgCycleDays} días`} tone="zinc" subtitle="Promedio estimado" />
         <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ring-zinc-200">
           <div className="mb-2 flex items-center justify-between">
             <div className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Proyectos en Riesgo</div>
-            <a href="/coord/asignaturas?filter=riesgo" className="text-xs font-medium text-red-700 hover:underline">Ver detalle</a>
+            <button onClick={() => setShowMoreRisk(true)} className="text-xs font-medium text-red-700 hover:underline">Ver detalle</button>
           </div>
           {(showMoreRisk ? allRisk : topRisk).length === 0 ? (
             <div className="text-sm text-zinc-600">Sin datos</div>
@@ -282,10 +351,64 @@ export default function COORD_DASH() {
         </div>
       </div>
 
-      <div className="mb-4 flex items-center justify-end gap-2">
-        <button onClick={exportCsvPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (CSV)</button>
-        <button onClick={exportPdfPhases} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar KPIs (PDF)</button>
-      </div>
+      {/* Modal: Proyectos en Riesgo Detallado */}
+      {showMoreRisk ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setShowMoreRisk(false)}>
+          <div className="w-full max-w-3xl rounded-lg border border-zinc-200 bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between border-b border-zinc-200 p-4">
+              <h2 className="text-lg font-semibold">Proyectos en Riesgo</h2>
+              <button onClick={() => setShowMoreRisk(false)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
+            </div>
+            <div className="max-h-[70vh] overflow-auto p-4">
+              {allRisk.length === 0 ? (
+                <div className="text-sm text-zinc-600">No hay proyectos en riesgo</div>
+              ) : (
+                <div className="space-y-4">
+                  {allRisk.map(({ s, score }) => {
+                    const lvl = riskLevel(score)
+                    const details = getRiskDetails(s, score)
+                    const cls = lvl === 'Alto'
+                      ? 'border-red-200 bg-red-50'
+                      : lvl === 'Medio' || lvl === 'Bajo'
+                      ? 'border-amber-200 bg-amber-50'
+                      : 'border-zinc-200 bg-zinc-50'
+                    const headCls = lvl === 'Alto'
+                      ? 'text-red-700'
+                      : lvl === 'Medio' || lvl === 'Bajo'
+                      ? 'text-amber-700'
+                      : 'text-zinc-700'
+                    const badgeCls = lvl === 'Alto'
+                      ? 'bg-red-100 text-red-700'
+                      : lvl === 'Medio' || lvl === 'Bajo'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-zinc-100 text-zinc-700'
+                    return (
+                      <div key={(s as any).id} className={`rounded-lg border-2 p-4 ${cls}`}>
+                        <div className="mb-2 flex items-start justify-between">
+                          <div>
+                            <h3 className={`font-semibold ${headCls}`}>{s.name}</h3>
+                            <p className="text-xs text-zinc-600">{s.code}-{s.section}</p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${badgeCls}`}>{lvl}</span>
+                        </div>
+                        <div className="text-sm">
+                          <p className="mb-2 font-medium text-zinc-700">Motivos del riesgo:</p>
+                          <ul className="space-y-1 pl-4">
+                            {details.map((detail, idx) => (
+                              <li key={idx} className="list-disc text-zinc-600">{detail}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Proyectos API en curso</h1>
@@ -333,21 +456,20 @@ export default function COORD_DASH() {
               <Th>Asignatura</Th>
               <Th>Área</Th>
               <Th>Carrera</Th>
-              <Th>Fecha de inicio</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={4}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={5}>No hay proyectos activos</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={4}>No hay proyectos activos</td>
               </tr>
             ) : (
               filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-zinc-50">
+                <tr key={s.id} onClick={() => setShowPhasesModal(s.id)} className="cursor-pointer hover:bg-zinc-100 transition-colors">
                   <Td>{s.teacher_name || '-'}</Td>
                   <Td>
                     <div className="text-sm">{s.name}</div>
@@ -355,15 +477,80 @@ export default function COORD_DASH() {
                   </Td>
                   <Td>{s.area_name || '-'}</Td>
                   <Td>{s.career_name || '-'}</Td>
-                  <Td>{startDateLabel(s.id)}</Td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {showPhasesModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setShowPhasesModal(null)}>
+          <div className="w-full max-w-2xl rounded-lg border border-zinc-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Fechas de fases asignadas</h2>
+              <button onClick={() => setShowPhasesModal(null)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {adminPhases.length === 0 ? (
+                <div className="text-sm text-zinc-600">Sin fases configuradas</div>
+              ) : (
+                sortPhases(adminPhases).map((phase) => (
+                  <div key={phase.id} className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-xs font-medium text-zinc-600">Fase:</div>
+                        <div className="text-zinc-800">{formatPhaseName(phase.phase)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-zinc-600">Fecha de inicio:</div>
+                        <div className="text-zinc-800">{formatDate(phase.start_date) || '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-zinc-600">Fecha de término:</div>
+                        <div className="text-zinc-800">{formatDate(phase.end_date) || '-'}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
+
+  function formatPhaseName(phase: string): string {
+    const labels: Record<string, string> = {
+      'inicio': 'Inicio',
+      'formulacion': 'Formulación de requerimientos',
+      'gestion': 'Gestión de requerimientos',
+      'validacion': 'Validación de requerimientos',
+      'completado': 'Completado',
+    }
+    return labels[phase] || phase
+  }
+
+  function sortPhases(phases: PeriodPhaseSchedule[]): PeriodPhaseSchedule[] {
+    const order = ['inicio', 'formulacion', 'gestion', 'validacion', 'completado']
+    return [...phases].sort((a, b) => {
+      const indexA = order.indexOf(a.phase)
+      const indexB = order.indexOf(b.phase)
+      return indexA - indexB
+    })
+  }
+
+  function formatDate(dateStr: string | null): string {
+    if (!dateStr) return ''
+    try {
+      const d = new Date(dateStr)
+      if (isNaN(d.getTime())) return ''
+      return d.toLocaleDateString('es-CL')
+    } catch {
+      return ''
+    }
+  }
 }
 
 function Th({ children, className = '' }: { children: any; className?: string }) {
@@ -413,7 +600,6 @@ function exportCsv() {
     ['Observada', String((window as any).kpi?.Observada ?? '')],
     ['Aprobada', String((window as any).kpi?.Aprobada ?? '')],
     ['% con atraso', String((window as any).delayedPct ?? '')],
-    ['Tiempo de ciclo promedio (días)', String((window as any).avgCycleDays ?? '')],
   ]
   const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -442,7 +628,6 @@ function exportPdf() {
         <tr><td>Observada</td><td>${(window as any).kpi?.Observada ?? ''}</td></tr>
         <tr><td>Aprobada</td><td>${(window as any).kpi?.Aprobada ?? ''}</td></tr>
         <tr><td>% con atraso</td><td>${(window as any).delayedPct ?? ''}%</td></tr>
-        <tr><td>Tiempo de ciclo promedio (días)</td><td>${(window as any).avgCycleDays ?? '-'}</td></tr>
       </tbody>
     </table>
     <script>window.onload = () => setTimeout(() => window.print(), 300)</script>
@@ -460,7 +645,6 @@ function exportCsvPhases() {
     ['Fase 3: Validación de requerimientos', String((window as any).phaseKpi?.['Fase 3'] ?? '')],
     ['Aprobada', String((window as any).kpi?.Aprobada ?? '')],
     ['% con atraso', String((window as any).delayedPct ?? '')],
-    ['Tiempo de ciclo promedio (días)', String((window as any).avgCycleDays ?? '')],
   ]
   const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -477,22 +661,163 @@ function exportPdfPhases() {
   if (!w) return
   const d = new Date()
   const html = `<!doctype html><html><head><meta charset="utf-8" /><title>KPIs Coordinador</title>
-    <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;padding:24px;color:#111} h1{font-size:20px;margin:0 0 12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ddd;padding:8px;text-align:left} th{background:#f5f5f5}</style>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: #f9fafb;
+        padding: 40px 20px;
+        color: #1f2937;
+        min-height: 100vh;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        overflow: hidden;
+      }
+      .header {
+        background: white;
+        border-bottom: 1px solid #d1d5db;
+        padding: 32px 24px;
+        text-align: left;
+      }
+      .header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 4px;
+      }
+      .header p {
+        font-size: 14px;
+        color: #6b7280;
+      }
+      .content {
+        padding: 32px 24px;
+      }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .meta-item {
+        font-size: 13px;
+        color: #6b7280;
+      }
+      .meta-item strong {
+        color: #1f2937;
+        font-weight: 600;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0;
+      }
+      th {
+        background: #f3f4f6;
+        color: #1f2937;
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 13px;
+        border-bottom: 2px solid #d1d5db;
+      }
+      td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 13px;
+      }
+      tbody tr:hover {
+        background-color: #f9fafb;
+      }
+      tbody tr:last-child td {
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .metric {
+        color: #374151;
+        font-weight: 500;
+      }
+      .value {
+        color: #1f2937;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .footer {
+        text-align: center;
+        padding: 16px 24px;
+        background: #f3f4f6;
+        border-top: 1px solid #e5e7eb;
+        font-size: 11px;
+        color: #9ca3af;
+      }
+      .print-hint {
+        text-align: center;
+        padding: 12px 24px;
+        background: #fee2e2;
+        border-bottom: 1px solid #fecaca;
+        font-size: 12px;
+        color: #991b1b;
+      }
+      @media print {
+        body { background: white; padding: 0; }
+        .container { box-shadow: none; border-radius: 0; }
+        .print-hint { display: none; }
+      }
+    </style>
   </head><body>
-    <h1>KPIs Coordinador</h1>
-    <div>Fecha: ${d.toLocaleString()}</div>
-    <table style="margin-top:12px">
-      <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
-      <tbody>
-        <tr><td>Fase 1: Formulación de requerimientos</td><td>${(window as any).phaseKpi?.['Fase 1'] ?? ''}</td></tr>
-        <tr><td>Fase 2: Gestión de Requerimientos</td><td>${(window as any).phaseKpi?.['Fase 2'] ?? ''}</td></tr>
-        <tr><td>Fase 3: Validación de requerimientos</td><td>${(window as any).phaseKpi?.['Fase 3'] ?? ''}</td></tr>
-        <tr><td>Aprobada</td><td>${(window as any).kpi?.Aprobada ?? ''}</td></tr>
-        <tr><td>% con atraso</td><td>${(window as any).delayedPct ?? ''}%</td></tr>
-        <tr><td>Tiempo de ciclo promedio (días)</td><td>${(window as any).avgCycleDays ?? '-'}</td></tr>
-      </tbody>
-    </table>
-    <script>window.onload = () => setTimeout(() => window.print(), 300)</script>
+    <div class="container">
+      <div class="header">
+        <h1>KPIs Coordinador</h1>
+        <p>Reporte de Métricas y Desempeño</p>
+      </div>
+      <div class="print-hint">
+        Usa Ctrl+P o Cmd+P para imprimir este documento como PDF
+      </div>
+      <div class="content">
+        <div class="meta">
+          <div class="meta-item"><strong>Período:</strong> ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+          <div class="meta-item"><strong>Hora:</strong> ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Métrica</th>
+              <th>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="metric">Fase 1: Formulación de requerimientos</td>
+              <td class="value">${(window as any).phaseKpi?.['Fase 1'] ?? '-'} proyectos</td>
+            </tr>
+            <tr>
+              <td class="metric">Fase 2: Gestión de Requerimientos</td>
+              <td class="value">${(window as any).phaseKpi?.['Fase 2'] ?? '-'} proyectos</td>
+            </tr>
+            <tr>
+              <td class="metric">Fase 3: Validación de requerimientos</td>
+              <td class="value">${(window as any).phaseKpi?.['Fase 3'] ?? '-'} proyectos</td>
+            </tr>
+            <tr>
+              <td class="metric">Aprobada</td>
+              <td class="value">${(window as any).kpi?.Aprobada ?? '-'} proyectos</td>
+            </tr>
+            <tr>
+              <td class="metric">% con atraso</td>
+              <td class="value">${(window as any).delayedPct ?? '-'}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer">
+        API Projects Management System - Documento generado automáticamente
+      </div>
+    </div>
   </body></html>`
   w.document.open()
   w.document.write(html)
