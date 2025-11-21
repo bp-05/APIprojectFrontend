@@ -53,6 +53,13 @@ import ProyectoDetalle from './routes/dc/ProyectoDetalle'
 import Fichas from './routes/doc/Fichas'
 import FichasDC from './routes/dc/Fichas'
 import FichasVCM from './routes/vcm/Fichas'
+import AdminProyectos from './routes/admin/Proyectos'
+import AdminProyectoDetalle from './routes/admin/ProyectoDetalle'
+import AdminAlcances from './routes/admin/Alcances'
+import AdminAlcanceDetalle from './routes/admin/AlcanceDetalle'
+import AdminPosibleContraparte from './routes/admin/PosibleContraparte'
+import AdminPosibleContraparteDetalle from './routes/admin/PosibleContraparteDetalle'
+import AdminFichas from './routes/admin/Fichas'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -77,6 +84,13 @@ export const router = createBrowserRouter([
       { path: 'usuarios', loader: requireRoleLoader('ADMIN'), element: <Usuarios /> },
       { path: 'empresas', loader: requireRoleLoader('ADMIN'), element: <EmpresasAdmin /> },
       { path: 'empresas/:id', loader: requireRoleLoader('ADMIN'), element: <EmpresaDetalleAdmin /> },
+      { path: 'admin/proyectos', loader: requireRoleLoader('ADMIN'), element: <AdminProyectos /> },
+      { path: 'admin/proyectos/:id', loader: requireRoleLoader('ADMIN'), element: <AdminProyectoDetalle /> },
+      { path: 'admin/alcances', loader: requireRoleLoader('ADMIN'), element: <AdminAlcances /> },
+      { path: 'admin/alcances/:id', loader: requireRoleLoader('ADMIN'), element: <AdminAlcanceDetalle /> },
+      { path: 'admin/posible-contraparte', loader: requireRoleLoader('ADMIN'), element: <AdminPosibleContraparte /> },
+      { path: 'admin/posible-contraparte/:subjectId', loader: requireRoleLoader('ADMIN'), element: <AdminPosibleContraparteDetalle /> },
+      { path: 'admin/fichas', loader: requireRoleLoader('ADMIN'), element: <AdminFichas /> },
       { path: 'asignaturas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Asignaturas /> },
       { path: 'asignaturas/:id', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <AsignaturaDetalle /> },
       { path: 'areas', loader: requireAnyRoleLoader(['DAC', 'ADMIN']), element: <Areas /> },
