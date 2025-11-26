@@ -174,28 +174,27 @@ export default function EmpresaDetalleAdmin() {
 
   return (
     <section className="p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm text-zinc-600">Edición de empresa</p>
-          <h1 className="text-xl font-semibold">{form.name || 'Empresa'}</h1>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => navigate('/empresas')}
-            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
-          >
-            Volver
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={removing || loading}
-            className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
-          >
-            {removing ? 'Eliminando...' : 'Eliminar'}
-          </button>
-        </div>
+      <div className="mb-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => navigate('/empresas')}
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
+        >
+          Volver
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={removing || loading}
+          className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
+        >
+          {removing ? 'Eliminando...' : 'Eliminar'}
+        </button>
+      </div>
+
+      <div className="mb-4">
+        <p className="text-sm text-zinc-600">Edición de empresa</p>
+        <h1 className="text-xl font-semibold">{form.name || 'Empresa'}</h1>
       </div>
 
       {error ? (

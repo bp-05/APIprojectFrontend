@@ -80,10 +80,10 @@ export default function AdminProyectoDetalle() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <button
           onClick={() => navigate('/admin/proyectos')}
-          className="text-sm text-red-600 hover:underline"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
         >
           Volver
         </button>
@@ -92,7 +92,7 @@ export default function AdminProyectoDetalle() {
             <>
               <button
                 onClick={handleUpdate}
-                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
               >
                 Guardar
               </button>
@@ -101,7 +101,7 @@ export default function AdminProyectoDetalle() {
                   setEditMode(false)
                   setFormData(proyecto)
                 }}
-                className="rounded-md bg-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-400"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
               >
                 Cancelar
               </button>
@@ -110,13 +110,13 @@ export default function AdminProyectoDetalle() {
             <>
               <button
                 onClick={() => setEditMode(true)}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
               >
                 Editar
               </button>
               <button
                 onClick={handleDelete}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
               >
                 Eliminar
               </button>
@@ -126,7 +126,7 @@ export default function AdminProyectoDetalle() {
       </div>
 
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-zinc-900">Proyecto #{proyecto.id}</h1>
+        <h1 className="text-xl font-semibold text-zinc-900">Proyecto #{proyecto.id}</h1>
         <div className="mt-2 space-y-1">
           {company && <p className="text-sm text-zinc-600">Empresa: {company.name}</p>}
           {subject && <p className="text-sm text-zinc-600">Asignatura: {subject.name} ({subject.code}-{subject.section})</p>}
