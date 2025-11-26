@@ -5,7 +5,6 @@ import {
   listCompanies,
   createCompany,
   updateCompany,
-  deleteCompany,
   createCounterpartContact,
   type Company,
   type CounterpartContact,
@@ -186,22 +185,6 @@ export default function EmpresasVCM() {
       api_type: 1,
       counterpart_contacts: [],
     } as Company)
-  }
-
-  function openEdit(c: Company) {
-    setEditing({ ...c, counterpart_contacts: c.counterpart_contacts || [] })
-  }
-
-  async function onDelete(c: Company) {
-    if (!confirm(`¿Eliminar empresa "${c.name}"?`)) return
-    try {
-      await deleteCompany(c.id)
-      toast.success('Empresa eliminada')
-      await load()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'No se pudo eliminar'
-      toast.error(msg)
-    }
   }
 
   return (

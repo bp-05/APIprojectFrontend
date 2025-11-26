@@ -275,30 +275,6 @@ function AlcanceForm({
   )
 }
 
-function Text({
-  label,
-  value,
-  onChange,
-  readOnly,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  readOnly?: boolean
-}) {
-  return (
-    <label className="block text-sm">
-      <span className="mb-1 block font-medium text-zinc-800">{label}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        readOnly={readOnly}
-        className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-      />
-    </label>
-  )
-}
-
 function Select({
   label,
   value,
