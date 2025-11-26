@@ -25,39 +25,27 @@ export default function EstadoCoord() {
   const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
   })
-  type PhaseName = 'Fase: Inicio' | 'Fase 1' | 'Fase 2' | 'Fase 3' | 'Fase: Completado'
-  type PhaseDates = { start?: string; end?: string }
-  type LocalCycleEntry = { phase: PhaseName; start?: string; end?: string; phases?: Record<PhaseName, PhaseDates> }
+
+  // Tipo de fase que usa valores del backend directamente
+  type PhaseName = 'inicio' | 'formulacion' | 'gestion' | 'validacion' | 'completado'
   
-  const PHASES = [
-    { value: 'Fase: Inicio' as PhaseName, label: 'Inicio', backendValue: 'inicio' },
-    { value: 'Fase 1' as PhaseName, label: 'Formulación de requerimientos', backendValue: 'formulacion' },
-    { value: 'Fase 2' as PhaseName, label: 'Gestión de requerimientos', backendValue: 'gestion' },
-    { value: 'Fase 3' as PhaseName, label: 'Validación de requerimientos', backendValue: 'validacion' },
-    { value: 'Fase: Completado' as PhaseName, label: 'Completado', backendValue: 'completado' },
+  const PHASES: { value: PhaseName; label: string }[] = [
+    { value: 'inicio', label: 'Inicio' },
+    { value: 'formulacion', label: 'Formulación de requerimientos' },
+    { value: 'gestion', label: 'Gestión de requerimientos' },
+    { value: 'validacion', label: 'Validación de requerimientos' },
+    { value: 'completado', label: 'Completado' },
   ]
 
-  // Mapeo de valores de frontend a backend
-  const phaseToBackend: Record<PhaseName, string> = {
-    'Fase: Inicio': 'inicio',
-    'Fase 1': 'formulacion',
-    'Fase 2': 'gestion',
-    'Fase 3': 'validacion',
-    'Fase: Completado': 'completado',
-  }
-
-  // Mapeo de valores de backend a frontend
-  const backendToPhase: Record<string, PhaseName> = {
+  // Mapeo de valores de backend a etiquetas completas
+  const phaseLabels: Record<PhaseName, string> = {
     'inicio': 'Fase: Inicio',
-    'formulacion': 'Fase 1',
-    'gestion': 'Fase 2',
-    'validacion': 'Fase 3',
+    'formulacion': 'Fase 1: Formulación de Requerimientos',
+    'gestion': 'Fase 2: Gestión de Requerimientos',
+    'validacion': 'Fase 3: Validación de requerimientos',
     'completado': 'Fase: Completado',
   }
-  
-  const [localCycle, setLocalCycle] = useState<Record<number, LocalCycleEntry>>(() => {
-    try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} }
-  })
+
   function saveLocalStatus(next: Record<number, LocalStatus>) {
     setLocalStatus(next)
     try {
@@ -65,6 +53,7 @@ export default function EstadoCoord() {
       window.dispatchEvent(new Event('coordSubjectStatusChanged'))
     } catch {}
   }
+
   function setStatus(id: number, status: ProjectState) {
     saveLocalStatus({
       ...localStatus,
@@ -75,26 +64,17 @@ export default function EstadoCoord() {
     })
   }
 
-  function saveCycle(next: Record<number, LocalCycleEntry>) {
-    setLocalCycle(next)
-    try {
-      localStorage.setItem('coordSubjectCycle', JSON.stringify(next))
-      window.dispatchEvent(new Event('coordSubjectCycleChanged'))
-    } catch {}
-  }
-
   // Estado para controlar cuál select está guardando
   const [savingPhase, setSavingPhase] = useState<number | null>(null)
 
   // Función para actualizar fase en el backend
   async function handlePhaseChange(subjectId: number, phase: PhaseName) {
-    const backendPhase = phaseToBackend[phase]
     setSavingPhase(subjectId)
     try {
-      await updateSubject(subjectId, { phase: backendPhase })
+      await updateSubject(subjectId, { phase })
       // Actualizar el item local con la nueva fase
       setItems((prev) =>
-        prev.map((s) => (s.id === subjectId ? { ...s, phase: backendPhase } : s))
+        prev.map((s) => (s.id === subjectId ? { ...s, phase } : s))
       )
       toast.success('Fase actualizada correctamente')
     } catch (e) {
@@ -149,37 +129,17 @@ export default function EstadoCoord() {
   }
 
   function phaseOf(s: Subject): PhaseName {
-    // Prioritize backend phase value from Subject
-    const backendPhase = (s as any)?.phase as string | undefined
-    if (backendPhase && backendToPhase[backendPhase]) {
-      return backendToPhase[backendPhase]
-    }
-    // Fallback to local cycle (for compatibility)
-    const local = localCycle[s.id]?.phase
-    return local || 'Fase: Inicio'
+    // Obtener fase directamente del Subject (base de datos)
+    const phase = s.phase as PhaseName
+    return phase || 'inicio'
   }
 
-  function phaseLabel(p?: string | null) {
-    const v = String(p || '').toLowerCase()
-    if (v === 'fase: inicio') return 'Fase: Inicio'
-    if (v === 'fase 1') return 'Fase 1: Formulación de Requerimientos'
-    if (v === 'fase 2') return 'Fase 2: Gestión de Requerimientos'
-    if (v === 'fase 3') return 'Fase 3: Validación de requerimientos'
-    if (v === 'fase: completado') return 'Fase: Completado'
-    return p || '-'
+  function phaseLabel(phase: PhaseName): string {
+    return phaseLabels[phase] || phase
   }
 
-  function getAdminPhaseInfo(phaseName: PhaseName): { start?: string; end?: string } | null {
-    // Map frontend phase names to backend phase names
-    const backendPhaseMap: Record<PhaseName, string> = {
-      'Fase: Inicio': 'inicio',
-      'Fase 1': 'formulacion',
-      'Fase 2': 'gestion',
-      'Fase 3': 'validacion',
-      'Fase: Completado': 'completado',
-    }
-    const backendPhaseName = backendPhaseMap[phaseName]
-    const schedule = adminPhaseSchedules.find((s) => s.phase.toLowerCase() === backendPhaseName.toLowerCase())
+  function getAdminPhaseInfo(phase: PhaseName): { start?: string; end?: string } | null {
+    const schedule = adminPhaseSchedules.find((s) => s.phase.toLowerCase() === phase.toLowerCase())
     return schedule ? { start: schedule.start_date || undefined, end: schedule.end_date || undefined } : null
   }
 
@@ -221,7 +181,7 @@ export default function EstadoCoord() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={'Buscar por cÃ³digo, secciÃ³n o nombre'}
+              placeholder="Buscar por código, sección o nombre"
               className="w-72 max-w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
             />
           )}
@@ -324,7 +284,7 @@ export default function EstadoCoord() {
               {(() => {
                 const id = editTarget?.id
                 const subject = items.find((s) => s.id === id)
-                const currentPhase = subject ? phaseOf(subject) : 'Fase: Inicio' as PhaseName
+                const currentPhase = subject ? phaseOf(subject) : 'inicio' as PhaseName
                 // Get admin dates for current phase
                 const adminInfo = getAdminPhaseInfo(currentPhase)
                 const startDate = adminInfo?.start || 'No asignadas'
