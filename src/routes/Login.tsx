@@ -36,8 +36,17 @@ export default function Login() {
       const storedRole = localStorage.getItem('user_role') as UserRole | null
       const role: UserRole | null = me.role || storedRole || null
       navigate(pathForRole(role))
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error de autenticación'
+    } catch (err: any) {
+      let message = 'Error de autenticación'
+      
+      if (err instanceof Error) {
+        message = err.message
+      } else if (err.response?.data?.detail) {
+        message = err.response.data.detail
+      } else if (err.response?.data?.non_field_errors) {
+        message = err.response.data.non_field_errors[0] || message
+      }
+      
       setError(message)
       toast.error(message)
     } finally {

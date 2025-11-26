@@ -93,7 +93,7 @@ export default function EmpresaDetalleVCM() {
       <div className="mb-6 flex items-center justify-between">
         <button
           onClick={() => navigate('/vcm/empresas')}
-          className="text-sm text-red-600 hover:underline"
+          className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
         >
           Volver
         </button>
@@ -102,7 +102,7 @@ export default function EmpresaDetalleVCM() {
             <>
               <button
                 onClick={handleUpdate}
-                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 Guardar
               </button>
@@ -119,7 +119,7 @@ export default function EmpresaDetalleVCM() {
                     sector: empresa.sector || '',
                   })
                 }}
-                className="rounded-md bg-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-400"
+                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
               >
                 Cancelar
               </button>
@@ -128,7 +128,7 @@ export default function EmpresaDetalleVCM() {
             <>
               <button
                 onClick={() => setEditMode(true)}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
               >
                 Editar
               </button>
