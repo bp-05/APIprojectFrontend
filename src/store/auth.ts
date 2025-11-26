@@ -44,19 +44,41 @@ export const useAuth = create<AuthState>((set) => ({
     set({ accessToken: access, refreshToken: refresh, isAuthenticated: !!access, role })
   },
   login: async (email: string, password: string) => {
-    const { data } = await axios.post(
-      `${apiBaseUrl()}${apiEnv.loginPath}`,
-      { email, password },
-      { headers: { 'Content-Type': 'application/json' }, timeout: apiEnv.timeout }
-    )
+    try {
+      const { data } = await axios.post(
+        `${apiBaseUrl()}${apiEnv.loginPath}`,
+        { email, password },
+        { headers: { 'Content-Type': 'application/json' }, timeout: apiEnv.timeout }
+      )
 
-    const access = data?.access as string | undefined
-    const refresh = data?.refresh as string | undefined
-    if (!access || !refresh) throw new Error('Respuesta de login inválida')
+      const access = data?.access as string | undefined
+      const refresh = data?.refresh as string | undefined
+      if (!access || !refresh) throw new Error('Respuesta de login inválida')
 
-    localStorage.setItem('access_token', access)
-    localStorage.setItem('refresh_token', refresh)
-    set({ accessToken: access, refreshToken: refresh, isAuthenticated: true })
+      localStorage.setItem('access_token', access)
+      localStorage.setItem('refresh_token', refresh)
+      set({ accessToken: access, refreshToken: refresh, isAuthenticated: true })
+      return // Login exitoso
+    } catch (error: any) {
+      // Si ya lanzamos un error interno (como "Respuesta de login inválida"), re-lanzarlo
+      if (error.message === 'Respuesta de login inválida') {
+        throw error
+      }
+      
+      // Manejo de errores HTTP específicos
+      if (error.response?.status === 401 || error.response?.status === 400) {
+        // Django devuelve 401 o 400 para credenciales incorrectas
+        throw new Error('Correo o contraseña incorrectos')
+      }
+      if (error.response?.status === 404) {
+        throw new Error('Usuario no encontrado')
+      }
+      if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
+        throw new Error('Error de conexión con el servidor')
+      }
+      // Error genérico
+      throw new Error(error.response?.data?.detail || error.message || 'Error de autenticación')
+    }
   },
   loadMe: async () => {
     const { data } = await http.get<MeResponse>('/users/me/')
