@@ -4,7 +4,6 @@ import {
   listSubjectPhaseProgress,
   bulkUpsertSubjectPhaseProgress,
   type Subject,
-  type SubjectPhaseProgress,
   type PhaseProgressPhase,
   type PhaseProgressStatus,
 } from '../../api/subjects'
@@ -352,7 +351,7 @@ function Td({ children, className = '' }: { children: any; className?: string })
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
 
-function MarkBtn({ phase, type, active, disabled, onSelect }: { phase: 1 | 2 | 3; type: PhaseMark; active: boolean; disabled?: boolean; onSelect: (t: PhaseMark) => void }) {
+function MarkBtn({ type, active, disabled, onSelect }: { phase: 1 | 2 | 3; type: PhaseMark; active: boolean; disabled?: boolean; onSelect: (t: PhaseMark) => void }) {
   const symbol = type === 'nr' ? '×' : type === 'ec' ? '…' : '✓'
   const classMap: Record<string, string> = {
     nrIdle: 'border-amber-300 text-amber-600 bg-white hover:bg-amber-50',
