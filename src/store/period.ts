@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { derivePeriodFromDate, makePeriodCode, normalizePeriodSeason, parsePeriodCode, PeriodSeason } from '../lib/period'
+import { derivePeriodFromDate, makePeriodCode, normalizePeriodSeason, parsePeriodCode, type PeriodSeason } from '../lib/period'
 
 const STORAGE_KEY = 'current_period'
 
