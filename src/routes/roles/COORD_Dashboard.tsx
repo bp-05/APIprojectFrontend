@@ -693,7 +693,7 @@ function exportPdfPhases() {
   doc.text(`Período: ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}`, 20, 40)
   doc.text(`Hora: ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`, 140, 40)
   
-  // Tabla de métricas
+  // Tabla resumen de métricas
   doc.setFontSize(11)
   doc.setTextColor(0, 0, 0)
   doc.setFont('helvetica', 'bold')
@@ -701,28 +701,17 @@ function exportPdfPhases() {
   let yPos = 55
   const tableStartY = yPos - 5
   
-  // Borde exterior negro de toda la tabla (se redibujará al final con altura correcta)
-  doc.setDrawColor(0, 0, 0)
-  doc.setLineWidth(0.5)
-  
   // Header de tabla con fondo rojo
-  doc.setFillColor(220, 38, 38) // bg-red-600
+  doc.setFillColor(220, 38, 38)
   doc.rect(20, yPos - 5, 170, 10, 'F')
-  doc.setTextColor(255, 255, 255) // text-white
+  doc.setTextColor(255, 255, 255)
   doc.text('Métrica', 25, yPos)
   doc.text('Valor', 155, yPos)
-  
-  // Línea separadora vertical entre columnas (negro)
-  doc.setDrawColor(0, 0, 0)
-  doc.setLineWidth(0.5)
-  
-  // Línea horizontal separando header de datos (negro) - se redibujará al final
   
   yPos += 10
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(0, 0, 0)
   
-  // Datos con bordes - orden: Inicio, Fase 1, 2, 3, Completado, % con atraso
   const metrics = [
     ['Inicio', `${(window as any).phaseKpi?.['Fase: Inicio'] ?? 0} proyectos`, false],
     ['Formulación de requerimientos', `${(window as any).phaseKpi?.['Fase 1'] ?? 0} proyectos`, false],
@@ -732,22 +721,20 @@ function exportPdfPhases() {
     ['% con atraso', `${(window as any).delayedPct ?? 0}%`, true] // true = tiene fondo de alerta
   ]
   
-  const updatedTableHeight = 10 + (metrics.length * 10) // Header + filas
+  const tableHeight = 10 + (metrics.length * 10)
   
-  doc.setDrawColor(229, 231, 235) // Bordes internos grises
+  doc.setDrawColor(229, 231, 235)
   doc.setLineWidth(0.3)
   
   metrics.forEach(([metric, value, isAlert], index) => {
-    // Fondo naranja para % con atraso
     if (isAlert) {
-      doc.setFillColor(254, 215, 170) // bg-orange-200
+      doc.setFillColor(254, 215, 170)
       doc.rect(20, yPos - 5, 170, 10, 'F')
     }
     
     doc.text(metric as string, 25, yPos)
     doc.text(value as string, 155, yPos)
     
-    // Línea horizontal entre filas (excepto la última)
     if (index < metrics.length - 1) {
       doc.line(20, yPos + 5, 190, yPos + 5)
     }
@@ -755,14 +742,11 @@ function exportPdfPhases() {
     yPos += 10
   })
   
-  // Redibujar bordes negros principales por encima de todo
+  // Bordes negros de la tabla
   doc.setDrawColor(0, 0, 0)
   doc.setLineWidth(0.5)
-  // Borde exterior completo
-  doc.rect(20, tableStartY, 170, updatedTableHeight, 'D')
-  // Línea vertical separadora
-  doc.line(150, tableStartY, 150, tableStartY + updatedTableHeight)
-  // Línea horizontal bajo el header
+  doc.rect(20, tableStartY, 170, tableHeight, 'D')
+  doc.line(150, tableStartY, 150, tableStartY + tableHeight)
   doc.line(20, tableStartY + 10, 190, tableStartY + 10)
   
   // Footer
@@ -773,3 +757,4 @@ function exportPdfPhases() {
   // Descargar PDF
   doc.save(`KPIs_Coordinador_${new Date().toISOString().slice(0,10)}.pdf`)
 }
+
