@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, type Subject } from '../../api/subjects'
 import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
 import { usePeriodStore } from '../../store/period'
+import jsPDF from 'jspdf'
 
 export default function COORD_DASH() {
   const [items, setItems] = useState<Subject[]>([])
@@ -229,16 +230,24 @@ export default function COORD_DASH() {
   }, [active, filters])
 
   // Lectura de fechas de ciclo locales (desde "Editar ciclo")
-  type LocalCycle = { phase: 'Fase 1' | 'Fase 2' | 'Fase 3'; start?: string; end?: string; phases?: Record<'Fase 1' | 'Fase 2' | 'Fase 3', { start?: string; end?: string }> }
+  type LocalCycle = { phase: 'Fase: Inicio' | 'Fase 1' | 'Fase 2' | 'Fase 3' | 'Fase: Completado'; start?: string; end?: string; phases?: Record<string, { start?: string; end?: string }> }
   function readLocalCycle(): Record<number, LocalCycle> {
     try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} as any }
   }
   const localCycleMap = useMemo(() => readLocalCycle(), [cycleVersion])
   const phaseKpi = useMemo(() => {
-    const res: Record<'Fase 1' | 'Fase 2' | 'Fase 3', number> = { 'Fase 1': 0, 'Fase 2': 0, 'Fase 3': 0 }
+    const res: Record<string, number> = { 
+      'Fase: Inicio': 0, 
+      'Fase 1': 0, 
+      'Fase 2': 0, 
+      'Fase 3': 0, 
+      'Fase: Completado': 0 
+    }
     for (const s of items as any[]) {
-      const p = (localCycleMap as any)[s.id]?.phase as 'Fase 1' | 'Fase 2' | 'Fase 3' | undefined
-      if (p === 'Fase 1' || p === 'Fase 2' || p === 'Fase 3') res[p] = (res[p] || 0) + 1
+      const p = (localCycleMap as any)[s.id]?.phase
+      if (p === 'Fase 1' || p === 'Fase 2' || p === 'Fase 3' || p === 'Fase: Inicio' || p === 'Fase: Completado') {
+        res[p] = (res[p] || 0) + 1
+      }
     }
     return res
   }, [items, localCycleMap])
@@ -292,11 +301,12 @@ export default function COORD_DASH() {
         </div>
       </div>
       {/* KPI Cards */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <KpiCard title="Inicio" value={phaseKpi['Fase: Inicio']} tone="zinc" linkTo="/coord/asignaturas?filter=inicio" />
         <KpiCard title="Fase 1: Formulación de requerimientos" value={phaseKpi['Fase 1']} tone="zinc" linkTo="/coord/asignaturas?filter=fase1" />
         <KpiCard title="Fase 2: Gestión de Requerimientos" value={phaseKpi['Fase 2']} tone="blue" linkTo="/coord/asignaturas?filter=fase2" />
         <KpiCard title="Fase 3: Validación de requerimientos" value={phaseKpi['Fase 3']} tone="amber" linkTo="/coord/asignaturas?filter=fase3" />
-        <KpiCard title="Proyectos Completados" value={kpi.Aprobada} tone="green" linkTo="/coord/asignaturas?filter=aprobada" />
+        <KpiCard title="Proyectos Completados" value={phaseKpi['Fase: Completado']} tone="green" linkTo="/coord/asignaturas?filter=completado" />
       </div>
 
       {/* KPIs avanzados */}
@@ -661,169 +671,105 @@ function exportCsvPhases() {
 }
 
 function exportPdfPhases() {
-  const w = window.open('', '_blank')
-  if (!w) return
+  const doc = new jsPDF()
   const d = new Date()
-  const html = `<!doctype html><html><head><meta charset="utf-8" /><title>KPIs Coordinador</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        background: #f9fafb;
-        padding: 40px 20px;
-        color: #1f2937;
-        min-height: 100vh;
-      }
-      .container {
-        max-width: 900px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        overflow: hidden;
-      }
-      .header {
-        background: white;
-        border-bottom: 1px solid #d1d5db;
-        padding: 32px 24px;
-        text-align: left;
-      }
-      .header h1 {
-        font-size: 28px;
-        font-weight: 700;
-        color: #1f2937;
-        margin-bottom: 4px;
-      }
-      .header p {
-        font-size: 14px;
-        color: #6b7280;
-      }
-      .content {
-        padding: 32px 24px;
-      }
-      .meta {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 24px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid #e5e7eb;
-      }
-      .meta-item {
-        font-size: 13px;
-        color: #6b7280;
-      }
-      .meta-item strong {
-        color: #1f2937;
-        font-weight: 600;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 0;
-      }
-      th {
-        background: #f3f4f6;
-        color: #1f2937;
-        padding: 12px 16px;
-        text-align: left;
-        font-weight: 600;
-        font-size: 13px;
-        border-bottom: 2px solid #d1d5db;
-      }
-      td {
-        padding: 12px 16px;
-        border-bottom: 1px solid #e5e7eb;
-        font-size: 13px;
-      }
-      tbody tr:hover {
-        background-color: #f9fafb;
-      }
-      tbody tr:last-child td {
-        border-bottom: 1px solid #e5e7eb;
-      }
-      .metric {
-        color: #374151;
-        font-weight: 500;
-      }
-      .value {
-        color: #1f2937;
-        font-weight: 600;
-        font-size: 14px;
-      }
-      .footer {
-        text-align: center;
-        padding: 16px 24px;
-        background: #f3f4f6;
-        border-top: 1px solid #e5e7eb;
-        font-size: 11px;
-        color: #9ca3af;
-      }
-      .print-hint {
-        text-align: center;
-        padding: 12px 24px;
-        background: #fee2e2;
-        border-bottom: 1px solid #fecaca;
-        font-size: 12px;
-        color: #991b1b;
-      }
-      @media print {
-        body { background: white; padding: 0; }
-        .container { box-shadow: none; border-radius: 0; }
-        .print-hint { display: none; }
-      }
-    </style>
-  </head><body>
-    <div class="container">
-      <div class="header">
-        <h1>KPIs Coordinador</h1>
-        <p>Reporte de Métricas y Desempeño</p>
-      </div>
-      <div class="print-hint">
-        Usa Ctrl+P o Cmd+P para imprimir este documento como PDF
-      </div>
-      <div class="content">
-        <div class="meta">
-          <div class="meta-item"><strong>Período:</strong> ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-          <div class="meta-item"><strong>Hora:</strong> ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Métrica</th>
-              <th>Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="metric">Fase 1: Formulación de requerimientos</td>
-              <td class="value">${(window as any).phaseKpi?.['Fase 1'] ?? '-'} proyectos</td>
-            </tr>
-            <tr>
-              <td class="metric">Fase 2: Gestión de Requerimientos</td>
-              <td class="value">${(window as any).phaseKpi?.['Fase 2'] ?? '-'} proyectos</td>
-            </tr>
-            <tr>
-              <td class="metric">Fase 3: Validación de requerimientos</td>
-              <td class="value">${(window as any).phaseKpi?.['Fase 3'] ?? '-'} proyectos</td>
-            </tr>
-            <tr>
-              <td class="metric">Aprobada</td>
-              <td class="value">${(window as any).kpi?.Aprobada ?? '-'} proyectos</td>
-            </tr>
-            <tr>
-              <td class="metric">% con atraso</td>
-              <td class="value">${(window as any).delayedPct ?? '-'}%</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="footer">
-        API Projects Management System - Documento generado automáticamente
-      </div>
-    </div>
-  </body></html>`
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
+  
+  // Título
+  doc.setFontSize(20)
+  doc.setFont('helvetica', 'bold')
+  doc.text('KPIs Coordinador', 20, 20)
+  
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Reporte de Métricas y Desempeño', 20, 28)
+  
+  // Línea separadora
+  doc.setDrawColor(200, 200, 200)
+  doc.line(20, 32, 190, 32)
+  
+  // Metadata
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Período: ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}`, 20, 40)
+  doc.text(`Hora: ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`, 140, 40)
+  
+  // Tabla de métricas
+  doc.setFontSize(11)
+  doc.setTextColor(0, 0, 0)
+  doc.setFont('helvetica', 'bold')
+  
+  let yPos = 55
+  const tableStartY = yPos - 5
+  
+  // Borde exterior negro de toda la tabla (se redibujará al final con altura correcta)
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.5)
+  
+  // Header de tabla con fondo rojo
+  doc.setFillColor(220, 38, 38) // bg-red-600
+  doc.rect(20, yPos - 5, 170, 10, 'F')
+  doc.setTextColor(255, 255, 255) // text-white
+  doc.text('Métrica', 25, yPos)
+  doc.text('Valor', 155, yPos)
+  
+  // Línea separadora vertical entre columnas (negro)
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.5)
+  
+  // Línea horizontal separando header de datos (negro) - se redibujará al final
+  
+  yPos += 10
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(0, 0, 0)
+  
+  // Datos con bordes - orden: Inicio, Fase 1, 2, 3, Completado, % con atraso
+  const metrics = [
+    ['Inicio', `${(window as any).phaseKpi?.['Fase: Inicio'] ?? 0} proyectos`, false],
+    ['Formulación de requerimientos', `${(window as any).phaseKpi?.['Fase 1'] ?? 0} proyectos`, false],
+    ['Gestión de requerimientos', `${(window as any).phaseKpi?.['Fase 2'] ?? 0} proyectos`, false],
+    ['Validación de requerimientos', `${(window as any).phaseKpi?.['Fase 3'] ?? 0} proyectos`, false],
+    ['Completado', `${(window as any).phaseKpi?.['Fase: Completado'] ?? 0} proyectos`, false],
+    ['% con atraso', `${(window as any).delayedPct ?? 0}%`, true] // true = tiene fondo de alerta
+  ]
+  
+  const updatedTableHeight = 10 + (metrics.length * 10) // Header + filas
+  
+  doc.setDrawColor(229, 231, 235) // Bordes internos grises
+  doc.setLineWidth(0.3)
+  
+  metrics.forEach(([metric, value, isAlert], index) => {
+    // Fondo naranja para % con atraso
+    if (isAlert) {
+      doc.setFillColor(254, 215, 170) // bg-orange-200
+      doc.rect(20, yPos - 5, 170, 10, 'F')
+    }
+    
+    doc.text(metric as string, 25, yPos)
+    doc.text(value as string, 155, yPos)
+    
+    // Línea horizontal entre filas (excepto la última)
+    if (index < metrics.length - 1) {
+      doc.line(20, yPos + 5, 190, yPos + 5)
+    }
+    
+    yPos += 10
+  })
+  
+  // Redibujar bordes negros principales por encima de todo
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.5)
+  // Borde exterior completo
+  doc.rect(20, tableStartY, 170, updatedTableHeight, 'D')
+  // Línea vertical separadora
+  doc.line(150, tableStartY, 150, tableStartY + updatedTableHeight)
+  // Línea horizontal bajo el header
+  doc.line(20, tableStartY + 10, 190, tableStartY + 10)
+  
+  // Footer
+  doc.setFontSize(8)
+  doc.setTextColor(150, 150, 150)
+  doc.text('API Projects Management System - Documento generado automáticamente', 105, 280, { align: 'center' })
+  
+  // Descargar PDF
+  doc.save(`KPIs_Coordinador_${new Date().toISOString().slice(0,10)}.pdf`)
 }
