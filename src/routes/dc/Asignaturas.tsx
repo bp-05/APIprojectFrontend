@@ -522,11 +522,11 @@ export default function DCAsignaturas() {
     try {
       if (boundaryForm.id) {
         await updateBoundaryCondition(boundaryForm.id, {
-          large_company: boundaryForm.large_company,
-          medium_company: boundaryForm.medium_company,
-          small_company: boundaryForm.small_company,
-          family_enterprise: boundaryForm.family_enterprise,
-          not_relevant: boundaryForm.not_relevant,
+          large_company: boundaryForm.large_company ?? false,
+          medium_company: boundaryForm.medium_company ?? false,
+          small_company: boundaryForm.small_company ?? false,
+          family_enterprise: boundaryForm.family_enterprise ?? false,
+          not_relevant: boundaryForm.not_relevant ?? false,
           company_type_description: boundaryForm.company_type_description,
           company_requirements_for_level_2_3: boundaryForm.company_requirements_for_level_2_3,
           project_minimum_elements: boundaryForm.project_minimum_elements,
@@ -1133,20 +1133,18 @@ function CollapsibleSection({
 }) {
   return (
     <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-zinc-50"
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex w-full items-center justify-between px-4 py-3 transition hover:bg-zinc-50">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
           <span className="text-base font-semibold text-zinc-900">{title}</span>
           <span className="text-xs text-zinc-500">{open ? 'Ocultar' : 'Mostrar'}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          {actions}
           <span className="text-lg text-zinc-500">{open ? '▾' : '▸'}</span>
-        </div>
-      </button>
+        </button>
+        {actions ? <div className="flex items-center gap-3">{actions}</div> : null}
+      </div>
       {open ? <div className="border-t border-zinc-100 p-4 sm:p-6">{children}</div> : null}
     </div>
   )
