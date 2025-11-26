@@ -270,7 +270,7 @@ export default function AsignaturaCoordDetalle() {
                   <div className="text-xs uppercase tracking-wide text-zinc-500">Docente</div>
                   {subject.teacher ? (
                     <>
-                      <div className="font-medium">{nameCase(subject.teacher_name || teacher?.full_name || teacher?.email || '') || '-'}</div>
+                      <div className="font-medium">{nameCase(subject.teacher_name || (teacher ? `${teacher.first_name} ${teacher.last_name}`.trim() : '') || teacher?.email || '') || '-'}</div>
                       <div className="text-xs text-zinc-600">{teacher?.email || '-'}</div>
                     </>
                   ) : (
