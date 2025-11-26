@@ -63,6 +63,7 @@ export async function createSubject(
     | 'hours'
     | 'api_type'
     | 'campus'
+    | 'shift'
     | 'area'
     | 'semester'
     | 'period_year'

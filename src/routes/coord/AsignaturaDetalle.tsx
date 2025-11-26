@@ -242,20 +242,6 @@ export default function AsignaturaCoordDetalle() {
     }
   }
 
-  async function removeTeacher() {
-    if (!subject) return
-    setTeacherError(null)
-    try {
-      await updateSubject(subject.id, { teacher: null })
-      const s = await getSubject(subject.id)
-      setSubject(s)
-      setTeacher(null)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'No se pudo eliminar el docente'
-      setTeacherError(msg)
-    }
-  }
-
   return (
     <section className="p-6">
       <div className="mb-2 flex items-center justify-between gap-3">

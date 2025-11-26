@@ -6,7 +6,7 @@ import {
   updatePeriodPhaseSchedule,
   type PeriodPhaseSchedule,
 } from '../api/periods'
-import { PeriodSeason, normalizePeriodSeason } from '../lib/period'
+import { type PeriodSeason, normalizePeriodSeason } from '../lib/period'
 import { usePeriodStore } from '../store/period'
 
 const PHASES: Array<{ value: string; label: string }> = [

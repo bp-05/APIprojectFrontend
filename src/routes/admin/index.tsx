@@ -90,15 +90,6 @@ export default function AdminDashboard() {
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }))
   }, [problems, subjects])
 
-  const hasData =
-    totalSubjects > 0 ||
-    totalAreas > 0 ||
-    totalCareers > 0 ||
-    (companyTotal !== null && companyTotal > 0) ||
-    (problemTotal !== null && problemTotal > 0) ||
-    (engagementScopesTotal !== null && engagementScopesTotal > 0) ||
-    (companyRequirementsTotal !== null && companyRequirementsTotal > 0)
-
   return (
     <section className="space-y-8 p-6">
       <div className="flex flex-col gap-1">
