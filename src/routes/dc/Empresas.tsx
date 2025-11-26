@@ -76,18 +76,19 @@ export default function DCEmpresas() {
               <Th>Sector</Th>
               <Th>Direccion (Principal)</Th>
               <Th>Empleados</Th>
+              <Th>Contacto</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={6}>
+                <td className="p-4 text-sm text-zinc-600" colSpan={7}>
                   Cargando...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={6}>
+                <td className="p-4 text-sm text-zinc-600" colSpan={7}>
                   Sin resultados
                 </td>
               </tr>
@@ -112,6 +113,7 @@ export default function DCEmpresas() {
                   <Td>{company.sector || '-'}</Td>
                   <Td>{company.address || '-'}</Td>
                   <Td>{company.employees_count ?? '-'}</Td>
+                  <Td>{company.counterpart_contacts?.[0]?.name || '-'}</Td>
                 </tr>
               ))
             )}
