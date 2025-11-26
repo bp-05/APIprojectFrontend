@@ -1,11 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
-import { listSubjects, type Subject } from '../../api/subjects'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { listSubjects, listSubjectPhaseProgress, type Subject, type SubjectPhaseProgress, type PhaseProgressPhase } from '../../api/subjects'
 import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
 import { usePeriodStore } from '../../store/period'
 import jsPDF from 'jspdf'
 
+// Mapeo de nombre de fase en backend a número
+const PHASE_NAME_TO_NUM: Record<PhaseProgressPhase, 1 | 2 | 3> = {
+  formulacion: 1,
+  gestion: 2,
+  validacion: 3,
+}
+
 export default function COORD_DASH() {
   const [items, setItems] = useState<Subject[]>([])
+  const [phaseProgressMap, setPhaseProgressMap] = useState<Record<number, Record<number, string>>>({})
   const [lsVersion, setLsVersion] = useState(0)
   const [cycleVersion, setCycleVersion] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -18,6 +26,24 @@ export default function COORD_DASH() {
   const season = usePeriodStore((s) => s.season)
   const year = usePeriodStore((s) => s.year)
 
+  // Cargar progreso de fases desde la base de datos
+  const loadPhaseProgress = useCallback(async () => {
+    try {
+      const progressData = await listSubjectPhaseProgress()
+      console.log('Progreso de fases cargado:', progressData)
+      const map: Record<number, Record<number, string>> = {}
+      for (const p of progressData) {
+        const phaseNum = PHASE_NAME_TO_NUM[p.phase]
+        if (!map[p.subject]) map[p.subject] = {}
+        map[p.subject][phaseNum] = p.status
+      }
+      console.log('Mapa de progreso:', map)
+      setPhaseProgressMap(map)
+    } catch (e) {
+      console.error('Error cargando progreso de fases:', e)
+    }
+  }, [])
+
   async function load() {
     setLoading(true)
     setError(null)
@@ -28,6 +54,8 @@ export default function COORD_DASH() {
       ])
       setItems(Array.isArray(data) ? data : [])
       setAdminPhases(phases || [])
+      // Cargar progreso de fases después de los otros datos
+      await loadPhaseProgress()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar proyectos'
       setError(msg)
@@ -90,25 +118,83 @@ export default function COORD_DASH() {
     return result
   }, [items, localStatusMap])
 
-  // Función para obtener estados guardados localmente en Gantt
-  function readGanttMarks(): Record<number, Record<number, string>> {
-    try { return JSON.parse(localStorage.getItem('coordGanttMarks') || '{}') } catch { return {} }
-  }
+  // % con atraso (cálculo basado en fases no completadas)
+  const delayedPct = useMemo(() => {
+    console.log('Calculando delayedPct:', { itemsLen: items.length, phasesLen: adminPhases.length, progressMapKeys: Object.keys(phaseProgressMap) })
+    if (!items.length) return 0
 
-  // Función para calcular % de atraso de una asignatura
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // Calcular % de atraso para cada asignatura
+    const delayScores = items.map(subject => {
+      const subjectMarks = phaseProgressMap[subject.id] || {}
+      
+      let delayCount = 0
+      let totalPhases = 3 // Siempre hay 3 fases
+
+      for (let phaseNum = 1; phaseNum <= 3; phaseNum++) {
+        const phaseMark = subjectMarks[phaseNum]
+        
+        // Buscar la fecha de término para esta fase (si existe)
+        const phaseSchedule = adminPhases.find(p => {
+          const phaseKey = String(p.phase || '').toLowerCase()
+          return phaseNum === 1 ? phaseKey === 'formulacion'
+               : phaseNum === 2 ? phaseKey === 'gestion'
+               : phaseNum === 3 ? phaseKey === 'validacion'
+               : false
+        })
+
+        // Si hay fechas configuradas, verificar si está atrasada
+        if (phaseSchedule && phaseSchedule.end_date) {
+          const endDate = new Date(phaseSchedule.end_date)
+          endDate.setHours(0, 0, 0, 0)
+          
+          // Si la fase no está realizada y ya pasó la fecha de término, está atrasada
+          if (phaseMark !== 'rz' && today > endDate) {
+            delayCount++
+          }
+        } else {
+          // Si no hay fechas configuradas, considerar atrasada si no está realizada
+          // Solo si hay algún progreso registrado para esta asignatura
+          if (Object.keys(subjectMarks).length > 0 && phaseMark !== 'rz') {
+            delayCount++
+          }
+        }
+      }
+
+      // Si no hay progreso registrado para esta asignatura, no contar atraso
+      if (Object.keys(subjectMarks).length === 0) return 0
+      
+      return Math.round((delayCount / totalPhases) * 100)
+    })
+
+    // Solo considerar asignaturas que tienen algún progreso registrado
+    const scoresWithProgress = delayScores.filter(s => s > 0 || items.some(i => phaseProgressMap[i.id]))
+    if (scoresWithProgress.length === 0) return 0
+    
+    const avg = delayScores.reduce((a, b) => a + b, 0) / delayScores.length
+    const result = Math.round(avg)
+    console.log('delayedPct calculado:', result, 'scores:', delayScores)
+    return result
+  }, [items, adminPhases, phaseProgressMap])
+
+  // Función para calcular % de atraso de una asignatura (usando datos de BD)
   function calculateSubjectDelayPct(subject: Subject): number {
-    const ganttMarks = readGanttMarks()
-    const subjectMarks = ganttMarks[subject.id] || {}
+    const subjectMarks = phaseProgressMap[subject.id] || {}
+    
+    // Si no hay progreso registrado, no hay atraso
+    if (Object.keys(subjectMarks).length === 0) return 0
     
     let delayCount = 0
-    let totalPhases = 0
+    const totalPhases = 3
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     for (let phaseNum = 1; phaseNum <= 3; phaseNum++) {
       const phaseMark = subjectMarks[phaseNum]
       
-      // Buscar la fecha de inicio y término para esta fase
+      // Buscar la fecha de término para esta fase
       const phaseSchedule = adminPhases.find(p => {
         const phaseKey = String(p.phase || '').toLowerCase()
         return phaseNum === 1 ? phaseKey === 'formulacion'
@@ -117,34 +203,24 @@ export default function COORD_DASH() {
              : false
       })
 
-      if (phaseSchedule && phaseSchedule.start_date && phaseSchedule.end_date) {
-        totalPhases++
-        const startDate = new Date(phaseSchedule.start_date)
-        startDate.setHours(0, 0, 0, 0)
+      if (phaseSchedule && phaseSchedule.end_date) {
         const endDate = new Date(phaseSchedule.end_date)
         endDate.setHours(0, 0, 0, 0)
         
+        // Si la fase no está realizada y ya pasó la fecha de término, está atrasada
+        if (phaseMark !== 'rz' && today > endDate) {
+          delayCount++
+        }
+      } else {
+        // Si no hay fechas configuradas, considerar atrasada si no está realizada
         if (phaseMark !== 'rz') {
-          if (today < startDate || today > endDate) {
-            delayCount++
-          }
+          delayCount++
         }
       }
     }
 
-    if (totalPhases === 0) return 0
     return Math.round((delayCount / totalPhases) * 100)
   }
-
-  // % con atraso (cálculo basado en fases atrasadas por fechas asignadas)
-  const delayedPct = useMemo(() => {
-    if (!items.length || !adminPhases.length) return 0
-
-    const delayScores = items.map(s => calculateSubjectDelayPct(s))
-    if (delayScores.length === 0) return 0
-    const avg = delayScores.reduce((a, b) => a + b, 0) / delayScores.length
-    return Math.round(avg)
-  }, [items, adminPhases, cycleVersion])
 
   // Escuchar cambios en el almacenamiento local para actualizar KPIs
   function riskScore(s: any) {
