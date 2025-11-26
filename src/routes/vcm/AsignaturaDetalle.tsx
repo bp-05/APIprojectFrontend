@@ -1,6 +1,6 @@
-Ôªøimport { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import toast from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { useAuth } from '../../store/auth'
@@ -114,7 +114,7 @@ export default function AsignaturaVCMDetalle() {
 
   useEffect(() => {
     if (!Number.isFinite(subjectId)) {
-      setError('Asignatura inv√°lida')
+      setError('Asignatura inv·lida')
       setLoading(false)
       return
     }
@@ -151,11 +151,11 @@ export default function AsignaturaVCMDetalle() {
   async function saveRequirement(req: CompanyRequirement, quotaStr: string, can: boolean) {
     if (!subject) return
     
-    // Validar cuota si est√° habilitada
+    // Validar cuota si est· habilitada
     if (can) {
       const quota = parseInt(quotaStr.trim(), 10)
       if (!quotaStr.trim() || isNaN(quota) || quota <= 0) {
-        toast.error('Ingresa una cantidad v√°lida de estudiantes para alternancia')
+        toast.error('Ingresa una cantidad v·lida de estudiantes para alternancia')
         return
       }
     }
@@ -451,7 +451,7 @@ export default function AsignaturaVCMDetalle() {
         <span class="info-value">${subject.name || '-'}</span>
       </div>
       <div class="info-row">
-        <span class="info-label">C√≥digo:</span>
+        <span class="info-label">CÛdigo:</span>
         <span class="info-value">${subject.code}-${subject.section}</span>
       </div>
       <div class="info-row">
@@ -459,7 +459,7 @@ export default function AsignaturaVCMDetalle() {
         <span class="info-value">${subject.career_name || '-'}</span>
       </div>
       <div class="info-row">
-        <span class="info-label">√Årea:</span>
+        <span class="info-label">¡rea:</span>
         <span class="info-value">${subject.area_name || '-'}</span>
       </div>
       <div class="info-row">
@@ -473,7 +473,7 @@ export default function AsignaturaVCMDetalle() {
     </div>
 
     <!-- Validation Section -->
-    <h2>VALIDACI√ìN DE CONFIGURACI√ìN</h2>
+    <h2>VALIDACI”N DE CONFIGURACI”N</h2>
     <table class="validation-table">
       <thead>
         <tr>
@@ -483,32 +483,32 @@ export default function AsignaturaVCMDetalle() {
       </thead>
       <tbody>
         <tr>
-          <td>Competencias T√©cnicas</td>
-          <td><span class="${hasCompetencies ? 'status-complete' : 'status-pending'}">${hasCompetencies ? '‚úì Completado' : '‚úó Pendiente'}</span></td>
+          <td>Competencias TÈcnicas</td>
+          <td><span class="${hasCompetencies ? 'status-complete' : 'status-pending'}">${hasCompetencies ? '? Completado' : '? Pendiente'}</span></td>
         </tr>
         <tr>
           <td>Unidades de Asignatura</td>
-          <td><span class="${hasUnits ? 'status-complete' : 'status-pending'}">${hasUnits ? '‚úì Completado' : '‚úó Pendiente'}</span></td>
+          <td><span class="${hasUnits ? 'status-complete' : 'status-pending'}">${hasUnits ? '? Completado' : '? Pendiente'}</span></td>
         </tr>
         <tr>
           <td>Posibles Contrapartes</td>
-          <td><span class="${hasRequirements ? 'status-complete' : 'status-pending'}">${hasRequirements ? '‚úì Completado' : '‚úó Pendiente'}</span></td>
+          <td><span class="${hasRequirements ? 'status-complete' : 'status-pending'}">${hasRequirements ? '? Completado' : '? Pendiente'}</span></td>
         </tr>
         <tr>
-          <td>Condiciones L√≠mite de Empresa</td>
-          <td><span class="${hasBoundaryCondition ? 'status-complete' : 'status-pending'}">${hasBoundaryCondition ? '‚úì Completado' : '‚úó Pendiente'}</span></td>
+          <td>Condiciones LÌmite de Empresa</td>
+          <td><span class="${hasBoundaryCondition ? 'status-complete' : 'status-pending'}">${hasBoundaryCondition ? '? Completado' : '? Pendiente'}</span></td>
         </tr>
       </tbody>
     </table>
 
     <!-- Competencies Section -->
     ${hasCompetencies ? `
-    <h2>COMPETENCIAS T√âCNICAS (${competencies.length})</h2>
+    <h2>COMPETENCIAS T…CNICAS (${competencies.length})</h2>
     <table class="data-table">
       <thead>
         <tr>
-          <th>N¬∫</th>
-          <th>Descripci√≥n</th>
+          <th>N∫</th>
+          <th>DescripciÛn</th>
         </tr>
       </thead>
       <tbody>
@@ -520,7 +520,7 @@ export default function AsignaturaVCMDetalle() {
         `).join('')}
       </tbody>
     </table>
-    ` : '<div class="empty-message">Sin competencias t√©cnicas registradas</div>'}
+    ` : '<div class="empty-message">Sin competencias tÈcnicas registradas</div>'}
 
     <!-- Units Section -->
     ${hasUnits ? `
@@ -547,20 +547,20 @@ export default function AsignaturaVCMDetalle() {
 
     <!-- Boundary Conditions Section -->
     ${hasBoundaryCondition ? `
-    <h2>CONDICIONES L√çMITE DE EMPRESA</h2>
+    <h2>CONDICIONES LÕMITE DE EMPRESA</h2>
     <div class="text-box">
       <div class="text-box-label">Tipos de Empresa:</div>
       <div class="text-box-content">
         ${[
           boundaryCondition.large_company && 'Gran Empresa',
           boundaryCondition.medium_company && 'Mediana Empresa',
-          boundaryCondition.small_company && 'Peque√±a Empresa',
+          boundaryCondition.small_company && 'PequeÒa Empresa',
           boundaryCondition.family_enterprise && 'Empresa Familiar',
           boundaryCondition.not_relevant && 'No Relevante'
         ].filter(Boolean).join(', ') || 'No especificado'}
       </div>
     </div>
-    ` : '<div class="empty-message">Sin condiciones l√≠mite de empresa registradas</div>'}
+    ` : '<div class="empty-message">Sin condiciones lÌmite de empresa registradas</div>'}
 
     <!-- Requirements Section -->
     ${hasRequirements ? `
@@ -571,7 +571,7 @@ export default function AsignaturaVCMDetalle() {
           <th>Empresa</th>
           <th>Sector</th>
           <th>Ha Trabajado</th>
-          <th>Inter√©s en Colaborar</th>
+          <th>InterÈs en Colaborar</th>
         </tr>
       </thead>
       <tbody>
@@ -581,8 +581,8 @@ export default function AsignaturaVCMDetalle() {
           <tr>
             <td><strong>${company?.name || 'Empresa ' + req.company}</strong></td>
             <td>${req.sector || '-'}</td>
-            <td style="text-align: center;">${req.worked_before ? 'S√≠' : 'No'}</td>
-            <td style="text-align: center;">${req.interest_collaborate ? 'S√≠' : 'No'}</td>
+            <td style="text-align: center;">${req.worked_before ? 'SÌ' : 'No'}</td>
+            <td style="text-align: center;">${req.interest_collaborate ? 'SÌ' : 'No'}</td>
           </tr>
           `
         }).join('')}
@@ -592,7 +592,7 @@ export default function AsignaturaVCMDetalle() {
 
     <!-- API Type Sections -->
     ${showApi2 ? `
-    <h2>API TIPO 2 - INFORMACI√ìN DEL PROYECTO</h2>
+    <h2>API TIPO 2 - INFORMACI”N DEL PROYECTO</h2>
     ${api2Completion ? `
     <table class="data-table">
       <thead>
@@ -604,15 +604,15 @@ export default function AsignaturaVCMDetalle() {
       <tbody>
         ${api2Completion.project_goal_students ? `<tr><td><strong>Objetivo para estudiantes</strong></td><td>${api2Completion.project_goal_students}</td></tr>` : ''}
         ${api2Completion.deliverables_at_end ? `<tr><td><strong>Entregables al final</strong></td><td>${api2Completion.deliverables_at_end}</td></tr>` : ''}
-        ${api2Completion.company_expected_participation ? `<tr><td><strong>Participaci√≥n esperada</strong></td><td>${api2Completion.company_expected_participation}</td></tr>` : ''}
+        ${api2Completion.company_expected_participation ? `<tr><td><strong>ParticipaciÛn esperada</strong></td><td>${api2Completion.company_expected_participation}</td></tr>` : ''}
         ${api2Completion.other_activities ? `<tr><td><strong>Otras actividades</strong></td><td>${api2Completion.other_activities}</td></tr>` : ''}
       </tbody>
     </table>
-    ` : '<div class="empty-message">Sin informaci√≥n registrada</div>'}
+    ` : '<div class="empty-message">Sin informaciÛn registrada</div>'}
     ` : ''}
 
     ${showApi3 ? `
-    <h2>API TIPO 3 - INFORMACI√ìN DEL PROYECTO</h2>
+    <h2>API TIPO 3 - INFORMACI”N DEL PROYECTO</h2>
     ${api3Completion ? `
     <table class="data-table">
       <thead>
@@ -626,10 +626,10 @@ export default function AsignaturaVCMDetalle() {
         ${api3Completion.deliverables_at_end ? `<tr><td><strong>Entregables al final</strong></td><td>${api3Completion.deliverables_at_end}</td></tr>` : ''}
         ${api3Completion.expected_student_role ? `<tr><td><strong>Rol esperado del estudiante</strong></td><td>${api3Completion.expected_student_role}</td></tr>` : ''}
         ${api3Completion.other_activities ? `<tr><td><strong>Otras actividades</strong></td><td>${api3Completion.other_activities}</td></tr>` : ''}
-        ${api3Completion.master_guide_expected_support ? `<tr><td><strong>Apoyo maestro gu√≠a</strong></td><td>${api3Completion.master_guide_expected_support}</td></tr>` : ''}
+        ${api3Completion.master_guide_expected_support ? `<tr><td><strong>Apoyo maestro guÌa</strong></td><td>${api3Completion.master_guide_expected_support}</td></tr>` : ''}
       </tbody>
     </table>
-    ` : '<div class="empty-message">Sin informaci√≥n registrada</div>'}
+    ` : '<div class="empty-message">Sin informaciÛn registrada</div>'}
 
     ${acceptsAlternance && alternance ? `
     <h2>ALTERNANCIA (API 3)</h2>
@@ -691,10 +691,10 @@ export default function AsignaturaVCMDetalle() {
       const imgData = canvas.toDataURL('image/png')
       const imgHeight = (canvas.height * contentWidth) / canvas.width
 
-      // Primera p√°gina
+      // Primera p·gina
       pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, imgHeight)
 
-      // P√°ginas adicionales
+      // P·ginas adicionales
       let heightLeft = imgHeight - (pageHeight - 2 * margin)
       let pageNum = 1
 
@@ -730,16 +730,16 @@ export default function AsignaturaVCMDetalle() {
       <div id="pdf-content">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-zinc-900">{subject.name}</h1>
-          <p className="text-sm text-zinc-600">{subject.code}-{subject.section} ¬∑ {subject.career_name || 'Carrera sin definir'}</p>
+          <p className="text-sm text-zinc-600">{subject.code}-{subject.section} ∑ {subject.career_name || 'Carrera sin definir'}</p>
         </div>
 
       <div className="rounded-lg border border-zinc-200 bg-white mb-6 p-4">
-        <h2 className="text-base font-semibold text-zinc-900 mb-4">Informaci√≥n de la asignatura</h2>
+        <h2 className="text-base font-semibold text-zinc-900 mb-4">InformaciÛn de la asignatura</h2>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <DetailItem label="C√≥digo">{subject.code}</DetailItem>
-          <DetailItem label="Secci√≥n">{subject.section}</DetailItem>
+          <DetailItem label="CÛdigo">{subject.code}</DetailItem>
+          <DetailItem label="SecciÛn">{subject.section}</DetailItem>
           <DetailItem label="Carrera">{subject.career_name || '-'}</DetailItem>
-          <DetailItem label="√Årea">{subject.area_name || '-'}</DetailItem>
+          <DetailItem label="¡rea">{subject.area_name || '-'}</DetailItem>
           <DetailItem label="Semestre">{subject.semester_name || '-'}</DetailItem>
           <DetailItem label="Campus">{subject.campus || '-'}</DetailItem>
           <DetailItem label="Jornada">{subject.shift || '-'}</DetailItem>
@@ -770,15 +770,15 @@ export default function AsignaturaVCMDetalle() {
         </div>
       </div>
 
-      {/* Competencias t√©cnicas */}
+      {/* Competencias tÈcnicas */}
       {competencies.length > 0 && (
         <div className="rounded-lg border border-zinc-200 bg-white mb-6">
           <button
             onClick={() => setExpandedSections(prev => ({ ...prev, competencies: !prev.competencies }))}
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
-            <h2 className="text-base font-semibold text-zinc-900">Competencias t√©cnicas</h2>
-            <span className={`inline-block transition-transform ${expandedSections.competencies ? 'rotate-180' : ''}`}>‚ñº</span>
+            <h2 className="text-base font-semibold text-zinc-900">Competencias tÈcnicas</h2>
+            <span className={`inline-block transition-transform ${expandedSections.competencies ? 'rotate-180' : ''}`}>?</span>
           </button>
           {expandedSections.competencies && (
             <div className="border-t border-zinc-200 p-4">
@@ -804,7 +804,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">Unidades de la asignatura ({units.length})</h2>
-            <span className={`inline-block transition-transform ${expandedSections.units ? 'rotate-180' : ''}`}>‚ñº</span>
+            <span className={`inline-block transition-transform ${expandedSections.units ? 'rotate-180' : ''}`}>?</span>
           </button>
           {expandedSections.units && (
             <div className="border-t border-zinc-200 p-4">
@@ -845,13 +845,13 @@ export default function AsignaturaVCMDetalle() {
                         )}
                         {unit.activities_description && (
                           <div>
-                            <label className="block text-xs font-semibold text-zinc-700 mb-2">Descripci√≥n general de actividades</label>
+                            <label className="block text-xs font-semibold text-zinc-700 mb-2">DescripciÛn general de actividades</label>
                             <p className="text-sm text-zinc-700 whitespace-pre-wrap">{unit.activities_description}</p>
                           </div>
                         )}
                         {unit.evaluation_evidence && (
                           <div>
-                            <label className="block text-xs font-semibold text-zinc-700 mb-2">Evidencia sistema de evaluaci√≥n</label>
+                            <label className="block text-xs font-semibold text-zinc-700 mb-2">Evidencia sistema de evaluaciÛn</label>
                             <p className="text-sm text-zinc-700 whitespace-pre-wrap">{unit.evaluation_evidence}</p>
                           </div>
                         )}
@@ -863,7 +863,7 @@ export default function AsignaturaVCMDetalle() {
                         )}
                         {unit.counterpart_link && (
                           <div>
-                            <label className="block text-xs font-semibold text-zinc-700 mb-2">V√≠nculo con contraparte</label>
+                            <label className="block text-xs font-semibold text-zinc-700 mb-2">VÌnculo con contraparte</label>
                             <p className="text-sm text-zinc-700 whitespace-pre-wrap">{unit.counterpart_link}</p>
                           </div>
                         )}
@@ -901,13 +901,13 @@ export default function AsignaturaVCMDetalle() {
                       )}
                       {units[0].activities_description && (
                         <div>
-                          <label className="block text-xs font-semibold text-zinc-700 mb-2">Descripci√≥n general de actividades</label>
+                          <label className="block text-xs font-semibold text-zinc-700 mb-2">DescripciÛn general de actividades</label>
                           <p className="text-sm text-zinc-700 whitespace-pre-wrap">{units[0].activities_description}</p>
                         </div>
                       )}
                       {units[0].evaluation_evidence && (
                         <div>
-                          <label className="block text-xs font-semibold text-zinc-700 mb-2">Evidencia sistema de evaluaci√≥n</label>
+                          <label className="block text-xs font-semibold text-zinc-700 mb-2">Evidencia sistema de evaluaciÛn</label>
                           <p className="text-sm text-zinc-700 whitespace-pre-wrap">{units[0].evaluation_evidence}</p>
                         </div>
                       )}
@@ -919,7 +919,7 @@ export default function AsignaturaVCMDetalle() {
                       )}
                       {units[0].counterpart_link && (
                         <div>
-                          <label className="block text-xs font-semibold text-zinc-700 mb-2">V√≠nculo con contraparte</label>
+                          <label className="block text-xs font-semibold text-zinc-700 mb-2">VÌnculo con contraparte</label>
                           <p className="text-sm text-zinc-700 whitespace-pre-wrap">{units[0].counterpart_link}</p>
                         </div>
                       )}
@@ -952,7 +952,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">Condiciones de borde</h2>
-            <span className={`inline-block transition-transform ${expandedSections.boundary ? 'rotate-180' : ''}`}>‚ñº</span>
+            <span className={`inline-block transition-transform ${expandedSections.boundary ? 'rotate-180' : ''}`}>?</span>
           </button>
           {expandedSections.boundary && (
             <div className="border-t border-zinc-200 p-4">
@@ -962,14 +962,14 @@ export default function AsignaturaVCMDetalle() {
                   <div className="flex flex-wrap gap-2">
                     {boundaryCondition.large_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Gran Empresa</span>}
                     {boundaryCondition.medium_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Mediana Empresa</span>}
-                    {boundaryCondition.small_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Peque√±a Empresa</span>}
+                    {boundaryCondition.small_company && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">PequeÒa Empresa</span>}
                     {boundaryCondition.family_enterprise && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">Empresa Familiar</span>}
                     {boundaryCondition.not_relevant && <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">No Relevante</span>}
                   </div>
                 </div>
                 {boundaryCondition.company_type_description && (
                   <div>
-                    <h4 className="font-semibold text-zinc-900 mb-1">Descripci√≥n de Tipo de Empresa</h4>
+                    <h4 className="font-semibold text-zinc-900 mb-1">DescripciÛn de Tipo de Empresa</h4>
                     <p className="text-zinc-700 whitespace-pre-wrap">{boundaryCondition.company_type_description}</p>
                   </div>
                 )}
@@ -981,7 +981,7 @@ export default function AsignaturaVCMDetalle() {
                 )}
                 {boundaryCondition.project_minimum_elements && (
                   <div>
-                    <h4 className="font-semibold text-zinc-900 mb-1">Elementos M√≠nimos del Proyecto</h4>
+                    <h4 className="font-semibold text-zinc-900 mb-1">Elementos MÌnimos del Proyecto</h4>
                     <p className="text-zinc-700 whitespace-pre-wrap">{boundaryCondition.project_minimum_elements}</p>
                   </div>
                 )}
@@ -999,7 +999,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">Requerimientos de empresas</h2>
-            <span className={`inline-block transition-transform ${expandedSections.requirements ? 'rotate-180' : ''}`}>‚ñº</span>
+            <span className={`inline-block transition-transform ${expandedSections.requirements ? 'rotate-180' : ''}`}>?</span>
           </button>
           {expandedSections.requirements && (
             <div className="border-t border-zinc-200 p-4">
@@ -1013,13 +1013,13 @@ export default function AsignaturaVCMDetalle() {
                           <h3 className="font-semibold text-red-900">{company?.name || `Empresa ${req.company}`}</h3>
                           <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
                             <p><span className="font-medium">Sector:</span> {req.sector || '-'}</p>
-                            <p><span className="font-medium">Ha trabajado:</span> {req.worked_before ? 'S√≠' : 'No'}</p>
-                            <p><span className="font-medium">Desea colaborar:</span> {req.interest_collaborate ? 'S√≠' : 'No'}</p>
-                            <p><span className="font-medium">Tipo interacci√≥n:</span> {req.interaction_type ? (Array.isArray(req.interaction_type) ? req.interaction_type.join(', ') : req.interaction_type) : '-'}</p>
+                            <p><span className="font-medium">Ha trabajado:</span> {req.worked_before ? 'SÌ' : 'No'}</p>
+                            <p><span className="font-medium">Desea colaborar:</span> {req.interest_collaborate ? 'SÌ' : 'No'}</p>
+                            <p><span className="font-medium">Tipo interacciÛn:</span> {req.interaction_type ? (Array.isArray(req.interaction_type) ? req.interaction_type.join(', ') : req.interaction_type) : '-'}</p>
                           </div>
                           {req.can_receive_alternance && (
                             <div className="mt-3 rounded bg-green-100 p-2">
-                              <p className="text-sm font-medium text-green-700">‚úì Acepta alternancia</p>
+                              <p className="text-sm font-medium text-green-700">? Acepta alternancia</p>
                               <p className="text-xs text-green-600 mt-1">Cupos disponibles: {req.alternance_students_quota || 0} estudiantes</p>
                             </div>
                           )}
@@ -1104,7 +1104,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">Proyectos ({subjectProblems.length})</h2>
-            <span className={`inline-block transition-transform ${expandedSections.problems ? 'rotate-180' : ''}`}>‚ñº</span>
+            <span className={`inline-block transition-transform ${expandedSections.problems ? 'rotate-180' : ''}`}>?</span>
           </button>
           {expandedSections.problems && (
             <div className="border-t border-zinc-200 p-4">
@@ -1142,11 +1142,11 @@ export default function AsignaturaVCMDetalle() {
                             <p className="text-zinc-600">{company?.name || `Empresa ${problem.company}`}</p>
                           </div>
                           <div>
-                            <span className="font-medium text-zinc-700">√Årea relacionada:</span>
+                            <span className="font-medium text-zinc-700">¡rea relacionada:</span>
                             <p className="text-zinc-600">{problem.related_area || '-'}</p>
                           </div>
                           <div className="col-span-2">
-                            <span className="font-medium text-zinc-700">¬øPor qu√© es importante?</span>
+                            <span className="font-medium text-zinc-700">øPor quÈ es importante?</span>
                             <p className="text-zinc-600">{problem.why_important?.substring(0, 80)}...</p>
                           </div>
                           <div className="col-span-2">
@@ -1175,11 +1175,11 @@ export default function AsignaturaVCMDetalle() {
                             <p className="text-zinc-600">{company?.name || `Empresa ${problem.company}`}</p>
                           </div>
                           <div>
-                            <span className="font-medium text-zinc-700">√Årea relacionada:</span>
+                            <span className="font-medium text-zinc-700">¡rea relacionada:</span>
                             <p className="text-zinc-600">{problem.related_area || '-'}</p>
                           </div>
                           <div className="col-span-2">
-                            <span className="font-medium text-zinc-700">¬øPor qu√© es importante?</span>
+                            <span className="font-medium text-zinc-700">øPor quÈ es importante?</span>
                             <p className="text-zinc-600">{problem.why_important?.substring(0, 80)}...</p>
                           </div>
                           <div className="col-span-2">
@@ -1205,7 +1205,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">API Tipo 2</h2>
-            <span className={`inline-block transition-transform ${expandedSections.api2 ? 'rotate-180' : ''}`}>‚ñº</span>
+            <span className={`inline-block transition-transform ${expandedSections.api2 ? 'rotate-180' : ''}`}>?</span>
           </button>
           {expandedSections.api2 && (
             <div className="border-t border-zinc-200 p-4">
@@ -1213,11 +1213,11 @@ export default function AsignaturaVCMDetalle() {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <CompletionBox label="Objetivo para estudiantes" value={api2Completion.project_goal_students} color="border-blue-200 bg-blue-50" />
                   <CompletionBox label="Entregables al final" value={api2Completion.deliverables_at_end} color="border-blue-200 bg-blue-50" />
-                  <CompletionBox label="Participaci√≥n esperada" value={api2Completion.company_expected_participation} color="border-blue-200 bg-blue-50" />
+                  <CompletionBox label="ParticipaciÛn esperada" value={api2Completion.company_expected_participation} color="border-blue-200 bg-blue-50" />
                   <CompletionBox label="Otras actividades" value={api2Completion.other_activities} color="border-blue-200 bg-blue-50" />
                 </div>
               ) : (
-                <p className="text-sm text-zinc-600">Sin informaci√≥n registrada.</p>
+                <p className="text-sm text-zinc-600">Sin informaciÛn registrada.</p>
               )}
             </div>
           )}
@@ -1232,23 +1232,23 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">API Tipo 3</h2>
-            <span className={`inline-block transition-transform ${expandedSections.api3 ? 'rotate-180' : ''}`}>‚ñº</span>
+            <span className={`inline-block transition-transform ${expandedSections.api3 ? 'rotate-180' : ''}`}>?</span>
           </button>
           {expandedSections.api3 && (
             <div className="border-t border-zinc-200 p-4 space-y-6">
               {/* API 3 Completion Info */}
               <div>
-                <h3 className="text-sm font-semibold text-zinc-900 mb-3">Informaci√≥n del Proyecto</h3>
+                <h3 className="text-sm font-semibold text-zinc-900 mb-3">InformaciÛn del Proyecto</h3>
                 {api3Completion ? (
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <CompletionBox label="Objetivo para estudiantes" value={api3Completion.project_goal_students} color="border-purple-200 bg-purple-50" />
                     <CompletionBox label="Entregables al final" value={api3Completion.deliverables_at_end} color="border-purple-200 bg-purple-50" />
                     <CompletionBox label="Rol esperado del estudiante" value={api3Completion.expected_student_role} color="border-purple-200 bg-purple-50" />
                     <CompletionBox label="Otras actividades" value={api3Completion.other_activities} color="border-purple-200 bg-purple-50" />
-                    <CompletionBox label="Apoyo maestro gu√≠a" value={api3Completion.master_guide_expected_support} color="border-purple-200 bg-purple-50" />
+                    <CompletionBox label="Apoyo maestro guÌa" value={api3Completion.master_guide_expected_support} color="border-purple-200 bg-purple-50" />
                   </div>
                 ) : (
-                  <p className="text-sm text-zinc-600">Sin informaci√≥n registrada.</p>
+                  <p className="text-sm text-zinc-600">Sin informaciÛn registrada.</p>
                 )}
               </div>
 
@@ -1306,7 +1306,7 @@ export default function AsignaturaVCMDetalle() {
                 onClick={() => setShowAlternanceModal(false)}
                 className="text-zinc-400 hover:text-zinc-600"
               >
-                ‚úï
+                ?
               </button>
             </div>
             <div className="px-6 py-4 space-y-4">
@@ -1337,7 +1337,7 @@ export default function AsignaturaVCMDetalle() {
                   type="text"
                   value={alternanceForm.tutor_name}
                   onChange={(e) => setAlternanceForm({ ...alternanceForm, tutor_name: e.target.value })}
-                  placeholder="Ej: Juan P√©rez"
+                  placeholder="Ej: Juan PÈrez"
                   className="w-full px-3 py-2 border border-zinc-300 rounded-md outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
                 />
               </div>
@@ -1399,7 +1399,7 @@ function CompletionBox({ label, value, color = 'border-zinc-200 bg-white' }: { l
   return (
     <div className={`rounded-lg border p-4 ${color}`}>
       <div className="text-xs font-semibold text-zinc-900 mb-2">{label}</div>
-      <div className="text-sm text-zinc-700 whitespace-pre-line">{value?.trim() ? value : '‚Äî'}</div>
+      <div className="text-sm text-zinc-700 whitespace-pre-line">{value?.trim() ? value : 'ó'}</div>
     </div>
   )
 }
@@ -1408,7 +1408,7 @@ function TextBlock({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
       <div className="text-xs font-medium text-zinc-600">{label}</div>
-      <div className="text-sm text-zinc-900">{value?.trim() ? value : '‚Äî'}</div>
+      <div className="text-sm text-zinc-900">{value?.trim() ? value : 'ó'}</div>
     </div>
   )
 }

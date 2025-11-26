@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { listCompanies, createCompany, updateCompany, type Company } from '../../api/companies'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 
 export default function DCEmpresas() {
   const [items, setItems] = useState<Company[]>([])

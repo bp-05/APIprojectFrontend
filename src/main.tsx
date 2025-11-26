@@ -31,6 +31,9 @@ createRoot(document.getElementById('root')!).render(
         error: { icon: null },
         loading: { icon: null },
       }}
+      containerStyle={{
+        top: 20,
+      }}
     />
   </StrictMode>,
 )

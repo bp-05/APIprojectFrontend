@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import toast from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import { listProblemStatements, updateProblemStatement, deleteProblemStatement, type ProblemStatement } from '../../api/companies'
 import { listCompanies, type Company } from '../../api/companies'
 import { getSubject, type Subject } from '../../api/subjects'
@@ -13,7 +13,7 @@ export default function ProblemaDetalle() {
   const [subject, setSubject] = useState<Subject | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [formData, setFormData] = useState({
     problem_to_address: '',
@@ -52,11 +52,10 @@ export default function ProblemaDetalle() {
           if (foundCompany) setCompany(foundCompany)
           if (subj) setSubject(subj)
         } else {
-          setError('Proyecto no encontrado')
+          setNotFound(true)
         }
-        setError(null)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Error al cargar el proyecto')
+        toast.error(e instanceof Error ? e.message : 'Error al cargar el proyecto')
       } finally {
         setLoading(false)
       }
@@ -88,8 +87,7 @@ export default function ProblemaDetalle() {
   }
 
   if (loading) return <div className="p-8 text-center">Cargando...</div>
-  if (error) return <div className="p-8 text-red-500">Error: {error}</div>
-  if (!problema) return <div className="p-8 text-center">Proyecto no encontrado</div>
+  if (notFound || !problema) return <div className="p-8 text-center">Proyecto no encontrado</div>
 
   return (
     <div className="mx-auto max-w-5xl p-6">

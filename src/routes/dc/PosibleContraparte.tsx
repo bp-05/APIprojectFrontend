@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import { listCompanyRequirements, type CompanyRequirement, listSubjects, type Subject } from '../../api/subjects'
 
 type SubjectWithCount = Subject & {

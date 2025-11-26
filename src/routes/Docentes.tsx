@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createTeacher, deleteTeacher, listDocentes, updateTeacher, type User } from '../api/users'
-import { toast } from 'react-hot-toast'
+import { toast } from '../lib/toast'
 import { nameCase } from '../lib/strings'
  
 

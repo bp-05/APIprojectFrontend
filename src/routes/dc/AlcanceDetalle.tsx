@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import toast from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import {
   getEngagementScope,
   updateEngagementScope,

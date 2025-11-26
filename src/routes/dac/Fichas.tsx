@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import { listSubjects, type Subject, exportSubjectAPISheet, exportSubjectProyectoAPI } from '../../api/subjects'
 import { useEffect } from 'react'
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, type Subject, updateSubject } from '../../api/subjects'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 
 export default function ProcesoAPI() {
   const [items, setItems] = useState<Subject[]>([])

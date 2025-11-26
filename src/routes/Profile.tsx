@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import http from '../lib/http'
-import { toast } from 'react-hot-toast'
+import { toast } from '../lib/toast'
 import { useAuth } from '../store/auth'
 import { getArea, getCareer } from '../api/subjects'
 

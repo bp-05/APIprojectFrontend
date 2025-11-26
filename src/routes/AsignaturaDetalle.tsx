@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { deleteSubject, getSubject, type Subject } from '../api/subjects'
-import { toast } from 'react-hot-toast'
+import { toast } from '../lib/toast'
 import { EditSubjectDialog } from './Asignaturas'
 
 export default function AsignaturaDetalle() {

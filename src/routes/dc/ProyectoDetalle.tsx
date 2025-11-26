@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import toast from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import { listProblemStatements, updateProblemStatement, deleteProblemStatement, type ProblemStatement } from '../../api/companies'
 import { listCompanies, type Company } from '../../api/companies'
 import { getSubject, type Subject } from '../../api/subjects'

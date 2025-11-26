@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import { listCompanies, listProblemStatements, type Company, type ProblemStatement, listCounterpartContacts } from '../../api/companies'
 import { listSubjectCodeSections, type BasicSubject, createCompanyRequirement, listCompanyRequirements, type CompanyRequirement, updateCompanyRequirement, deleteCompanyRequirement } from '../../api/subjects'
 import http from '../../lib/http'
@@ -124,7 +124,6 @@ function normalizeAssignments(
 export default function PosibleContraparte() {
   const [items, setItems] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [recentlyUpdated, setRecentlyUpdated] = useState<Set<string>>(new Set())
 
   const [viewing, setViewing] = useState<Prospect | null>(null)
@@ -152,7 +151,6 @@ export default function PosibleContraparte() {
 
   useEffect(() => {
     setLoading(true)
-    setError(null)
     ;(async () => {
       try {
         const [comps, subs, problems] = await Promise.all([
@@ -224,8 +222,8 @@ export default function PosibleContraparte() {
         const locals = loadProspects()
         const localFiltered = locals.filter((p) => !dbRows.some((d) => (d.company_name || '').trim().toLowerCase() === (p.company_name || '').trim().toLowerCase()))
         setItems([...dbRows, ...localFiltered])
-      } catch (e) {
-        setError(null)
+      } catch {
+        // Error silencioso, ya se muestra toast en caso necesario
       } finally {
         setLoading(false)
       }
@@ -848,8 +846,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
         <h1 className="text-xl font-semibold">Posible contraparte</h1>
         <button onClick={openCreate} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Nueva contraparte</button>
       </div>
-
-      {error ? (<div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>) : null}
 
       {/* Tabs de vista */}
       <div className="mb-4 flex gap-2 border-b border-zinc-200">
