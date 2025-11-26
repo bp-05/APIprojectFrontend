@@ -22,7 +22,7 @@ export default function EmpresaDetalle() {
         const [c, s, probs] = await Promise.all([
           getCompany(compId),
           getSubject(subjectId),
-          listProblemStatements({ subject: subjectId, company: compId }),
+          listProblemStatements({ company: compId }),
         ])
         if (!mounted) return
         setCompany(c)

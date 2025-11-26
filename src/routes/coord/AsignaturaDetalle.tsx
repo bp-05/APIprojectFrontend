@@ -5,6 +5,17 @@ import { listDocentes, type User as AppUser, getTeacher } from '../../api/users'
 import { listProblemStatements, getCompany, type ProblemStatement } from '../../api/companies'
 import { nameCase } from '../../lib/strings'
 
+// Mapeo de códigos de tipos de interacción a etiquetas en español
+const interactionTypeLabels: Record<string, string> = {
+  'virtual': 'Virtual',
+  'onsite_inacap': 'Presencial INACAP',
+  'onsite_company': 'Presencial empresa',
+}
+
+function translateInteractionType(code: string): string {
+  return interactionTypeLabels[code] || code
+}
+
 export default function AsignaturaCoordDetalle() {
   const { id } = useParams()
   const subjectId = Number(id)
@@ -421,7 +432,7 @@ export default function AsignaturaCoordDetalle() {
                     <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">Diseñar proyecto</div>
                     <div className="text-zinc-800">{r.willing_design_project ? 'Sí' : 'No'}</div>
                     <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">Interacción</div>
-                    <div className="text-zinc-800">{r.interaction_type && r.interaction_type.length ? r.interaction_type.join(', ') : '-'}</div>
+                    <div className="text-zinc-800">{r.interaction_type && r.interaction_type.length ? r.interaction_type.map(it => translateInteractionType(it)).join(', ') : '-'}</div>
                     <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">Guía</div>
                     <div className="text-zinc-800">{r.has_guide ? 'Sí' : 'No'}</div>
                     <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">Alternancia</div>
@@ -537,40 +548,36 @@ export default function AsignaturaCoordDetalle() {
           onClick={() => setApiModal(null)}
         >
           <div
-            className="w-full max-w-xl rounded-lg border border-zinc-200 bg-white p-4 shadow-lg"
+            className="w-full max-w-xl rounded-lg border border-zinc-200 bg-white shadow-lg flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 border-b border-zinc-200 p-4">
               <h2 className="text-base font-semibold">Tipo de API {apiModal}</h2>
-              <button
-                onClick={() => setApiModal(null)}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
-              >
-                Cerrar
-              </button>
             </div>
             {apiModal === 2 ? (
               api2 ? (
-                <div className="grid gap-2 text-sm">
+                <div className="max-h-[60vh] overflow-y-auto px-4 py-3">
+                  <div className="grid gap-2 text-sm">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Project goal students</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Objetivo del proyecto estudiantes</div>
                     <div className="text-zinc-800">{api2.project_goal_students || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Deliverables at end</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Entregables al final</div>
                     <div className="text-zinc-800">{api2.deliverables_at_end || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Company expected participation</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Participación esperada de la empresa</div>
                     <div className="text-zinc-800">{api2.company_expected_participation || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Other activities</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Otras actividades</div>
                     <div className="text-zinc-800">{api2.other_activities || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Subject</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Asignatura</div>
                     <div className="text-zinc-800">{subject?.name || '-'}</div>
+                  </div>
                   </div>
                 </div>
               ) : (
@@ -578,36 +585,37 @@ export default function AsignaturaCoordDetalle() {
               )
             ) : apiModal === 3 ? (
               api3 ? (
-                <div className="grid gap-2 text-sm">
+                <div className="max-h-[60vh] overflow-y-auto px-4 py-3">
+                  <div className="grid gap-2 text-sm">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Project goal students</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Objetivo del proyecto estudiantes</div>
                     <div className="text-zinc-800">{api3.project_goal_students || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Deliverables at end</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Entregables al final</div>
                     <div className="text-zinc-800">{api3.deliverables_at_end || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Expected student role</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Rol esperado del estudiante</div>
                     <div className="text-zinc-800">{api3.expected_student_role || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Other activities</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Otras actividades</div>
                     <div className="text-zinc-800">{api3.other_activities || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Master guide expected support</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Apoyo esperado del tutor</div>
                     <div className="text-zinc-800">{api3.master_guide_expected_support || '-'}</div>
                   </div>
                   {alternance ? (
                     <>
-                      <div className="mt-2 text-sm font-semibold text-zinc-700">API 3 alternance</div>
+                      <div className="mt-2 text-sm font-semibold text-zinc-700">API 3 Alternancia</div>
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-zinc-500">Student role</div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">Rol del estudiante</div>
                         <div className="text-zinc-800">{alternance.student_role || '-'}</div>
                       </div>
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-zinc-500">Students quota</div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">Cuota de estudiantes</div>
                         <div className="text-zinc-800">{alternance.students_quota ?? '-'}</div>
                       </div>
                       <div>
@@ -615,16 +623,25 @@ export default function AsignaturaCoordDetalle() {
                         <div className="text-zinc-800">{alternance.tutor_name || '-'} | {alternance.tutor_email || '-'}</div>
                       </div>
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-zinc-500">Alternance hours</div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">Horas de alternancia</div>
                         <div className="text-zinc-800">{alternance.alternance_hours ?? '-'}</div>
                       </div>
                     </>
                   ) : null}
+                  </div>
                 </div>
               ) : (
-                <div className="text-sm text-zinc-600">Sin API type 3 completions registradas</div>
+                <div className="px-4 py-3 text-sm text-zinc-600">Sin API type 3 completions registradas</div>
               )
             ) : null}
+            <div className="border-t border-zinc-200 flex justify-end gap-2 p-4">
+              <button
+                onClick={() => setApiModal(null)}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

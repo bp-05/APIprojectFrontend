@@ -276,9 +276,8 @@ export default function EstadoCoord() {
       {editTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setEditTarget(null)}>
           <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3">
               <h2 className="text-base font-semibold">Información adicional</h2>
-              <button onClick={() => setEditTarget(null)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
             </div>
             <div className="mb-4 rounded-md border border-zinc-200 bg-zinc-50 p-3">
               {(() => {
@@ -308,7 +307,7 @@ export default function EstadoCoord() {
               })()}
             </div>
             <div className="flex justify-end">
-              <button onClick={() => setEditTarget(null)} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cerrar</button>
+              <button onClick={() => setEditTarget(null)} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Cerrar</button>
             </div>
           </div>
         </div>

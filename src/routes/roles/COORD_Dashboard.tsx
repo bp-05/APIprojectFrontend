@@ -302,51 +302,55 @@ export default function COORD_DASH() {
       {/* KPIs avanzados */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
         <KpiCard title="% con atraso" value={`${delayedPct}%`} tone="amber" linkTo="/coord/asignaturas?filter=atraso" subtitle="Sobre el total de proyectos" />
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ring-zinc-200">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Proyectos en Riesgo</div>
-            <button onClick={() => setShowRiskModal(true)} className="text-xs font-medium text-red-700 hover:underline">Ver detalle</button>
-          </div>
-          {(showExpandedRisk ? allRisk : topRisk).length === 0 ? (
-            <div className="text-sm text-zinc-600">Sin datos</div>
-          ) : (
-            <ul className="space-y-2">
-              {(showExpandedRisk ? allRisk : topRisk).map(({ s, score }) => (
-                <li key={(s as any).id} className="flex items-center justify-between text-sm">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{s.name}</div>
-                    <div className="truncate text-xs text-zinc-500">{s.code}-{s.section}</div>
-                  </div>
-                  {(() => {
-                    const lvl = riskLevel(score)
-                    const cls = lvl === 'Alto'
-                      ? 'bg-red-50 text-red-700'
-                      : lvl === 'Medio' || lvl === 'Bajo'
-                      ? 'bg-amber-50 text-amber-700'
-                      : 'bg-zinc-100 text-zinc-700'
-                    return <span className={`ml-2 rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{lvl}</span>
-                  })()}
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="mt-3 border-t border-zinc-200" />
-          <div className="mt-2 flex justify-center">
-            <button
-              onClick={() => setShowExpandedRisk((v) => !v)}
-              aria-label="Alternar lista completa de proyectos en riesgo"
-              title={showExpandedRisk ? 'Colapsar' : 'Ver más'}
-              className="inline-flex items-center rounded-full border border-zinc-300 bg-white p-1 text-zinc-700 hover:bg-zinc-50"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className={`h-4 w-4 transform transition-transform ${showExpandedRisk ? 'rotate-180' : ''}`}
+        <div className="relative">
+          <div className={`rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ring-zinc-200 ${showExpandedRisk ? 'absolute z-50 w-full' : ''}`}>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Proyectos en Riesgo</div>
+              <button onClick={() => setShowRiskModal(true)} className="text-xs font-medium text-red-700 hover:underline">Ver detalle</button>
+            </div>
+            {topRisk.length === 0 ? (
+              <div className="text-sm text-zinc-600">Sin datos</div>
+            ) : (
+              <div className={showExpandedRisk ? 'max-h-96 overflow-y-auto' : ''}>
+                <ul className="space-y-2">
+                  {(showExpandedRisk ? allRisk : topRisk).map(({ s, score }) => (
+                    <li key={(s as any).id} className="flex items-center justify-between text-sm">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">{s.name}</div>
+                        <div className="truncate text-xs text-zinc-500">{s.code}-{s.section}</div>
+                      </div>
+                      {(() => {
+                        const lvl = riskLevel(score)
+                        const cls = lvl === 'Alto'
+                          ? 'bg-red-50 text-red-700'
+                          : lvl === 'Medio' || lvl === 'Bajo'
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-zinc-100 text-zinc-700'
+                        return <span className={`ml-2 rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{lvl}</span>
+                      })()}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="mt-3 border-t border-zinc-200" />
+            <div className="mt-2 flex justify-center">
+              <button
+                onClick={() => setShowExpandedRisk((v) => !v)}
+                aria-label="Alternar lista completa de proyectos en riesgo"
+                title={showExpandedRisk ? 'Colapsar' : 'Ver más'}
+                className="inline-flex items-center rounded-full border border-zinc-300 bg-white p-1 text-zinc-700 hover:bg-zinc-50"
               >
-                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className={`h-4 w-4 transform transition-transform ${showExpandedRisk ? 'rotate-180' : ''}`}
+                >
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
