@@ -458,3 +458,71 @@ export async function exportSubjectProyectoAPI(subjectId: number, problemStateme
   })
   return response.data
 }
+
+// -----------------
+// Progreso de Fases de Asignaturas (Gantt)
+// -----------------
+
+export type PhaseProgressPhase = 'formulacion' | 'gestion' | 'validacion'
+export type PhaseProgressStatus = 'nr' | 'ec' | 'rz'
+
+export type SubjectPhaseProgress = {
+  id: number
+  subject: number
+  subject_name?: string
+  phase: PhaseProgressPhase
+  status: PhaseProgressStatus
+  updated_at: string
+  updated_by: number | null
+  updated_by_name?: string
+  notes: string
+}
+
+export async function listSubjectPhaseProgress(params?: { subject?: number; phase?: string; status?: string }) {
+  const { data } = await http.get<SubjectPhaseProgress[]>(`/subject-phase-progress/`, { params })
+  return data
+}
+
+export async function getSubjectPhaseProgressBySubject(subjectId: number) {
+  const { data } = await http.get<SubjectPhaseProgress[]>(`/subject-phase-progress/by-subject/${subjectId}/`)
+  return data
+}
+
+export async function createSubjectPhaseProgress(payload: {
+  subject: number
+  phase: PhaseProgressPhase
+  status: PhaseProgressStatus
+  notes?: string
+}) {
+  const { data } = await http.post<SubjectPhaseProgress>(`/subject-phase-progress/`, payload)
+  return data
+}
+
+export async function updateSubjectPhaseProgress(
+  id: number,
+  payload: Partial<{ status: PhaseProgressStatus; notes: string }>
+) {
+  const { data } = await http.patch<SubjectPhaseProgress>(`/subject-phase-progress/${id}/`, payload)
+  return data
+}
+
+export async function deleteSubjectPhaseProgress(id: number) {
+  await http.delete(`/subject-phase-progress/${id}/`)
+}
+
+export type BulkUpsertPhaseProgressItem = {
+  subject: number
+  phase: PhaseProgressPhase
+  status: PhaseProgressStatus
+  notes?: string
+}
+
+export type BulkUpsertResult = {
+  success: Array<{ created: boolean; data: SubjectPhaseProgress }>
+  errors: Array<{ error: string; item: BulkUpsertPhaseProgressItem }>
+}
+
+export async function bulkUpsertSubjectPhaseProgress(items: BulkUpsertPhaseProgressItem[]) {
+  const { data } = await http.post<BulkUpsertResult>(`/subject-phase-progress/bulk-upsert/`, items)
+  return data
+}
