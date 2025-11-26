@@ -15,7 +15,6 @@ export default function EstadoCoord() {
   const [search, setSearch] = useState('')
   const [searchParams] = useSearchParams()
   const [editTarget, setEditTarget] = useState<{ id: number; state: ProjectState } | null>(null)
-  const [editSelection, setEditSelection] = useState<ProjectState>('Borrador')
 
   // Admin phase schedules from database
   const [adminPhaseSchedules, setAdminPhaseSchedules] = useState<PeriodPhaseSchedule[]>([])
@@ -118,16 +117,6 @@ export default function EstadoCoord() {
     return 'Enviada'
   }
 
-  function riskScore(s: any) {
-    let score = 0
-    const st = mapStatus(s)
-    if (st === 'Observada') score += 3
-    if (!s?.teacher) score += 2
-    if (!s?.career_name) score += 1
-    if (!s?.area_name) score += 1
-    return score
-  }
-
   function phaseOf(s: Subject): PhaseName {
     // Obtener fase directamente del Subject (base de datos)
     const phase = s.phase as PhaseName
@@ -141,13 +130,6 @@ export default function EstadoCoord() {
   function getAdminPhaseInfo(phase: PhaseName): { start?: string; end?: string } | null {
     const schedule = adminPhaseSchedules.find((s) => s.phase.toLowerCase() === phase.toLowerCase())
     return schedule ? { start: schedule.start_date || undefined, end: schedule.end_date || undefined } : null
-  }
-
-  function statusLabel(st: ProjectState) {
-    if (st === 'Borrador') return 'Borrador'
-    if (st === 'Enviada') return 'Enviada'
-    if (st === 'Observada') return 'Observada'
-    return 'Aprobada'
   }
 
   const filtered = useMemo(() => {
@@ -260,7 +242,7 @@ export default function EstadoCoord() {
                   <Td className="text-right">
                     <div className="flex flex-col items-end gap-1">
                       <button
-                        onClick={() => { const cur = mapStatus(s); setEditTarget({ id: s.id, state: cur }); setEditSelection(cur) }}
+                        onClick={() => { const cur = mapStatus(s); setEditTarget({ id: s.id, state: cur }) }}
                         className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                       >
                         Ver información
