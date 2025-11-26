@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getCompany, listProblemStatements, type Company, type ProblemStatement } from '../../api/companies'
-import { getSubject, type Subject } from '../../api/subjects'
 
 export default function EmpresaDetalle() {
   const { id, companyId } = useParams()
-  const subjectId = Number(id)
   const compId = Number(companyId)
   const [company, setCompany] = useState<Company | null>(null)
-  const [subject, setSubject] = useState<Subject | null>(null)
   const [problems, setProblems] = useState<ProblemStatement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -19,14 +16,12 @@ export default function EmpresaDetalle() {
       setLoading(true)
       setError(null)
       try {
-        const [c, s, probs] = await Promise.all([
+        const [c, probs] = await Promise.all([
           getCompany(compId),
-          getSubject(subjectId),
           listProblemStatements({ company: compId }),
         ])
         if (!mounted) return
         setCompany(c)
-        setSubject(s)
         setProblems(probs || [])
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'No se pudo cargar la empresa'
@@ -35,7 +30,7 @@ export default function EmpresaDetalle() {
         if (mounted) setLoading(false)
       }
     }
-    if (!Number.isFinite(subjectId) || !Number.isFinite(compId)) {
+    if (!Number.isFinite(compId)) {
       setError('Parámetros inválidos')
       setLoading(false)
       return
