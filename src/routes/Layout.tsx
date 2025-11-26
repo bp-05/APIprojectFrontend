@@ -455,15 +455,6 @@ function isSidebarItemActive(pathname: string, item: SidebarLinkItem) {
   return pathname === item.to
 }
 
-function IconHome() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M3 11l9-8 9 8" />
-      <path d="M9 22V12h6v10" />
-    </svg>
-  )
-}
-
 function IconFolder() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">

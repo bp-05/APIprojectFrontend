@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { listSubjects, listSubjectPhaseProgress, type Subject, type SubjectPhaseProgress, type PhaseProgressPhase } from '../../api/subjects'
+import { listSubjects, listSubjectPhaseProgress, type Subject, type PhaseProgressPhase } from '../../api/subjects'
 import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
 import { usePeriodStore } from '../../store/period'
 import jsPDF from 'jspdf'
@@ -239,7 +239,7 @@ export default function COORD_DASH() {
     return score
   }
   // Función para obtener detalles del riesgo
-  function getRiskDetails(s: Subject, score: number): string[] {
+  function getRiskDetails(s: Subject): string[] {
     const details: string[] = []
     const st = mapStatus(s)
     if (st === 'Observada') details.push('Estado: Observada')
@@ -456,7 +456,7 @@ export default function COORD_DASH() {
                 <div className="space-y-4">
                   {allRisk.map(({ s, score }) => {
                     const lvl = riskLevel(score)
-                    const details = getRiskDetails(s, score)
+                    const details = getRiskDetails(s)
                     const cls = lvl === 'Alto'
                       ? 'border-red-200 bg-red-50'
                       : lvl === 'Medio' || lvl === 'Bajo'
@@ -680,51 +680,6 @@ function KpiCard({ title, value, tone = 'zinc', linkTo, subtitle = 'Total de pro
       <div className="mt-1 text-xs text-zinc-500">{subtitle}</div>
     </div>
   )
-}
-
-function exportCsv() {
-  const rows = [
-    ['Métrica', 'Valor'],
-    ['Borrador', String((window as any).kpi?.Borrador ?? '')],
-    ['Enviada', String((window as any).kpi?.Enviada ?? '')],
-    ['Observada', String((window as any).kpi?.Observada ?? '')],
-    ['Aprobada', String((window as any).kpi?.Aprobada ?? '')],
-    ['% con atraso', String((window as any).delayedPct ?? '')],
-  ]
-  const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `kpis_coordinador_${new Date().toISOString().slice(0,10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function exportPdf() {
-  const w = window.open('', '_blank')
-  if (!w) return
-  const d = new Date()
-  const html = `<!doctype html><html><head><meta charset="utf-8" /><title>KPIs Coordinador</title>
-    <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;padding:24px;color:#111} h1{font-size:20px;margin:0 0 12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ddd;padding:8px;text-align:left} th{background:#f5f5f5}</style>
-  </head><body>
-    <h1>KPIs Coordinador</h1>
-    <div>Fecha: ${d.toLocaleString()}</div>
-    <table style="margin-top:12px">
-      <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
-      <tbody>
-        <tr><td>Borrador</td><td>${(window as any).kpi?.Borrador ?? ''}</td></tr>
-        <tr><td>Enviada</td><td>${(window as any).kpi?.Enviada ?? ''}</td></tr>
-        <tr><td>Observada</td><td>${(window as any).kpi?.Observada ?? ''}</td></tr>
-        <tr><td>Aprobada</td><td>${(window as any).kpi?.Aprobada ?? ''}</td></tr>
-        <tr><td>% con atraso</td><td>${(window as any).delayedPct ?? ''}%</td></tr>
-      </tbody>
-    </table>
-    <script>window.onload = () => setTimeout(() => window.print(), 300)</script>
-  </body></html>`
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
 }
 
 function exportCsvPhases() {
