@@ -984,19 +984,19 @@ function SubjectDetailView({
 
   return (
     <section className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-900">{subject.name}</h1>
-          <p className="text-sm text-zinc-600">
-            {subject.code}-{subject.section} - {formatPeriod(subject)}
-          </p>
-        </div>
+      <div className="mb-4 flex items-center justify-between">
         <button
           onClick={onClose}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:border-zinc-400"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
         >
-          Cerrar
+          Volver
         </button>
+      </div>
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold text-zinc-900">{subject.name}</h1>
+        <p className="text-sm text-zinc-600">
+          {subject.code}-{subject.section} - {formatPeriod(subject)}
+        </p>
       </div>
       <CollapsibleSection
         title="Informacion de la asignatura"
