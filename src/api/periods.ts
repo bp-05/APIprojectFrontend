@@ -1,5 +1,5 @@
 import http from '../lib/http'
-import { makePeriodCode, normalizePeriodSeason, PeriodSeason } from '../lib/period'
+import { makePeriodCode, normalizePeriodSeason, type PeriodSeason } from '../lib/period'
 
 export type PeriodPhaseSchedule = {
   id: number
