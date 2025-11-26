@@ -522,14 +522,14 @@ export default function DCAsignaturas() {
     try {
       if (boundaryForm.id) {
         await updateBoundaryCondition(boundaryForm.id, {
-          large_company: boundaryForm.large_company,
-          medium_company: boundaryForm.medium_company,
-          small_company: boundaryForm.small_company,
-          family_enterprise: boundaryForm.family_enterprise,
-          not_relevant: boundaryForm.not_relevant,
-          company_type_description: boundaryForm.company_type_description,
-          company_requirements_for_level_2_3: boundaryForm.company_requirements_for_level_2_3,
-          project_minimum_elements: boundaryForm.project_minimum_elements,
+          large_company: boundaryForm.large_company ?? false,
+          medium_company: boundaryForm.medium_company ?? false,
+          small_company: boundaryForm.small_company ?? false,
+          family_enterprise: boundaryForm.family_enterprise ?? false,
+          not_relevant: boundaryForm.not_relevant ?? false,
+          company_type_description: boundaryForm.company_type_description ?? '',
+          company_requirements_for_level_2_3: boundaryForm.company_requirements_for_level_2_3 ?? '',
+          project_minimum_elements: boundaryForm.project_minimum_elements ?? '',
         })
       } else {
         await createBoundaryCondition({
@@ -539,9 +539,9 @@ export default function DCAsignaturas() {
           small_company: boundaryForm.small_company ?? false,
           family_enterprise: boundaryForm.family_enterprise ?? false,
           not_relevant: boundaryForm.not_relevant ?? false,
-          company_type_description: boundaryForm.company_type_description,
-          company_requirements_for_level_2_3: boundaryForm.company_requirements_for_level_2_3,
-          project_minimum_elements: boundaryForm.project_minimum_elements,
+          company_type_description: boundaryForm.company_type_description ?? '',
+          company_requirements_for_level_2_3: boundaryForm.company_requirements_for_level_2_3 ?? '',
+          project_minimum_elements: boundaryForm.project_minimum_elements ?? '',
         })
       }
       toast.success('Condicion de borde guardada')

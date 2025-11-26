@@ -124,6 +124,7 @@ export default function Asignaturas() {
 
     async function connect() {
       if (cancelled) return
+      if (!accessToken) return
       const baseUrl = apiBaseUrl()
       const normalized = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
       const url = `${normalized}/subjects/stream/?token=${encodeURIComponent(accessToken)}`

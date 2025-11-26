@@ -70,6 +70,7 @@ export async function createSubject(
     | 'total_students'
   > & {
     teacher?: number | null
+    shift?: string
   }
 ) {
   const { data } = await http.post<Subject>(`/subjects/`, payload)

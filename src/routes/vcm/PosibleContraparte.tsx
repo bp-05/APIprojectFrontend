@@ -125,9 +125,10 @@ export default function PosibleContraparte() {
   const [items, setItems] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [recentlyUpdated, setRecentlyUpdated] = useState<Set<string>>(new Set())
+  const [_recentlyUpdated, setRecentlyUpdated] = useState<Set<string>>(new Set())
 
   const [viewing, setViewing] = useState<Prospect | null>(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [assignName, setAssignName] = useState('')
 
@@ -327,7 +328,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
   return cleanContactInfo(fallback || null)
 }
 
-  function openAssign(p: Prospect) {
+  function _openAssign(p: Prospect) {
     if (p.source === 'db') return // solo lectura para filas de BD
     setAssigningId(p.id)
     const candidate = findCompanyByName(p.company_name)
@@ -352,7 +353,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
     }
   }
 
-  function openEdit(p: Prospect) {
+  function _openEdit(p: Prospect) {
     setEditing(p)
     setEditName(p.company_name || '')
     setEditSector(p.sector || '')
@@ -524,12 +525,12 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
           } catch {}
           
           const existingForCompany = allReqs.filter((r) => r.company === editing.company_id)
-          const existingSubjects = new Set(existingForCompany.map((r) => r.subject).filter(Boolean) as number[])
+          const existingSubjects = new Set(existingForCompany.map((r) => r.subject).filter((s): s is number => s !== null))
           const selectedSubjects = new Set(editAssignedSubjects)
           
           // Determinar cuáles crear y cuáles eliminar
           const toCreate = editAssignedSubjects.filter((id) => !existingSubjects.has(id))
-          const toDelete = existingForCompany.filter((r) => !selectedSubjects.has(r.subject))
+          const toDelete = existingForCompany.filter((r) => r.subject !== null && !selectedSubjects.has(r.subject))
           
           // Eliminar requerimientos deseleccionados
           for (const req of toDelete) {
@@ -778,7 +779,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
       }
   }
 
-  async function onDelete(p: Prospect) {
+  async function _onDelete(p: Prospect) {
     if (!confirm(`¿Eliminar "${p.company_name}"?`)) return
     if (p.source === 'db') {
       const sure = confirm('Se eliminará el requerimiento en la base de datos. Esta acción no se puede deshacer. ¿Deseas continuar?')
