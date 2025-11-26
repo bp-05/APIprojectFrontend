@@ -1,26 +1,22 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState} from 'react'
 import { listSubjects, listCompanyRequirements, type CompanyRequirement } from '../../api/subjects'
-import { listCompanies, type Company } from '../../api/companies'
+import { listCompanies } from '../../api/companies'
 
 export default function VCM() {
   const [items, setItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [companies, setCompanies] = useState<Company[]>([])
   const [requirements, setRequirements] = useState<CompanyRequirement[]>([])
 
   async function load() {
-    setLoading(true)
     try {
-      const [subs, comps, reqs] = await Promise.all([
+      const [subs, , reqs] = await Promise.all([
         listSubjects().catch(() => []),
         listCompanies().catch(() => []),
         listCompanyRequirements().catch(() => []),
       ])
       setItems(subs)
-      setCompanies(comps)
       setRequirements(reqs)
-    } finally {
-      setLoading(false)
+    } catch {
+      // Error silencioso
     }
   }
 
