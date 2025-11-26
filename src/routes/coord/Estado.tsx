@@ -1,8 +1,9 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { listSubjects, type Subject } from '../../api/subjects'
+import { listSubjects, updateSubject, type Subject } from '../../api/subjects'
 import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
 import { useSearchParams, Link } from 'react-router'
 import { usePeriodStore } from '../../store/period'
+import { toast } from '../../lib/toast'
 
 type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
 type LocalStatus = { status: ProjectState; timestamps?: Partial<Record<ProjectState, string>> }
@@ -29,12 +30,30 @@ export default function EstadoCoord() {
   type LocalCycleEntry = { phase: PhaseName; start?: string; end?: string; phases?: Record<PhaseName, PhaseDates> }
   
   const PHASES = [
-    { value: 'Fase: Inicio' as PhaseName, label: 'Inicio' },
-    { value: 'Fase 1' as PhaseName, label: 'Formulación de requerimientos' },
-    { value: 'Fase 2' as PhaseName, label: 'Gestión de requerimientos' },
-    { value: 'Fase 3' as PhaseName, label: 'Validación de requerimientos' },
-    { value: 'Fase: Completado' as PhaseName, label: 'Completado' },
+    { value: 'Fase: Inicio' as PhaseName, label: 'Inicio', backendValue: 'inicio' },
+    { value: 'Fase 1' as PhaseName, label: 'Formulación de requerimientos', backendValue: 'formulacion' },
+    { value: 'Fase 2' as PhaseName, label: 'Gestión de requerimientos', backendValue: 'gestion' },
+    { value: 'Fase 3' as PhaseName, label: 'Validación de requerimientos', backendValue: 'validacion' },
+    { value: 'Fase: Completado' as PhaseName, label: 'Completado', backendValue: 'completado' },
   ]
+
+  // Mapeo de valores de frontend a backend
+  const phaseToBackend: Record<PhaseName, string> = {
+    'Fase: Inicio': 'inicio',
+    'Fase 1': 'formulacion',
+    'Fase 2': 'gestion',
+    'Fase 3': 'validacion',
+    'Fase: Completado': 'completado',
+  }
+
+  // Mapeo de valores de backend a frontend
+  const backendToPhase: Record<string, PhaseName> = {
+    'inicio': 'Fase: Inicio',
+    'formulacion': 'Fase 1',
+    'gestion': 'Fase 2',
+    'validacion': 'Fase 3',
+    'completado': 'Fase: Completado',
+  }
   
   const [localCycle, setLocalCycle] = useState<Record<number, LocalCycleEntry>>(() => {
     try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} }
@@ -62,6 +81,28 @@ export default function EstadoCoord() {
       localStorage.setItem('coordSubjectCycle', JSON.stringify(next))
       window.dispatchEvent(new Event('coordSubjectCycleChanged'))
     } catch {}
+  }
+
+  // Estado para controlar cuál select está guardando
+  const [savingPhase, setSavingPhase] = useState<number | null>(null)
+
+  // Función para actualizar fase en el backend
+  async function handlePhaseChange(subjectId: number, phase: PhaseName) {
+    const backendPhase = phaseToBackend[phase]
+    setSavingPhase(subjectId)
+    try {
+      await updateSubject(subjectId, { phase: backendPhase })
+      // Actualizar el item local con la nueva fase
+      setItems((prev) =>
+        prev.map((s) => (s.id === subjectId ? { ...s, phase: backendPhase } : s))
+      )
+      toast.success('Fase actualizada correctamente')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al actualizar fase'
+      toast.error(msg)
+    } finally {
+      setSavingPhase(null)
+    }
   }
 
   async function load() {
@@ -107,9 +148,15 @@ export default function EstadoCoord() {
     return score
   }
 
-  function phaseOf(s: Subject) {
+  function phaseOf(s: Subject): PhaseName {
+    // Prioritize backend phase value from Subject
+    const backendPhase = (s as any)?.phase as string | undefined
+    if (backendPhase && backendToPhase[backendPhase]) {
+      return backendToPhase[backendPhase]
+    }
+    // Fallback to local cycle (for compatibility)
     const local = localCycle[s.id]?.phase
-    return local || (s as any)?.phase || 'Fase: Inicio'
+    return local || 'Fase: Inicio'
   }
 
   function phaseLabel(p?: string | null) {
@@ -239,16 +286,10 @@ export default function EstadoCoord() {
                       value={phaseOf(s)}
                       onChange={(e) => {
                         const phase = e.target.value as PhaseName
-                        const prev = localCycle[s.id] || { phase: 'Fase: Inicio' } as LocalCycleEntry
-                        const prevPhases = { ...(prev.phases || {}) } as Record<PhaseName, PhaseDates>
-                        prevPhases[phase] = prevPhases[phase] || { start: undefined, end: undefined }
-                        const nextEntry: LocalCycleEntry = { phase, phases: prevPhases }
-                        saveCycle({
-                          ...localCycle,
-                          [s.id]: nextEntry,
-                        })
+                        handlePhaseChange(s.id, phase)
                       }}
-                      className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                      disabled={savingPhase === s.id}
+                      className={`w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10 ${savingPhase === s.id ? 'opacity-50 cursor-wait' : ''}`}
                       title="Seleccionar fase"
                     >
                       {PHASES.map(({ value: phase, label }) => (
@@ -282,8 +323,8 @@ export default function EstadoCoord() {
             <div className="mb-4 rounded-md border border-zinc-200 bg-zinc-50 p-3">
               {(() => {
                 const id = editTarget?.id
-                const info = id != null ? localCycle[id] : undefined
-                const currentPhase = (info?.phase || 'Fase: Inicio') as PhaseName
+                const subject = items.find((s) => s.id === id)
+                const currentPhase = subject ? phaseOf(subject) : 'Fase: Inicio' as PhaseName
                 // Get admin dates for current phase
                 const adminInfo = getAdminPhaseInfo(currentPhase)
                 const startDate = adminInfo?.start || 'No asignadas'
