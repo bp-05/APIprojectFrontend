@@ -778,7 +778,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">Competencias técnicas</h2>
-            <span className={`inline-block transition-transform ${expandedSections.competencies ? 'rotate-180' : ''}`}>?</span>
+            <span className={`inline-block transition-transform ${expandedSections.competencies ? 'rotate-180' : ''}`}>▼</span>
           </button>
           {expandedSections.competencies && (
             <div className="border-t border-zinc-200 p-4">
@@ -804,7 +804,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">Unidades de la asignatura ({units.length})</h2>
-            <span className={`inline-block transition-transform ${expandedSections.units ? 'rotate-180' : ''}`}>?</span>
+            <span className={`inline-block transition-transform ${expandedSections.units ? 'rotate-180' : ''}`}>▼</span>
           </button>
           {expandedSections.units && (
             <div className="border-t border-zinc-200 p-4">
@@ -952,7 +952,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">Condiciones de borde</h2>
-            <span className={`inline-block transition-transform ${expandedSections.boundary ? 'rotate-180' : ''}`}>?</span>
+            <span className={`inline-block transition-transform ${expandedSections.boundary ? 'rotate-180' : ''}`}>▼</span>
           </button>
           {expandedSections.boundary && (
             <div className="border-t border-zinc-200 p-4">
@@ -999,7 +999,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">Requerimientos de empresas</h2>
-            <span className={`inline-block transition-transform ${expandedSections.requirements ? 'rotate-180' : ''}`}>?</span>
+            <span className={`inline-block transition-transform ${expandedSections.requirements ? 'rotate-180' : ''}`}>▼</span>
           </button>
           {expandedSections.requirements && (
             <div className="border-t border-zinc-200 p-4">
@@ -1104,7 +1104,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">Proyectos ({subjectProblems.length})</h2>
-            <span className={`inline-block transition-transform ${expandedSections.problems ? 'rotate-180' : ''}`}>?</span>
+            <span className={`inline-block transition-transform ${expandedSections.problems ? 'rotate-180' : ''}`}>▼</span>
           </button>
           {expandedSections.problems && (
             <div className="border-t border-zinc-200 p-4">
@@ -1205,7 +1205,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">API Tipo 2</h2>
-            <span className={`inline-block transition-transform ${expandedSections.api2 ? 'rotate-180' : ''}`}>?</span>
+            <span className={`inline-block transition-transform ${expandedSections.api2 ? 'rotate-180' : ''}`}>▼</span>
           </button>
           {expandedSections.api2 && (
             <div className="border-t border-zinc-200 p-4">
@@ -1232,7 +1232,7 @@ export default function AsignaturaVCMDetalle() {
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 transition-colors"
           >
             <h2 className="text-base font-semibold text-zinc-900">API Tipo 3</h2>
-            <span className={`inline-block transition-transform ${expandedSections.api3 ? 'rotate-180' : ''}`}>?</span>
+            <span className={`inline-block transition-transform ${expandedSections.api3 ? 'rotate-180' : ''}`}>▼</span>
           </button>
           {expandedSections.api3 && (
             <div className="border-t border-zinc-200 p-4 space-y-6">
