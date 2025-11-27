@@ -90,8 +90,8 @@ const SIDEBAR_SECTIONS: Record<AppRole, SidebarSection[]> = {
       items: [
         { to: '/coord/asignaturas', label: 'Asignaturas', icon: <IconFolder />, matchPrefix: '/coord/asignaturas' },
         { to: '/coord/gantt', label: 'Gantt', icon: <IconCalendar />, matchPrefix: '/coord/gantt' },
-        { to: '/coord/reportes', label: 'Reportes', icon: <IconChart />, matchPrefix: '/coord/reportes' },
-        { to: '/coord/notificaciones', label: 'Notificaciones', icon: <IconBell />, matchPrefix: '/coord/notificaciones' },
+        // { to: '/coord/reportes', label: 'Reportes', icon: <IconChart />, matchPrefix: '/coord/reportes' },
+        // { to: '/coord/notificaciones', label: 'Notificaciones', icon: <IconBell />, matchPrefix: '/coord/notificaciones' },
         { to: '/coord/fichas', label: 'Fichas', icon: <IconFileText />, matchPrefix: '/coord/fichas' },
         { to: '/coord/docentes', label: 'Docentes', icon: <IconUsers />, matchPrefix: '/coord/docentes', showOnDesktop: false },
       ],
@@ -474,24 +474,25 @@ function IconCalendar() {
   )
 }
 
-function IconChart() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <line x1="18" y1="20" x2="18" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
-    </svg>
-  )
-}
+// IconChart e IconBell comentados temporalmente - se usarán cuando se implementen Reportes y Notificaciones
+// function IconChart() {
+//   return (
+//     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+//       <line x1="18" y1="20" x2="18" y2="10" />
+//       <line x1="12" y1="20" x2="12" y2="4" />
+//       <line x1="6" y1="20" x2="6" y2="14" />
+//     </svg>
+//   )
+// }
 
-function IconBell() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 8h18s-3-1-3-8" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  )
-}
+// function IconBell() {
+//   return (
+//     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+//       <path d="M18 8a6 6 0 00-12 0c0 7-3 8-3 8h18s-3-1-3-8" />
+//       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+//     </svg>
+//   )
+// }
 
 function IconUsers() {
   return (
