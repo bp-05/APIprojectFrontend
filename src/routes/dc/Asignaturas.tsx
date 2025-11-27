@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useLocation } from 'react-router'
 import { toast } from '../../lib/toast'
 import {
@@ -23,6 +23,9 @@ import {
   updateAlternance,
   updateSubject,
   updateSubjectCompetency,
+  uploadDescriptor,
+  processDescriptor,
+  listDescriptorsBySubject,
   type ApiType2Completion,
   type ApiType3Completion,
   type Api3Alternance,
@@ -32,8 +35,10 @@ import {
   type SemesterLevel,
   type Subject,
   type SubjectCompetency,
+  type Descriptor,
 } from '../../api/subjects'
 import { listDocentes, type User as Teacher } from '../../api/users'
+import { nameCase } from '../../lib/strings'
 
 type PanelMode = 'list' | 'view' | 'edit'
 
@@ -844,6 +849,7 @@ export default function DCAsignaturas() {
         <table className="min-w-full divide-y divide-zinc-200">
           <thead className="bg-zinc-50">
             <tr>
+              <Th>Descriptor</Th>
               <Th>Codigo</Th>
               <Th>Seccion</Th>
           <Th>Nombre</Th>
@@ -857,11 +863,11 @@ export default function DCAsignaturas() {
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Cargando...</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Cargando...</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={8}>Sin resultados</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Sin resultados</td>
               </tr>
             ) : (
               filtered.map((s) => (
@@ -870,12 +876,27 @@ export default function DCAsignaturas() {
                   onClick={() => handleSelect(s)}
                   className="cursor-pointer transition-colors hover:bg-zinc-50"
                 >
+                  <Td>
+                    <DescriptorCell subject={s} onChanged={load} />
+                  </Td>
                   <Td>{s.code}</Td>
                   <Td>{s.section}</Td>
           <Td>{s.name}</Td>
           <Td>{s.area_name}</Td>
-          <Td>{s.career_name || '-'}</Td>
-          <Td>{s.teacher_name || '-'}</Td>
+          <Td>
+            {s.career ? (
+              s.career_name || '-'
+            ) : (
+              <AssignCareerButton subject={s} onAssigned={load} />
+            )}
+          </Td>
+          <Td>
+            {s.teacher ? (
+              s.teacher_name || '-'
+            ) : (
+              <AssignTeacherButton subject={s} onAssigned={load} />
+            )}
+          </Td>
           <Td>{s.total_students ?? '-'}</Td>
                   <Td>{phaseLabel(s.phase)}</Td>
                 </tr>
@@ -1761,8 +1782,8 @@ function Th({ children, className = '' }: { children: any; className?: string })
   )
 }
 
-function Td({ children, className = '' }: { children: any; className?: string }) {
-  return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
+function Td({ children, className = '', onClick }: { children: any; className?: string; onClick?: (e: React.MouseEvent) => void }) {
+  return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`} onClick={onClick}>{children}</td>
 }
 
 function phaseLabel(v: string) {
@@ -1774,6 +1795,401 @@ function phaseLabel(v: string) {
     completado: 'Completado',
   }
   return map[v] || v
+}
+
+// ==================== Componentes de Asignación para DC ====================
+
+function DescriptorCell({ subject, onChanged }: { subject: Subject; onChanged: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState<Descriptor[] | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  async function refreshDescriptors(): Promise<Descriptor[]> {
+    try {
+      const data = await listDescriptorsBySubject(subject.id)
+      const filtered = Array.isArray(data) ? data.filter((d) => d.subject === subject.id) : []
+      setItems(filtered)
+      return filtered
+    } catch {
+      setItems([])
+      return []
+    }
+  }
+
+  useEffect(() => {
+    let mounted = true
+    listDescriptorsBySubject(subject.id)
+      .then((data) => {
+        if (!mounted) return
+        const filtered = Array.isArray(data) ? data.filter((d) => d.subject === subject.id) : []
+        setItems(filtered)
+      })
+      .catch(() => { if (mounted) setItems([]) })
+    return () => { mounted = false }
+  }, [subject.id])
+
+  useEffect(() => {
+    if (!open) {
+      const t = setTimeout(() => { void refreshDescriptors() }, 600)
+      return () => clearTimeout(t)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!items || items.length === 0) return
+    const hasPending = items.some((d) => !d.processed_at)
+    if (!hasPending) {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+      return
+    }
+    if (pollRef.current) return
+    const started = Date.now()
+    pollRef.current = setInterval(async () => {
+      const latest = await refreshDescriptors()
+      const pending = latest.some((d) => !d.processed_at)
+      const timeout = Date.now() - started > 120000
+      if (!pending || timeout) {
+        if (pollRef.current) clearInterval(pollRef.current)
+        pollRef.current = null
+        if (!pending) {
+          try { await onChanged() } catch {}
+        }
+      }
+    }, 5000)
+    return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
+  }, [items, onChanged])
+
+  const hasDescriptor = !!items && items.length > 0
+  const last: Descriptor | undefined = hasDescriptor ? items![items!.length - 1] : undefined
+
+  if (items === null) {
+    return <span className="inline-block h-3 w-3 rounded-sm bg-zinc-300 animate-pulse" title="Cargando…" />
+  }
+
+  if (hasDescriptor && last) {
+    const url = last.file
+    return (
+      <div className="flex items-center gap-2">
+        <span title={last.processed_at ? 'Procesado' : 'Pendiente'} className={`inline-block h-3 w-3 rounded-sm ${last.processed_at ? 'bg-green-600' : 'bg-zinc-400'}`} />
+        <a href={url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-red-700 hover:underline">Ver</a>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(true) }}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-dashed border-zinc-400 text-zinc-600 hover:bg-zinc-50"
+        title="Subir descriptor (PDF)"
+      >
+        +
+      </button>
+      {open ? (
+        <UploadDescriptorDialog
+          subject={subject}
+          onClose={() => setOpen(false)}
+          onUploaded={async () => {
+            setOpen(false)
+            await onChanged()
+          }}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function UploadDescriptorDialog({ subject, onClose, onUploaded }: { subject: Subject; onClose: () => void; onUploaded: () => void }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (!file) {
+      setError('Seleccione un archivo PDF')
+      return
+    }
+    const ext = file.name.toLowerCase()
+    if (!ext.endsWith('.pdf')) {
+      setError('El archivo debe ser PDF')
+      return
+    }
+    try {
+      setLoading(true)
+      const d = await uploadDescriptor(file, subject.id)
+      toast.success('Descriptor subido')
+      try {
+        await processDescriptor(d.id)
+        toast.success('Procesamiento iniciado')
+      } catch (_) {
+        // ignorar si falla el disparo
+      }
+      await onUploaded()
+    } catch (e: any) {
+      const backendMsg =
+        (e?.response?.data && (e.response.data.detail || e.response.data.error)) ||
+        (e?.response?.data?.file && Array.isArray(e.response.data.file) ? e.response.data.file[0] : null)
+      setError(backendMsg || (e instanceof Error ? e.message : 'Error al subir'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files?.[0]
+    if (f) setFile(f)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Subir descriptor</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+        </div>
+        <p className="mb-2 text-xs text-zinc-500">Asignatura: {subject.code}-{subject.section} {subject.name}</p>
+        {error ? (
+          <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        ) : null}
+        <form onSubmit={onSubmit}>
+          <div
+            className={`mb-3 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed p-6 transition-colors ${dragOver ? 'border-red-500 bg-red-50' : 'border-zinc-300 hover:border-zinc-400'}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            {file ? (
+              <span className="text-sm text-zinc-700">{file.name}</span>
+            ) : (
+              <span className="text-sm text-zinc-500">Arrastra un PDF o haz clic para seleccionar</span>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cancelar</button>
+            <button type="submit" disabled={loading || !file} className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-60">{loading ? 'Subiendo…' : 'Subir'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function AssignTeacherButton({ subject, onAssigned }: { subject: Subject; onAssigned: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(true) }}
+        className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
+      >
+        Asignar
+      </button>
+      {open ? (
+        <AssignTeacherDialog
+          subject={subject}
+          onClose={() => setOpen(false)}
+          onAssigned={async () => {
+            setOpen(false)
+            await onAssigned()
+          }}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function AssignTeacherDialog({ subject, onClose, onAssigned }: { subject: Subject; onClose: () => void; onAssigned: () => void }) {
+  const [teachers, setTeachers] = useState<Teacher[]>([])
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<number | ''>('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    listDocentes({ onlyActive: true })
+      .then((data) => mounted && setTeachers(data))
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
+  const filtered = useMemo(() => {
+    if (!search) return teachers
+    const q = search.toLowerCase()
+    return teachers.filter((u) => [u.email, u.first_name, u.last_name].some((v) => String(v || '').toLowerCase().includes(q)))
+  }, [teachers, search])
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      if (selected === '') {
+        setLoading(false)
+        setError('Seleccione un docente')
+        return
+      }
+      await updateSubject(subject.id, { teacher: Number(selected) })
+      toast.success('Docente asignado')
+      await onAssigned()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al asignar docente'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Asignar docente</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+        </div>
+        {error ? (
+          <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        ) : null}
+        <form className="grid grid-cols-2 gap-3" onSubmit={onSubmit}>
+          <div className="col-span-2">
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Buscar</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" placeholder="Nombre o correo…" />
+          </div>
+          <div className="col-span-2">
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Docentes disponibles</label>
+            <select value={selected} onChange={(e) => setSelected(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" size={6}>
+              <option value="">Seleccione…</option>
+              {filtered.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {nameCase(`${u.first_name} ${u.last_name}`)} ({u.email})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-2 mt-2 flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cancelar</button>
+            <button type="submit" disabled={loading} className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-60">{loading ? 'Asignando…' : 'Asignar'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function AssignCareerButton({ subject, onAssigned }: { subject: Subject; onAssigned: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(true) }}
+        className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
+      >
+        Asignar
+      </button>
+      {open ? (
+        <AssignCareerDialog
+          subject={subject}
+          onClose={() => setOpen(false)}
+          onAssigned={async () => {
+            setOpen(false)
+            await onAssigned()
+          }}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function AssignCareerDialog({ subject, onClose, onAssigned }: { subject: Subject; onClose: () => void; onAssigned: () => void }) {
+  const [careers, setCareers] = useState<Career[]>([])
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<number | ''>('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    listCareers()
+      .then((data) => {
+        if (!mounted) return
+        // Priorizar carreras del área de la asignatura
+        const sameArea = data.filter((c) => c.area === subject.area)
+        const others = data.filter((c) => c.area !== subject.area)
+        setCareers([...sameArea, ...others])
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [subject.area])
+
+  const filtered = useMemo(() => {
+    if (!search) return careers
+    const q = search.toLowerCase()
+    return careers.filter((c) => [c.name, c.area_name || ''].some((v) => String(v || '').toLowerCase().includes(q)))
+  }, [careers, search])
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      if (selected === '') {
+        setLoading(false)
+        setError('Seleccione una carrera')
+        return
+      }
+      await updateSubject(subject.id, { career: Number(selected) })
+      toast.success('Carrera asignada')
+      await onAssigned()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al asignar carrera'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Asignar carrera</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+        </div>
+        {error ? (
+          <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        ) : null}
+        <form className="grid grid-cols-2 gap-3" onSubmit={onSubmit}>
+          <div className="col-span-2">
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Buscar</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" placeholder="Nombre o área…" />
+          </div>
+          <div className="col-span-2">
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Carreras disponibles</label>
+            <select value={selected} onChange={(e) => setSelected(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" size={6}>
+              <option value="">Seleccione…</option>
+              {filtered.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.area_name ? `— ${c.area_name}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-2 mt-2 flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cancelar</button>
+            <button type="submit" disabled={loading} className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-60">{loading ? 'Asignando…' : 'Asignar'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 function formatPeriod(subject: Subject) {
