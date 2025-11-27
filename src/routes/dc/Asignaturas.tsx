@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback, type ReactNode } from 'react'
 import { useLocation } from 'react-router'
 import { toast } from '../../lib/toast'
 import {
@@ -26,6 +26,7 @@ import {
   uploadDescriptor,
   processDescriptor,
   listDescriptorsBySubject,
+  createSubject,
   type ApiType2Completion,
   type ApiType3Completion,
   type Api3Alternance,
@@ -39,8 +40,12 @@ import {
 } from '../../api/subjects'
 import { listDocentes, type User as Teacher } from '../../api/users'
 import { nameCase } from '../../lib/strings'
+import { useAuth } from '../../store/auth'
+import { usePeriodStore } from '../../store/period'
+import { apiBaseUrl } from '../../lib/env'
 
 type PanelMode = 'list' | 'view' | 'edit'
+type CreateMode = 'choose' | 'manual' | 'auto' | null
 
 type CompetencySlot = {
   id: number | null
@@ -228,6 +233,10 @@ function buildUpdatePayload(values: SubjectFormValues): Partial<Subject> {
 
 export default function DCAsignaturas() {
   const location = useLocation()
+  const user = useAuth((s) => s.user)
+  const accessToken = useAuth((s) => s.accessToken)
+  const periodSeason = usePeriodStore((s) => s.season)
+  const periodYear = usePeriodStore((s) => s.year)
   const [items, setItems] = useState<Subject[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -236,6 +245,7 @@ export default function DCAsignaturas() {
   const [selected, setSelected] = useState<Subject | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [createMode, setCreateMode] = useState<CreateMode>(null)
 
   const [areas, setAreas] = useState<Area[]>([])
   const [semesters, setSemesters] = useState<SemesterLevel[]>([])
@@ -268,6 +278,30 @@ export default function DCAsignaturas() {
   const [alternanceLoading, setAlternanceLoading] = useState(false)
   const [alternanceError, setAlternanceError] = useState<string | null>(null)
   const [alternanceSaving, setAlternanceSaving] = useState(false)
+
+  // Funciones para actualizar items desde SSE
+  const upsertSubject = useCallback((subject: Subject) => {
+    setItems((prev) => {
+      if (!prev || prev.length === 0) return [subject]
+      const index = prev.findIndex((entry) => entry.id === subject.id)
+      if (index === -1) {
+        const next = [...prev, subject]
+        next.sort((a, b) => {
+          const codeCompare = a.code.localeCompare(b.code, 'es', { sensitivity: 'base', numeric: true })
+          if (codeCompare !== 0) return codeCompare
+          return String(a.section).localeCompare(String(b.section), 'es', { sensitivity: 'base', numeric: true })
+        })
+        return next
+      }
+      const next = prev.slice()
+      next[index] = subject
+      return next
+    })
+  }, [])
+
+  const removeSubject = useCallback((subjectId: number) => {
+    setItems((prev) => prev.filter((entry) => entry.id !== subjectId))
+  }, [])
 
   async function load() {
     setLoading(true)
@@ -362,6 +396,144 @@ export default function DCAsignaturas() {
     load()
   }, [])
 
+  // SSE para recibir actualizaciones en tiempo real
+  useEffect(() => {
+    if (!accessToken) return
+    const expectedSeason = (periodSeason || '').toUpperCase()
+    const userAreaId = user?.area ?? null
+    let cancelled = false
+    let retryHandle: ReturnType<typeof setTimeout> | null = null
+    let controller: AbortController | null = null
+
+    async function syncSubject(subjectId: number) {
+      try {
+        const subject = await getSubject(subjectId)
+        if (cancelled || !subject) return
+        const subjectSeason = (subject.period_season || '').toUpperCase()
+        // Filtrar por periodo
+        if (subject.period_year !== periodYear || subjectSeason !== expectedSeason) {
+          removeSubject(subject.id)
+          return
+        }
+        // Filtrar por área del DC si tiene una asignada
+        if (userAreaId && subject.area !== userAreaId) {
+          return
+        }
+        upsertSubject(subject)
+      } catch {
+        // Ignorar errores de permisos o subjects inexistentes
+      }
+    }
+
+    const handleMessage = (data: string) => {
+      if (cancelled) return
+      try {
+        const payload = JSON.parse(data || '{}')
+        const subjectId = Number(payload.subject_id)
+        if (!subjectId) return
+        const eventType = String(payload.event || '').toLowerCase()
+        const payloadYear = typeof payload.period_year === 'number' ? payload.period_year : null
+        const payloadSeason = typeof payload.period_season === 'string' ? payload.period_season.toUpperCase() : null
+        const matchesPeriod =
+          payloadYear === null ||
+          (payloadYear === periodYear && (!payloadSeason || payloadSeason === expectedSeason))
+        if (!matchesPeriod) {
+          if (eventType === 'deleted') {
+            removeSubject(subjectId)
+          }
+          return
+        }
+        if (eventType === 'deleted') {
+          removeSubject(subjectId)
+          return
+        }
+        if (eventType === 'descriptor_processed') {
+          const code =
+            payload.code ||
+            payload.subject_code ||
+            (typeof payload.subject === 'object' && payload.subject?.code) ||
+            null
+          const label = code ? `Asignatura ${code}` : 'Asignatura'
+          toast.success(`${label} procesada exitosamente.`)
+        }
+        void syncSubject(subjectId)
+      } catch {
+        // Ignorar payload inválido
+      }
+    }
+
+    const handleError = () => {
+      if (cancelled) return
+      if (controller) {
+        controller.abort()
+        controller = null
+      }
+      retryHandle = window.setTimeout(connect, 5000)
+    }
+
+    async function connect() {
+      if (cancelled || !accessToken) return
+      const baseUrl = apiBaseUrl()
+      const normalized = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+      const url = `${normalized}/subjects/stream/?token=${encodeURIComponent(accessToken)}`
+
+      try {
+        controller = new AbortController()
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        })
+
+        if (!response.ok) {
+          handleError()
+          return
+        }
+
+        const reader = response.body?.getReader()
+        if (!reader) {
+          handleError()
+          return
+        }
+
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            if (cancelled) break
+
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6)
+                if (data) handleMessage(data)
+              }
+            }
+          }
+        } catch {
+          if (!cancelled) handleError()
+        }
+      } catch {
+        if (!cancelled) retryHandle = window.setTimeout(connect, 5000)
+      }
+    }
+
+    connect()
+
+    return () => {
+      cancelled = true
+      if (retryHandle) window.clearTimeout(retryHandle)
+      if (controller) controller.abort()
+    }
+  }, [accessToken, periodSeason, periodYear, removeSubject, upsertSubject, user?.area])
+
   useEffect(() => {
     async function loadMeta() {
       setMetaLoading(true)
@@ -422,14 +594,20 @@ export default function DCAsignaturas() {
     }
   }, [selected?.id, selected?.api_type])
 
+  // Primero filtra por área del DC si tiene una asignada
+  const itemsInArea = useMemo(() => {
+    if (!user?.area) return items
+    return items.filter((s) => s.area === user.area)
+  }, [items, user?.area])
+
   const filtered = useMemo(() => {
-    if (!search) return items
+    if (!search) return itemsInArea
     const q = search.toLowerCase()
-    return items.filter((s) =>
+    return itemsInArea.filter((s) =>
       [s.code, s.section, s.name, s.campus, s.area_name || '', s.career_name || '', s.semester_name || '', s.teacher_name || '']
         .some((v) => String(v || '').toLowerCase().includes(q))
     )
-  }, [items, search])
+  }, [itemsInArea, search])
 
   const handleFormChange = (field: keyof SubjectFormValues, value: string) => {
     setFormError(null)
@@ -824,12 +1002,23 @@ export default function DCAsignaturas() {
     )
   }
 
+  // Obtener el nombre del área del usuario para mostrar en el subtítulo
+  const userAreaName = useMemo(() => {
+    if (!user?.area || areas.length === 0) return null
+    const found = areas.find((a) => a.id === user.area)
+    return found?.name ?? null
+  }, [user?.area, areas])
+
   return (
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Asignaturas</h1>
-          <p className="text-sm text-zinc-600">Listado para Director de area/carrera</p>
+          <p className="text-sm text-zinc-600">
+            {userAreaName
+              ? `Asignaturas del área: ${userAreaName}`
+              : 'Listado para Director de area/carrera'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -838,8 +1027,41 @@ export default function DCAsignaturas() {
             placeholder="Buscar por codigo, seccion o nombre"
             className="w-72 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
           />
+          <button
+            onClick={() => setCreateMode('choose')}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+          >
+            + Nueva
+          </button>
         </div>
       </div>
+
+      {createMode === 'choose' ? (
+        <CreateSubjectModeDialog
+          onManual={() => setCreateMode('manual')}
+          onAuto={() => setCreateMode('auto')}
+          onClose={() => setCreateMode(null)}
+        />
+      ) : null}
+      {createMode === 'manual' ? (
+        <CreateSubjectDialogDC
+          userArea={user?.area ?? null}
+          onClose={() => setCreateMode(null)}
+          onCreated={async () => {
+            setCreateMode(null)
+            await load()
+          }}
+        />
+      ) : null}
+      {createMode === 'auto' ? (
+        <UploadDescriptorAutoDialog
+          onClose={() => setCreateMode(null)}
+          onUploaded={async () => {
+            setCreateMode(null)
+            await load()
+          }}
+        />
+      ) : null}
 
       {error ? (
         <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
@@ -2197,4 +2419,290 @@ function formatPeriod(subject: Subject) {
   const season = subject.period_season ? subject.period_season.toUpperCase() : ''
   const year = subject.period_year ? String(subject.period_year) : ''
   return [season, year].filter(Boolean).join('-') || 'Sin periodo'
+}
+
+// ==================== Componentes de Creación de Asignaturas DC ====================
+
+function CreateSubjectModeDialog({ onManual, onAuto, onClose }: { onManual: () => void; onAuto: () => void; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-lg">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Nueva asignatura</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+        </div>
+        <p className="mb-4 text-sm text-zinc-700">Elige cómo crear la asignatura:</p>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onManual} className="rounded-md border border-zinc-300 bg-white px-3 py-3 text-sm hover:bg-zinc-50">Manual</button>
+          <button onClick={onAuto} className="rounded-md bg-red-600 px-3 py-3 text-sm font-medium text-white hover:bg-red-700">Automática</button>
+        </div>
+        <p className="mt-3 text-xs text-zinc-500">Automática: sube un descriptor (PDF) y el sistema completará la asignatura con IA.</p>
+      </div>
+    </div>
+  )
+}
+
+function CreateSubjectDialogDC({ userArea, onClose, onCreated }: { userArea: number | null; onClose: () => void; onCreated: () => void }) {
+  const [code, setCode] = useState('')
+  const [section, setSection] = useState('1')
+  const [name, setName] = useState('')
+  const [hours, setHours] = useState<number | ''>('')
+  const [totalStudents, setTotalStudents] = useState<number | ''>('')
+  const [apiType, setApiType] = useState<number | ''>('')
+  const [campus, setCampus] = useState('Chillán')
+  const [shift, setShift] = useState<'diurna' | 'vespertina'>('diurna')
+  const [area, setArea] = useState<number | ''>(userArea ?? '')
+  const [semester, setSemester] = useState<number | ''>('')
+  const [areas, setAreas] = useState<Area[]>([])
+  const [semesters, setSemesters] = useState<SemesterLevel[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const periodSeason = usePeriodStore((s) => s.season)
+  const periodYear = usePeriodStore((s) => s.year)
+
+  useEffect(() => {
+    let mounted = true
+    Promise.all([listAreas(), listSemesters()])
+      .then(([a, s]) => {
+        if (!mounted) return
+        setAreas(a)
+        setSemesters(s)
+        // Si el usuario tiene un área asignada, forzar ese valor
+        if (userArea) {
+          setArea(userArea)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      mounted = false
+    }
+  }, [userArea])
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      if (!code || !section || !name || hours === '' || apiType === '' || area === '' || semester === '') {
+        setLoading(false)
+        setError('Complete todos los campos')
+        return
+      }
+      await createSubject({
+        code,
+        section,
+        name,
+        hours: Number(hours),
+        total_students: totalStudents === '' ? null : Number(totalStudents),
+        api_type: Number(apiType),
+        campus,
+        shift,
+        area: Number(area),
+        semester: Number(semester),
+        period_season: periodSeason,
+        period_year: periodYear,
+      })
+      toast.success('Asignatura creada')
+      await onCreated()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al crear asignatura'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Filtrar áreas para mostrar solo la del DC (si tiene asignada)
+  const availableAreas = useMemo(() => {
+    if (userArea) {
+      return areas.filter((a) => a.id === userArea)
+    }
+    return areas
+  }, [areas, userArea])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Nueva asignatura</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+        </div>
+        {userArea ? (
+          <p className="mb-2 text-xs text-zinc-500">Solo puedes crear asignaturas en tu área asignada.</p>
+        ) : null}
+        {error ? (
+          <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        ) : null}
+        <form className="grid grid-cols-2 gap-3" onSubmit={onSubmit}>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Código</label>
+            <input value={code} onChange={(e) => setCode(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Sección</label>
+            <input value={section} onChange={(e) => setSection(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
+          </div>
+          <div className="col-span-2">
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Nombre</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Campus</label>
+            <input value={campus} onChange={(e) => setCampus(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Jornada</label>
+            <select
+              value={shift}
+              onChange={(e) => setShift(e.target.value as 'diurna' | 'vespertina')}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            >
+              <option value="diurna">Diurna</option>
+              <option value="vespertina">Vespertina</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Horas</label>
+            <input type="number" value={hours} onChange={(e) => setHours(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Total estudiantes (opcional)</label>
+            <input
+              type="number"
+              min={0}
+              value={totalStudents}
+              onChange={(e) => setTotalStudents(e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo API</label>
+            <select value={apiType} onChange={(e) => setApiType(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
+              <option value="">Seleccione…</option>
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Área</label>
+            <select
+              value={area}
+              onChange={(e) => setArea(e.target.value === '' ? '' : Number(e.target.value))}
+              disabled={!!userArea}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10 disabled:cursor-not-allowed disabled:bg-zinc-100"
+            >
+              <option value="">Seleccione…</option>
+              {availableAreas.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Semestre</label>
+            <select value={semester} onChange={(e) => setSemester(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10">
+              <option value="">Seleccione…</option>
+              {semesters.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-2 mt-2 flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cancelar</button>
+            <button type="submit" disabled={loading} className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-60">{loading ? 'Creando…' : 'Crear'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function UploadDescriptorAutoDialog({ onClose, onUploaded }: { onClose: () => void; onUploaded: () => void }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const autoFileInputRef = useRef<HTMLInputElement | null>(null)
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (!file) {
+      setError('Seleccione un archivo PDF')
+      return
+    }
+    const name = file.name.toLowerCase()
+    if (!name.endsWith('.pdf')) {
+      setError('El archivo debe ser PDF')
+      return
+    }
+    try {
+      setLoading(true)
+      const descriptor = await uploadDescriptor(file, null)
+      toast.success('Descriptor subido; procesaremos la asignatura automáticamente.')
+      try {
+        await processDescriptor(descriptor.id)
+      } catch {}
+      onClose()
+      await onUploaded()
+    } catch (e: any) {
+      const backendMsg =
+        (e?.response?.data && (e.response.data.detail || e.response.data.error)) ||
+        (typeof e?.response?.data === 'string' ? e.response.data : null)
+      const msg = backendMsg || (e instanceof Error ? e.message : 'Error al subir descriptor')
+      setError(String(msg))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Crear automática desde descriptor</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">Cerrar</button>
+        </div>
+        {error ? (
+          <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+        ) : null}
+        <form className="space-y-3" onSubmit={onSubmit}>
+          <div>
+            <input
+              ref={autoFileInputRef as any}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="hidden"
+            />
+            <div
+              onClick={() => {
+                (autoFileInputRef as any)?.current?.click()
+              }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault(); setDragOver(false)
+                const f = e.dataTransfer.files?.[0]; if (f) setFile(f)
+              }}
+              role="button"
+              className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed ${dragOver ? 'border-red-500 bg-red-50' : 'border-zinc-300 bg-zinc-50'} px-4 py-8 text-center hover:bg-zinc-100`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6H16a4 4 0 010 8h-1m-4-8v10m0 0l-3-3m3 3l3-3" />
+              </svg>
+              <div className="text-sm text-zinc-700">
+                {file ? <span className="font-medium">{file.name}</span> : 'Haz clic o arrastra un PDF aquí'}
+              </div>
+              <p className="text-xs text-zinc-500">Solo archivos PDF. El sistema creará la asignatura automáticamente.</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cancelar</button>
+            <button type="submit" disabled={loading} className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-60">{loading ? 'Subiendo…' : 'Subir y procesar'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
