@@ -609,6 +609,13 @@ export default function DCAsignaturas() {
     )
   }, [itemsInArea, search])
 
+  // Obtener el nombre del área del usuario para mostrar en el subtítulo
+  const userAreaName = useMemo(() => {
+    if (!user?.area || areas.length === 0) return null
+    const found = areas.find((a) => a.id === user.area)
+    return found?.name ?? null
+  }, [user?.area, areas])
+
   const handleFormChange = (field: keyof SubjectFormValues, value: string) => {
     setFormError(null)
     setFormValues((prev) => {
@@ -1001,13 +1008,6 @@ export default function DCAsignaturas() {
       />
     )
   }
-
-  // Obtener el nombre del área del usuario para mostrar en el subtítulo
-  const userAreaName = useMemo(() => {
-    if (!user?.area || areas.length === 0) return null
-    const found = areas.find((a) => a.id === user.area)
-    return found?.name ?? null
-  }, [user?.area, areas])
 
   return (
     <section className="p-6">
@@ -1801,16 +1801,16 @@ function SubjectFormView({
   return (
     <section className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Editar asignatura</h1>
-          <p className="text-sm text-zinc-600">Actualiza los datos principales de la asignatura seleccionada.</p>
-        </div>
         <button
           onClick={onCancel}
-          className="text-sm font-medium text-red-600 hover:text-red-700"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
         >
-          ← Volver
+          Volver
         </button>
+      </div>
+      <div>
+        <h1 className="text-xl font-semibold">Editar asignatura</h1>
+        <p className="text-sm text-zinc-600">Actualiza los datos principales de la asignatura seleccionada.</p>
       </div>
 
       {metaLoading ? (
