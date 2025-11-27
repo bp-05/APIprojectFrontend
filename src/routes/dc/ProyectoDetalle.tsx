@@ -96,7 +96,7 @@ export default function DCProyectoDetalle() {
       <div className="mb-6 flex items-center justify-between">
         <button
           onClick={() => navigate('/dc/proyectos')}
-          className="text-sm text-red-600 hover:underline"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
         >
           Volver
         </button>

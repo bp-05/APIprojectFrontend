@@ -265,7 +265,7 @@ export default function AsignaturaVCMDetalle() {
   if (error || !subject) {
     return (
       <div className="p-6">
-        <button className="mb-3 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50" onClick={() => navigate(-1)}>Volver</button>
+        <button className="mb-3 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" onClick={() => navigate(-1)}>Volver</button>
         <p className="text-sm text-red-600">{error || 'No se encontro la asignatura solicitada.'}</p>
       </div>
     )
@@ -718,7 +718,7 @@ export default function AsignaturaVCMDetalle() {
   return (
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-4 flex items-center justify-between">
-        <button className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50" onClick={() => navigate(-1)}>Volver</button>
+        <button className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" onClick={() => navigate(-1)}>Volver</button>
         <button
           onClick={generatePDF}
           className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
