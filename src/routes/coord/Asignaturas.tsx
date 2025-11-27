@@ -355,7 +355,7 @@ interface DescriptorCellProps {
 }
 
 function DescriptorCell({ subject }: DescriptorCellProps) {
-  const [descriptors, setDescriptors] = useState<Descriptor[]>([])
+  const [descriptors, setDescriptors] = useState<Descriptor[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -376,13 +376,29 @@ function DescriptorCell({ subject }: DescriptorCellProps) {
     }
   }
 
+  useEffect(() => {
+    load()
+  }, [subject.id])
+
   async function handleClick(e: React.MouseEvent) {
     e.stopPropagation()
     if (loading) return
-    const list = descriptors.length === 0 ? await load() : descriptors
+    const list = descriptors ?? await load()
     const file = list?.find((d) => d.file)?.file || null
     if (file) window.open(file, '_blank', 'noreferrer')
     else setError('Sin descriptores disponibles')
+  }
+
+  if (loading && descriptors === null) {
+    return <span className="text-xs text-gray-400">Cargando…</span>
+  }
+
+  if (error) {
+    return <span className="text-xs text-red-600">{error}</span>
+  }
+
+  if (descriptors !== null && descriptors.length === 0) {
+    return <span className="text-xs text-gray-500">Sin descriptor</span>
   }
 
   return (
@@ -394,7 +410,6 @@ function DescriptorCell({ subject }: DescriptorCellProps) {
       >
         {loading ? 'Cargando…' : 'Ver descriptor'}
       </button>
-      {error ? <div className="mt-1 text-xs text-red-600">{error}</div> : null}
     </div>
   )
 }
