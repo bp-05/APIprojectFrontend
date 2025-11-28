@@ -34,14 +34,14 @@ export default function EmpresaDetalleDC() {
   const { companyId } = useParams<{ companyId: string }>()
   const navigate = useNavigate()
   const [form, setForm] = useState<CompanyFormState>(buildInitialForm())
-  const [contacts, setContacts] = useState<CounterpartContact[]>([])
+  const [contact, setContact] = useState<CounterpartContact | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [contactsSaving, setContactsSaving] = useState(false)
-  const [contactsError, setContactsError] = useState<string | null>(null)
-  const [contactModal, setContactModal] = useState<{ contact: CounterpartContact | null; index?: number } | null>(null)
+  const [contactSaving, setContactSaving] = useState(false)
+  const [contactError, setContactError] = useState<string | null>(null)
+  const [contactModal, setContactModal] = useState(false)
 
   const numericId = Number(companyId)
   const isValidId = Number.isFinite(numericId)
@@ -67,7 +67,9 @@ export default function EmpresaDetalleDC() {
           sector: data.sector || '',
         })
         const loadedContacts = await listCounterpartContacts({ company: numericId })
-        setContacts(Array.isArray(loadedContacts) ? loadedContacts : [])
+        // Solo tomamos el primer contacto (único contacto por empresa)
+        const firstContact = Array.isArray(loadedContacts) && loadedContacts.length > 0 ? loadedContacts[0] : null
+        setContact(firstContact)
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'No se pudo cargar la empresa'
         setError(msg)
@@ -91,7 +93,7 @@ export default function EmpresaDetalleDC() {
     setSaving(true)
     setError(null)
     try {
-      await updateCompany(numericId, { ...form, counterpart_contacts: contacts })
+      await updateCompany(numericId, { ...form })
       toast.success('Empresa actualizada')
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'No se pudo actualizar la empresa'
@@ -118,10 +120,10 @@ export default function EmpresaDetalleDC() {
     }
   }
 
-  async function handleSaveContact(values: CounterpartContact, index?: number) {
+  async function handleSaveContact(values: CounterpartContact) {
     if (!isValidId) return
-    setContactsSaving(true)
-    setContactsError(null)
+    setContactSaving(true)
+    setContactError(null)
     try {
       const payload = {
         name: values.name.trim(),
@@ -132,43 +134,40 @@ export default function EmpresaDetalleDC() {
         role: values.role.trim(),
         company: numericId,
       }
-      if (index === undefined) {
-        const created = await createCounterpartContact(payload)
-        toast.success('Contacto creado')
-        setContacts((prev) => [...prev, created])
-      } else {
-        const current = contacts[index]
-        const id = current?.id ?? values.id
-        if (!id) throw new Error('Contacto sin identificador')
-        const updated = await updateCounterpartContact(id, payload)
+      if (contact?.id) {
+        // Editar contacto existente
+        const updated = await updateCounterpartContact(contact.id, payload)
         toast.success('Contacto actualizado')
-        setContacts((prev) => prev.map((c, i) => (i === index ? updated : c)))
+        setContact(updated)
+      } else {
+        // Crear nuevo contacto
+        const created = await createCounterpartContact(payload)
+        toast.success('Contacto asignado')
+        setContact(created)
       }
-      setContactModal(null)
+      setContactModal(false)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'No se pudo guardar el contacto'
-      setContactsError(msg)
+      setContactError(msg)
     } finally {
-      setContactsSaving(false)
+      setContactSaving(false)
     }
   }
 
-  async function handleDeleteContact(index: number) {
-    if (!isValidId) return
-    const target = contacts[index]
-    if (!target?.id) return
+  async function handleDeleteContact() {
+    if (!contact?.id) return
     if (!confirm('¿Eliminar este contacto?')) return
-    setContactsSaving(true)
-    setContactsError(null)
+    setContactSaving(true)
+    setContactError(null)
     try {
-      await deleteCounterpartContact(target.id)
-      setContacts((prev) => prev.filter((_, i) => i !== index))
+      await deleteCounterpartContact(contact.id)
+      setContact(null)
       toast.success('Contacto eliminado')
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'No se pudo eliminar el contacto'
-      setContactsError(msg)
+      setContactError(msg)
     } finally {
-      setContactsSaving(false)
+      setContactSaving(false)
     }
   }
 
@@ -284,84 +283,90 @@ export default function EmpresaDetalleDC() {
         </form>
       )}
 
+      {/* Sección de Contacto (único) */}
       <section className="mt-8">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900">Contactos contraparte</h2>
-            <p className="text-sm text-zinc-600">Personas vinculadas a esta empresa</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setContactModal({ contact: null })}
-            className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700"
-            disabled={contactsSaving}
-          >
-            Nuevo contacto
-          </button>
+        <div className="mb-3">
+          <h2 className="text-base font-semibold text-zinc-900">Contacto de la empresa</h2>
+          <p className="text-sm text-zinc-600">Persona de contacto vinculada a esta empresa</p>
         </div>
-        {contactsError ? (
+
+        {contactError ? (
           <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {contactsError}
+            {contactError}
           </div>
         ) : null}
-        {contacts.length === 0 ? (
-          <div className="rounded-md border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
-            Sin contactos registrados.
+
+        {contact ? (
+          // Mostrar contacto existente
+          <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-zinc-500">Nombre</div>
+                <div className="text-sm font-medium text-zinc-800">{contact.name || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-zinc-500">RUT</div>
+                <div className="text-sm text-zinc-800">{contact.rut || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-zinc-500">Correo</div>
+                <div className="text-sm text-zinc-800">{contact.email || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-zinc-500">Teléfono</div>
+                <div className="text-sm text-zinc-800">{contact.phone || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-zinc-500">Área</div>
+                <div className="text-sm text-zinc-800">{contact.counterpart_area || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-zinc-500">Rol</div>
+                <div className="text-sm text-zinc-800">{contact.role || '-'}</div>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setContactModal(true)}
+                disabled={contactSaving}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50 disabled:opacity-60"
+              >
+                Editar contacto
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteContact}
+                disabled={contactSaving}
+                className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
+              >
+                Eliminar contacto
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-zinc-200">
-            <table className="min-w-full divide-y divide-zinc-200 text-sm">
-              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
-                <tr>
-                  <th className="px-4 py-2 text-left font-semibold">Nombre</th>
-                  <th className="px-4 py-2 text-left font-semibold">RUT</th>
-                  <th className="px-4 py-2 text-left font-semibold">Área</th>
-                  <th className="px-4 py-2 text-left font-semibold">Rol</th>
-                  <th className="px-4 py-2 text-left font-semibold">Correo</th>
-                  <th className="px-4 py-2 text-left font-semibold">Teléfono</th>
-                  <th className="px-4 py-2 text-right font-semibold">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 bg-white">
-                {contacts.map((contact, index) => (
-                  <tr key={contact.id ?? `${contact.email}-${index}`}>
-                    <td className="px-4 py-2 text-zinc-800">{contact.name || '-'}</td>
-                    <td className="px-4 py-2 text-zinc-800">{contact.rut || '-'}</td>
-                    <td className="px-4 py-2 text-zinc-800">{contact.counterpart_area || '-'}</td>
-                    <td className="px-4 py-2 text-zinc-800">{contact.role || '-'}</td>
-                    <td className="px-4 py-2 text-zinc-800">{contact.email || '-'}</td>
-                    <td className="px-4 py-2 text-zinc-800">{contact.phone || '-'}</td>
-                    <td className="px-4 py-2 text-right">
-                      <button
-                        type="button"
-                        className="mr-2 rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
-                        onClick={() => setContactModal({ contact, index })}
-                        disabled={contactsSaving}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                        onClick={() => handleDeleteContact(index)}
-                        disabled={contactsSaving}
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          // Sin contacto - mostrar botón para asignar
+          <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center">
+            <div className="mb-2 text-sm text-zinc-600">Esta empresa no tiene un contacto asignado</div>
+            <button
+              type="button"
+              onClick={() => setContactModal(true)}
+              disabled={contactSaving}
+              className="rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-60"
+            >
+              Asignar contacto
+            </button>
           </div>
         )}
       </section>
+
+      {/* Modal de contacto */}
       {contactModal ? (
         <ContactDialog
-          contact={contactModal.contact}
-          saving={contactsSaving}
-          onClose={() => setContactModal(null)}
-          onSubmit={(values) => handleSaveContact(values, contactModal.index)}
+          contact={contact}
+          saving={contactSaving}
+          onClose={() => setContactModal(false)}
+          onSubmit={handleSaveContact}
         />
       ) : null}
     </section>
@@ -402,12 +407,12 @@ function ContactDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-lg bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold">{contact ? 'Editar contacto' : 'Nuevo contacto'}</h2>
+          <h2 className="text-base font-semibold">{contact ? 'Editar contacto' : 'Asignar contacto'}</h2>
           <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">
-            Cerrar
+            ✕
           </button>
         </div>
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -475,7 +480,7 @@ function ContactDialog({
               disabled={saving}
               className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-60"
             >
-              {saving ? 'Guardando…' : contact ? 'Guardar cambios' : 'Agregar contacto'}
+              {saving ? 'Guardando…' : contact ? 'Guardar cambios' : 'Asignar contacto'}
             </button>
           </div>
         </form>
