@@ -140,39 +140,50 @@ export default function DC() {
 
   return (
     <section className="p-6 space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">Director de area/carrera</h1>
-        <p className="text-sm text-zinc-600">Resumen de avance y asignaturas visibles para tu rol.</p>
+      <div className="mb-6 mt-2 text-center">
+        <h1 className="text-2xl font-bold">Panel de Director de Carrera</h1>
       </div>
 
       {error ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Asignaturas" value={items.length} tone="blue" />
-        <StatCard title="Empresas" value={companyTotal ?? '--'} tone="green" />
-        <StatCard title="Info completa" value={`${counts.info}/${items.length || 1}`} subtitle="Área + carrera + docente + cupo" tone="indigo" />
-        <StatCard title="Competencias" value={`${counts.competencies}/${items.length || 1}`} subtitle="Al menos 1 registrada" tone="amber" />
-        <StatCard title="Condiciones de borde" value={`${counts.boundaries}/${items.length || 1}`} subtitle="Con datos cargados" tone="violet" />
-        <StatCard
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <KpiCard title="Total Asignaturas" value={items.length} tone="zinc" />
+        <KpiCard title="Empresas" value={companyTotal ?? 0} tone="blue" />
+        <KpiCard title="Información General" value={counts.info} tone="green" subtitle={`${counts.info}/${items.length || 1} completos`} />
+        <KpiCard title="Competencias" value={counts.competencies} tone="purple" subtitle={`${counts.competencies}/${items.length || 1} registradas`} />
+      </div>
+
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <KpiCard title="Condiciones de Borde" value={counts.boundaries} tone="amber" subtitle={`${counts.boundaries}/${items.length || 1} cargados`} />
+        <KpiCard
           title="API Tipo 2"
-          value={`${counts.api2}/${Math.max(1, items.filter((s) => s.api_type === 2).length)}`}
-          subtitle="Campos completados"
-          tone="cyan"
+          value={counts.api2}
+          subtitle={`${counts.api2}/${Math.max(1, items.filter((s) => s.api_type === 2).length)} completados`}
+          tone="blue"
         />
-        <StatCard
+        <KpiCard
           title="API Tipo 3"
-          value={`${counts.api3}/${Math.max(1, items.filter((s) => s.api_type === 3).length)}`}
-          subtitle="Campos completados"
-          tone="pink"
+          value={counts.api3}
+          subtitle={`${counts.api3}/${Math.max(1, items.filter((s) => s.api_type === 3).length)} completados`}
+          tone="purple"
         />
-        <StatCard
-          title="Alternancia API 3"
-          value={`${counts.alternance}/${Math.max(1, items.filter((s) => s.api_type === 3).length)}`}
-          subtitle="Con información"
-          tone="emerald"
+        <KpiCard
+          title="Alternancia"
+          value={counts.alternance}
+          subtitle={`${counts.alternance}/${Math.max(1, items.filter((s) => s.api_type === 3).length)} con info`}
+          tone="green"
         />
+      </div>
+
+      {/* Gráfico de asignaturas por fase */}
+      <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-zinc-900">Distribución de Asignaturas por Fase</h2>
+          <p className="text-sm text-zinc-500">Progreso general del proceso API</p>
+        </div>
+        <PhaseChart subjects={items} />
       </div>
 
       <div className="rounded-lg border border-zinc-200 bg-white">
@@ -237,33 +248,31 @@ export default function DC() {
   )
 }
 
-function StatCard({
-  title,
-  value,
-  subtitle,
-  tone = 'zinc',
-}: {
-  title: string
-  value: ReactNode
-  subtitle?: string
-  tone?: 'zinc' | 'blue' | 'green' | 'indigo' | 'violet' | 'amber' | 'cyan' | 'pink' | 'emerald'
-}) {
-  const accents: Record<string, string> = {
-    zinc: 'text-zinc-900',
-    blue: 'text-sky-600',
-    green: 'text-emerald-600',
-    indigo: 'text-indigo-600',
-    violet: 'text-violet-600',
-    amber: 'text-amber-600',
-    cyan: 'text-cyan-600',
-    pink: 'text-pink-600',
-    emerald: 'text-emerald-600',
-  }
+function KpiCard({ title, value, tone = 'zinc', linkTo, subtitle = 'Total de elementos' }: { title: string; value: number | string; tone?: 'zinc' | 'blue' | 'amber' | 'green' | 'purple'; linkTo?: string; subtitle?: string }) {
+  const ring = {
+    zinc: 'ring-zinc-200',
+    blue: 'ring-blue-200',
+    amber: 'ring-amber-200',
+    green: 'ring-green-200',
+    purple: 'ring-purple-200',
+  }[tone]
+  const badgeBg = {
+    zinc: 'bg-zinc-100 text-zinc-700',
+    blue: 'bg-blue-50 text-blue-700',
+    amber: 'bg-amber-50 text-amber-700',
+    green: 'bg-green-50 text-green-700',
+    purple: 'bg-purple-50 text-purple-700',
+  }[tone]
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white/90 px-4 py-5 shadow-sm">
-      <p className="text-sm font-medium text-zinc-500">{title}</p>
-      <div className={`mt-2 text-3xl font-semibold ${accents[tone] || accents.zinc}`}>{value}</div>
-      {subtitle ? <p className="mt-1 text-xs text-zinc-500">{subtitle}</p> : null}
+    <div className={`rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ${ring}`}>
+      <div className="flex items-center justify-between">
+        <div className={`rounded px-2 py-0.5 text-xs font-medium ${badgeBg}`}>{title}</div>
+        {linkTo ? (
+          <a href={linkTo} className="text-xs font-medium text-red-700 hover:underline">Ver detalle</a>
+        ) : null}
+      </div>
+      <div className="mt-3 text-3xl font-semibold tracking-tight">{value}</div>
+      <div className="mt-1 text-xs text-zinc-500">{subtitle}</div>
     </div>
   )
 }
@@ -289,4 +298,275 @@ function phaseLabel(v: string) {
     completado: 'Completado',
   }
   return map[v] || v
+}
+
+function PhaseChart({ subjects }: { subjects: Subject[] }) {
+  const phases = [
+    { key: 'inicio', label: 'Inicio', color: '#71717a', strokeColor: '#3f3f46' },
+    { key: 'formulacion', label: 'Formulación', color: '#3b82f6', strokeColor: '#1d4ed8' },
+    { key: 'gestion', label: 'Gestión', color: '#f59e0b', strokeColor: '#d97706' },
+    { key: 'validacion', label: 'Validación', color: '#a855f7', strokeColor: '#7e22ce' },
+    { key: 'completado', label: 'Completado', color: '#22c55e', strokeColor: '#16a34a' },
+  ]
+
+  const phaseCounts = phases.map((phase) => ({
+    ...phase,
+    count: subjects.filter((s) => (s.phase || 'inicio').toLowerCase() === phase.key).length,
+  }))
+
+  const maxCount = Math.max(...phaseCounts.map((p) => p.count), 10)
+  const chartHeight = 500
+  const chartWidth = 1400
+  const padding = { top: 40, right: 80, bottom: 80, left: 100 }
+  const graphWidth = chartWidth - padding.left - padding.right
+  const graphHeight = chartHeight - padding.top - padding.bottom
+
+  // Generar puntos para cada línea de fase
+  const getLinePoints = (phaseIndex: number) => {
+    return phaseCounts.map((phase, i) => {
+      const x = padding.left + (i * graphWidth) / (phaseCounts.length - 1)
+      const y = padding.top + graphHeight - (phaseCounts[i].count / maxCount) * graphHeight
+      return { x, y, count: phaseCounts[i].count }
+    })
+  }
+
+  // Crear path SVG con curvas suaves
+  const createSmoothPath = (points: { x: number; y: number }[]) => {
+    if (points.length === 0) return ''
+    
+    let path = `M ${points[0].x} ${points[0].y}`
+    
+    for (let i = 0; i < points.length - 1; i++) {
+      const current = points[i]
+      const next = points[i + 1]
+      const controlX = current.x + (next.x - current.x) / 2
+      
+      path += ` Q ${controlX} ${current.y}, ${controlX} ${(current.y + next.y) / 2}`
+      path += ` Q ${controlX} ${next.y}, ${next.x} ${next.y}`
+    }
+    
+    return path
+  }
+
+  // Líneas de cuadrícula horizontales
+  const gridLines = Array.from({ length: 6 }, (_, i) => {
+    const value = (maxCount / 5) * (5 - i)
+    const y = padding.top + (i * graphHeight) / 5
+    return { y, value: Math.round(value) }
+  })
+
+  return (
+    <div className="space-y-6">
+      {/* Gráfico de líneas SVG */}
+      <div className="flex justify-center overflow-x-auto">
+        <svg
+          width={chartWidth}
+          height={chartHeight}
+          className="rounded-lg border border-zinc-200 bg-white"
+          style={{ minWidth: chartWidth }}
+        >
+          {/* Cuadrícula horizontal */}
+          {gridLines.map((line, i) => (
+            <g key={i}>
+              <line
+                x1={padding.left}
+                y1={line.y}
+                x2={chartWidth - padding.right}
+                y2={line.y}
+                stroke="#e4e4e7"
+                strokeWidth="1"
+                strokeDasharray={i === gridLines.length - 1 ? '0' : '4 2'}
+              />
+              <text
+                x={padding.left - 15}
+                y={line.y + 5}
+                textAnchor="end"
+                className="text-sm fill-zinc-600"
+                style={{ fontSize: '13px', fontWeight: 500 }}
+              >
+                {line.value}
+              </text>
+            </g>
+          ))}
+
+          {/* Líneas de datos */}
+          {phaseCounts.map((phase, phaseIndex) => {
+            const points = getLinePoints(phaseIndex)
+            const pathData = createSmoothPath(points)
+            
+            return (
+              <g key={phase.key}>
+                <path
+                  d={pathData}
+                  fill="none"
+                  stroke={phase.color}
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.85"
+                />
+                {/* Puntos en cada fase */}
+                {points.map((point, i) => (
+                  <circle
+                    key={i}
+                    cx={point.x}
+                    cy={point.y}
+                    r="7"
+                    fill={phase.color}
+                    stroke="white"
+                    strokeWidth="3"
+                    className="cursor-pointer transition-all hover:r-9"
+                  >
+                    <title>{`${phase.label}: ${point.count} asignaturas`}</title>
+                  </circle>
+                ))}
+              </g>
+            )
+          })}
+
+          {/* Etiquetas del eje X */}
+          {phaseCounts.map((phase, i) => {
+            const x = padding.left + (i * graphWidth) / (phaseCounts.length - 1)
+            return (
+              <text
+                key={phase.key}
+                x={x}
+                y={chartHeight - 25}
+                textAnchor="middle"
+                className="text-sm fill-zinc-700"
+                style={{ fontSize: '14px', fontWeight: 600 }}
+              >
+                {phase.label}
+              </text>
+            )
+          })}
+
+          {/* Título del eje Y */}
+          <text
+            x={20}
+            y={chartHeight / 2}
+            textAnchor="middle"
+            transform={`rotate(-90, 20, ${chartHeight / 2})`}
+            className="text-sm fill-zinc-600"
+            style={{ fontSize: '13px', fontWeight: 500 }}
+          >
+            Cantidad de Asignaturas
+          </text>
+        </svg>
+      </div>
+
+      {/* Leyenda con estadísticas */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {phaseCounts.map((phase) => (
+          <div key={phase.key} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <div
+              className="h-4 w-4 rounded-full"
+              style={{ backgroundColor: phase.color }}
+            />
+            <div className="flex-1">
+              <div className="text-xs text-zinc-600">{phase.label}</div>
+              <div className="text-xl font-bold text-zinc-900">{phase.count}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PhaseRow({ phase, subjects, color }: { phase: string; subjects: Subject[]; color: string }) {
+  const total = subjects.length
+  const navigate = useNavigate()
+
+  if (total === 0) {
+    return (
+      <div className="flex items-center gap-4">
+        <div className="w-32 text-sm font-medium text-zinc-700">{phase}</div>
+        <div className="flex-1">
+          <div className="h-10 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center">
+            <span className="text-xs text-zinc-400">Sin asignaturas</span>
+          </div>
+        </div>
+        <div className="w-12 text-right text-sm font-semibold text-zinc-500">0</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="w-32 text-sm font-medium text-zinc-700">{phase}</div>
+      <div className="flex-1">
+        <div className="flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
+          {subjects.map((subject) => (
+            <div
+              key={subject.id}
+              className={`group relative h-10 flex-1 cursor-pointer rounded ${color} transition-all hover:ring-2 hover:ring-offset-1 hover:ring-zinc-900`}
+              style={{ minWidth: '20px' }}
+              onClick={() => navigate(`/dc/asignaturas/${subject.id}`)}
+            >
+              {/* Tooltip al hacer hover */}
+              <div className="absolute bottom-full left-1/2 z-10 mb-2 hidden w-64 -translate-x-1/2 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg group-hover:block">
+                <div className="text-xs font-semibold text-zinc-900">{subject.code}-{subject.section}</div>
+                <div className="mt-1 text-xs text-zinc-700">{subject.name}</div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+                  <span>👤 {subject.teacher_name || 'Sin docente'}</span>
+                </div>
+                <div className="mt-1 text-xs text-zinc-500">
+                  📚 {subject.area_name || 'Sin área'}
+                </div>
+                {/* Flecha del tooltip */}
+                <div className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2">
+                  <div className="h-2 w-2 rotate-45 border-b border-r border-zinc-200 bg-white"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="w-12 text-right text-sm font-semibold text-zinc-700">{total}</div>
+    </div>
+  )
+}
+
+function BarChart({
+  label,
+  current,
+  total,
+  color,
+}: {
+  label: string
+  current: number
+  total: number
+  color: string
+}) {
+  const percentage = total > 0 ? Math.round((current / total) * 100) : 0
+  const maxHeight = 250
+  const barHeight = (percentage / 100) * maxHeight
+
+  return (
+    <div className="flex flex-1 flex-col items-center">
+      <div className="relative flex w-full flex-col items-center justify-end" style={{ height: `${maxHeight}px` }}>
+        {/* Valor numérico encima de la barra */}
+        {percentage > 0 && (
+          <div className="mb-2 text-center">
+            <div className="text-lg font-bold text-zinc-900">{percentage}%</div>
+            <div className="text-xs text-zinc-500">
+              {current}/{total}
+            </div>
+          </div>
+        )}
+        
+        {/* Barra */}
+        <div
+          className={`w-full rounded-t-lg ${color} transition-all duration-700 ease-out`}
+          style={{ height: `${barHeight}px`, minHeight: percentage > 0 ? '4px' : '0px' }}
+        />
+      </div>
+      
+      {/* Etiqueta */}
+      <div className="mt-3 text-center">
+        <div className="text-xs font-medium text-zinc-700">{label}</div>
+      </div>
+    </div>
+  )
 }

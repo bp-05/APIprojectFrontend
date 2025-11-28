@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, type Subject } from '../../api/subjects'
 import { usePeriodStore } from '../../store/period'
 import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 export default function COORD_DASH() {
@@ -148,28 +149,283 @@ export default function COORD_DASH() {
   }
 
   function exportPdf() {
-    const doc = new jsPDF()
-    const d = new Date()
-    doc.setFontSize(18)
-    doc.text('Resumen de Fases - Coordinador', 14, 22)
-    doc.setFontSize(10)
-    doc.text(`Fecha: ${d.toLocaleString()}`, 14, 30)
-    
-    let y = 45
-    doc.setFontSize(12)
-    doc.text('Fase', 14, y)
-    doc.text('Cantidad', 100, y)
-    y += 8
-    
-    doc.setFontSize(10)
-    const phases = ['Inicio', 'Formulación', 'Gestión', 'Validación', 'Completado']
-    for (const phase of phases) {
-      doc.text(phase, 14, y)
-      doc.text(String(phaseKpi[phase] || 0), 100, y)
-      y += 6
+    try {
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('es-ES') + ', ' + now.toLocaleTimeString('es-ES')
+      const phases = ['Inicio', 'Formulación', 'Gestión', 'Validación', 'Completado']
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
+
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const margin = 15
+      let y = margin
+
+      // PÁGINA 1 - Encabezado y resumen
+      
+      // Encabezado rojo
+      pdf.setFillColor(196, 30, 58)
+      pdf.rect(0, 0, pageWidth, 15, 'F')
+      pdf.setTextColor(255, 255, 255)
+      pdf.setFontSize(16)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('REPORTE DE PROYECTOS API - COORDINADOR', pageWidth / 2, 10, { align: 'center' })
+      
+      y = 20
+      pdf.setTextColor(100, 100, 100)
+      pdf.setFontSize(9)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`Generado el: ${dateStr}`, margin, y)
+      y += 2
+      
+      // Línea separadora
+      pdf.setDrawColor(196, 30, 58)
+      pdf.setLineWidth(0.5)
+      pdf.line(margin, y, pageWidth - margin, y)
+      y += 10
+
+      // Cuadro de información general
+      pdf.setFillColor(249, 249, 249)
+      pdf.setDrawColor(200, 200, 200)
+      pdf.setLineWidth(0.1)
+      pdf.rect(margin, y, pageWidth - 2 * margin, 25, 'FD')
+      
+      // Borde izquierdo rojo
+      pdf.setDrawColor(196, 30, 58)
+      pdf.setLineWidth(3)
+      pdf.line(margin, y, margin, y + 25)
+      
+      pdf.setTextColor(0, 0, 0)
+      pdf.setFontSize(9)
+      pdf.setFont('helvetica', 'bold')
+      
+      const infoY = y + 8
+      pdf.text('Total de Proyectos:', margin + 5, infoY)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(String(items.length), margin + 50, infoY)
+      
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Proyectos Activos:', pageWidth / 2 + 5, infoY)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(String(active.length), pageWidth / 2 + 50, infoY)
+      
+      const infoY2 = infoY + 8
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Período:', margin + 5, infoY2)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`${season} ${year}`, margin + 50, infoY2)
+      
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Fecha de Generación:', pageWidth / 2 + 5, infoY2)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(now.toLocaleDateString('es-ES'), pageWidth / 2 + 50, infoY2)
+      
+      y += 32
+
+      // Título tabla de resumen
+      pdf.setFillColor(196, 30, 58)
+      pdf.rect(margin, y, pageWidth - 2 * margin, 8, 'F')
+      pdf.setTextColor(255, 255, 255)
+      pdf.setFontSize(10)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('RESUMEN POR FASE', margin + 3, y + 5.5)
+      y += 10
+
+      // Tabla de resumen usando autoTable
+      const summaryData = phases.map(phase => ({
+        fase: phase,
+        cantidad: phaseKpi[phase] || 0,
+        porcentaje: active.length > 0 ? Math.round((phaseKpi[phase] || 0) / active.length * 100) : 0
+      }))
+      
+      summaryData.push({
+        fase: 'TOTAL',
+        cantidad: active.length,
+        porcentaje: 100
+      })
+
+      autoTable(pdf, {
+        startY: y,
+        head: [['Fase', 'Cantidad de Proyectos', 'Porcentaje']],
+        body: summaryData.map(row => [row.fase, row.cantidad, `${row.porcentaje}%`]),
+        theme: 'grid',
+        headStyles: {
+          fillColor: [245, 245, 245],
+          textColor: [51, 51, 51],
+          fontStyle: 'bold',
+          lineColor: [196, 30, 58],
+          lineWidth: 0.5
+        },
+        bodyStyles: {
+          textColor: [0, 0, 0]
+        },
+        alternateRowStyles: {
+          fillColor: [250, 250, 250]
+        },
+        styles: {
+          fontSize: 9,
+          cellPadding: 3
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold' },
+          1: { halign: 'center' },
+          2: { halign: 'center' }
+        },
+        margin: { left: margin, right: margin }
+      })
+
+      // Actualizar posición Y después de la tabla
+      y = (pdf as any).lastAutoTable.finalY + 10
+
+      // NUEVA PÁGINA - Detalle de proyectos
+      pdf.addPage()
+      y = margin
+
+      // Título detalle
+      pdf.setFillColor(196, 30, 58)
+      pdf.rect(margin, y, pageWidth - 2 * margin, 8, 'F')
+      pdf.setTextColor(255, 255, 255)
+      pdf.setFontSize(10)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('DETALLE DE PROYECTOS POR FASE', margin + 3, y + 5.5)
+      y += 12
+
+      // Procesar cada fase
+      for (const phaseName of phases) {
+        const subjectsInPhase = active.filter(s => {
+          const backendPhase = s.phase || 'inicio'
+          return PHASE_MAP[backendPhase] === phaseName
+        })
+
+        if (subjectsInPhase.length === 0) continue
+
+        // Verificar espacio para título de fase (necesitamos al menos 20mm)
+        if (y > pageHeight - 30) {
+          pdf.addPage()
+          y = margin
+        }
+
+        // Título de fase con fondo gris y borde rojo
+        pdf.setFillColor(245, 245, 245)
+        pdf.setDrawColor(200, 200, 200)
+        pdf.setLineWidth(0.1)
+        pdf.rect(margin, y, pageWidth - 2 * margin, 8, 'FD')
+        
+        pdf.setDrawColor(196, 30, 58)
+        pdf.setLineWidth(3)
+        pdf.line(margin, y, margin, y + 8)
+        
+        pdf.setTextColor(51, 51, 51)
+        pdf.setFontSize(10)
+        pdf.setFont('helvetica', 'bold')
+        pdf.text(`${phaseName} (${subjectsInPhase.length} proyectos)`, margin + 5, y + 5.5)
+        y += 12
+
+        // Procesar cada asignatura
+        for (const subject of subjectsInPhase) {
+          // Verificar espacio para tarjeta (necesitamos ~30mm)
+          if (y > pageHeight - 40) {
+            pdf.addPage()
+            y = margin
+          }
+
+          // Tarjeta de asignatura
+          const cardHeight = 30
+          
+          // Fondo de la tarjeta
+          pdf.setFillColor(250, 250, 250)
+          pdf.setDrawColor(224, 224, 224)
+          pdf.setLineWidth(0.1)
+          pdf.rect(margin, y, pageWidth - 2 * margin, cardHeight, 'FD')
+          
+          // Borde izquierdo rojo
+          pdf.setDrawColor(196, 30, 58)
+          pdf.setLineWidth(2)
+          pdf.line(margin, y, margin, y + cardHeight)
+
+          // Título de la tarjeta
+          pdf.setTextColor(196, 30, 58)
+          pdf.setFontSize(9)
+          pdf.setFont('helvetica', 'bold')
+          const cardTitle = `${subject.code}-${subject.section} - ${subject.name || 'Sin nombre'}`
+          const titleLines = pdf.splitTextToSize(cardTitle, pageWidth - 2 * margin - 8)
+          pdf.text(titleLines, margin + 4, y + 5)
+          
+          // Detalles en dos columnas
+          pdf.setTextColor(0, 0, 0)
+          pdf.setFontSize(8)
+          
+          const col1X = margin + 4
+          const col2X = pageWidth / 2 + 5
+          let detailY = y + (titleLines.length > 1 ? 12 : 11)
+
+          // Fila 1
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Docente:', col1X, detailY)
+          pdf.setFont('helvetica', 'normal')
+          const teacherText = subject.teacher_name || 'Sin asignar'
+          const teacherLines = pdf.splitTextToSize(teacherText, 60)
+          pdf.text(teacherLines, col1X + 18, detailY)
+          
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Área:', col2X, detailY)
+          pdf.setFont('helvetica', 'normal')
+          const areaText = subject.area_name || 'Sin área'
+          const areaLines = pdf.splitTextToSize(areaText, 60)
+          pdf.text(areaLines, col2X + 12, detailY)
+          detailY += Math.max(teacherLines.length, areaLines.length) * 4
+
+          // Fila 2
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Carrera:', col1X, detailY)
+          pdf.setFont('helvetica', 'normal')
+          const careerText = subject.career_name || 'Sin carrera'
+          const careerLines = pdf.splitTextToSize(careerText, 60)
+          pdf.text(careerLines, col1X + 18, detailY)
+          
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Tipo API:', col2X, detailY)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`API ${subject.api_type || 'N/A'}`, col2X + 16, detailY)
+          detailY += Math.max(careerLines.length, 1) * 4
+
+          // Fila 3
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Cupo:', col1X, detailY)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(String(subject.total_students ?? 'No especificado'), col1X + 18, detailY)
+          
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('Fase:', col2X, detailY)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(phaseName, col2X + 12, detailY)
+
+          y += cardHeight + 3
+        }
+
+        y += 2
+      }
+
+      // Footer en todas las páginas
+      const totalPages = pdf.getNumberOfPages()
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i)
+        pdf.setFontSize(7)
+        pdf.setTextColor(150, 150, 150)
+        pdf.setFont('helvetica', 'italic')
+        pdf.text('Reporte generado automáticamente por el Sistema de Gestión de Proyectos API', margin, pageHeight - 8)
+        pdf.text(`Página ${i} de ${totalPages}`, pageWidth - margin - 20, pageHeight - 8)
+      }
+
+      pdf.save(`Reporte_Coordinador_${new Date().toISOString().slice(0, 10)}.pdf`)
+    } catch (error) {
+      console.error('Error al generar PDF:', error)
+      alert('Error al generar el PDF. Por favor, intente nuevamente.')
     }
-    
-    doc.save(`fases_coordinador_${new Date().toISOString().slice(0,10)}.pdf`)
   }
 
   // Obtener label de fase
