@@ -7,8 +7,6 @@ export default function AsignaturasCoord() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [filterInput, setFilterInput] = useState('')
-  const [advFilters, setAdvFilters] = useState<Array<{ kind: 'phase'; value: string }>>([])
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -30,8 +28,19 @@ export default function AsignaturasCoord() {
     load()
   }, [])
 
+  // Mapeo de fase para búsqueda
+  const PHASE_LABELS: Record<string, string> = {
+    'inicio': 'Inicio',
+    'formulacion': 'Formulación',
+    'gestion': 'Gestión',
+    'validacion': 'Validación',
+    'completado': 'Completado',
+  }
+
   const filtered = useMemo(() => {
     let arr = items
+    
+    // Filtro desde URL (ej: desde KPI cards del dashboard)
     const f = (searchParams.get('filter') || '').toLowerCase()
     if (f) {
       if (['fase1','fase2','fase3'].includes(f)) {
@@ -43,72 +52,37 @@ export default function AsignaturasCoord() {
         arr = arr.filter((s: any) => s.phase === 'completado')
       }
     }
-    // Aplicar filtros avanzados (chips)
-    if (advFilters.length > 0) {
-      const phaseVals = advFilters.filter((f) => f.kind === 'phase').map((f) => f.value.toLowerCase())
-      arr = arr.filter((s) => {
-        if (phaseVals.length) {
-          const phase = (s.phase || 'inicio').toLowerCase()
-          if (!phaseVals.includes(phase)) return false
-        }
-        return true
-      })
-    }
+    
+    // Búsqueda unificada (código, nombre, sección, área, carrera, semestre, fase)
     if (!search) return arr
-    const q = search.toLowerCase()
-    return arr.filter((s) =>
-      [s.code, s.section, s.name, s.campus, s.area_name || '', s.career_name || '', s.semester_name || '']
-        .some((v) => String(v || '').toLowerCase().includes(q))
-    )
-  }, [items, search, searchParams, advFilters])
+    const q = search.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    
+    return arr.filter((s) => {
+      const phaseLabel = PHASE_LABELS[s.phase || 'inicio'] || s.phase || ''
+      const searchFields = [
+        s.code,
+        s.section,
+        s.name,
+        s.campus,
+        s.area_name || '',
+        s.career_name || '',
+        s.semester_name || '',
+        phaseLabel,
+        s.phase || 'inicio'
+      ]
+      return searchFields.some((v) => 
+        String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)
+      )
+    })
+  }, [items, search, searchParams])
 
   function openView(s: Subject) {
     navigate(`/coord/asignaturas/${s.id}`)
   }
 
-  // Utilities para filtros avanzados
-  function addFilterFromInput() {
-    const raw = filterInput.trim()
-    if (!raw) return
-    const tokens = raw.split(',').map((t) => t.trim()).filter(Boolean)
-    const next: Array<{ kind: 'phase'; value: string }> = []
-    for (const t of tokens) {
-      const k = t.toLowerCase()
-      // Fases
-      if (['inicio','formulacion','formulación','gestion','gestión','validacion','validación','completado'].includes(k)) {
-        const map: Record<string, string> = { 
-          inicio: 'inicio', 
-          formulacion: 'formulacion', 
-          'formulación': 'formulacion',
-          gestion: 'gestion',
-          'gestión': 'gestion',
-          validacion: 'validacion',
-          'validación': 'validacion',
-          completado: 'completado'
-        }
-        next.push({ kind: 'phase', value: map[k] })
-        continue
-      }
-    }
-    if (next.length) {
-      setAdvFilters((prev) => {
-        const exists = (f: { kind: 'phase'; value: string }) => prev.some((p) => p.kind === f.kind && p.value === f.value)
-        return [...prev, ...next.filter((f) => !exists(f))]
-      })
-      setFilterInput('')
-    }
-  }
-
   // Obtener label de fase
   function getPhaseLabel(phase: string): string {
-    const labels: Record<string, string> = {
-      'inicio': 'Inicio',
-      'formulacion': 'Formulación',
-      'gestion': 'Gestión',
-      'validacion': 'Validación',
-      'completado': 'Completado',
-    }
-    return labels[phase] || phase
+    return PHASE_LABELS[phase] || phase
   }
 
   return (
@@ -122,45 +96,24 @@ export default function AsignaturasCoord() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar asignatura por código, sección o nombre"
-            className="w-72 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+            placeholder="Buscar por código, nombre, área, carrera, fase..."
+            className="w-80 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
           />
         </div>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {/* Botón Todos */}
-        <button
-          onClick={() => {
-            setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('filter'); return p })
-            setAdvFilters([])
-          }}
-          className={`rounded-full border px-3 py-1 text-xs ${!searchParams.get('filter') && advFilters.length === 0 ? 'border-red-300 bg-red-50 text-red-700' : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'}`}
-        >
-          Todos
-        </button>
-        {/* Chips de filtros agregados */}
-        {advFilters.map((f, i) => (
-          <span key={i} className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-            Fase: {getPhaseLabel(f.value)}
-            <button
-              onClick={() => setAdvFilters((fs) => fs.filter((_, idx) => idx !== i))}
-              className="rounded-full border border-red-200 bg-white px-1 text-red-700 hover:bg-red-50"
-              title="Quitar filtro"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        <div className="ml-auto" />
-        {/* Input y acción para agregar filtrado */}
-        <input
-          value={filterInput}
-          onChange={(e) => setFilterInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFilterFromInput() } }}
-          placeholder="Filtrar por fase (inicio, formulacion, etc.)"
-          className="w-72 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-        />
+        {/* Botón Todos - solo visible si hay filtro en URL */}
+        {searchParams.get('filter') && (
+          <button
+            onClick={() => {
+              setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('filter'); return p })
+            }}
+            className="rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs text-red-700 hover:bg-red-100"
+          >
+            ✕ Quitar filtro: {getPhaseLabel(searchParams.get('filter') === 'fase1' ? 'formulacion' : searchParams.get('filter') === 'fase2' ? 'gestion' : searchParams.get('filter') === 'fase3' ? 'validacion' : searchParams.get('filter') || '')}
+          </button>
+        )}
       </div>
 
       {error ? (
