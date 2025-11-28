@@ -323,7 +323,21 @@ export default function Asignaturas() {
           onClose={() => setCreateMode('none')}
           onUploaded={async () => {
             setCreateMode('none')
-            await load()
+            // Polling para detectar la nueva asignatura mientras se procesa
+            const initialCount = items.length
+            let attempts = 0
+            const maxAttempts = 15 // 30 segundos
+            const poll = async () => {
+              const data = await listSubjects()
+              setItems(data)
+              attempts++
+              // Detener si apareció una nueva asignatura o se alcanzó el límite
+              if (data.length > initialCount || attempts >= maxAttempts) {
+                return
+              }
+              setTimeout(poll, 2000)
+            }
+            await poll()
           }}
         />
       ) : null}
