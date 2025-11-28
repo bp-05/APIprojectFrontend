@@ -358,12 +358,11 @@ function PhaseChart({ subjects }: { subjects: Subject[] }) {
   return (
     <div className="space-y-6">
       {/* Gráfico de líneas SVG */}
-      <div className="flex justify-center overflow-x-auto">
+      <div className="w-full overflow-hidden">
         <svg
-          width={chartWidth}
-          height={chartHeight}
-          className="rounded-lg border border-zinc-200 bg-white"
-          style={{ minWidth: chartWidth }}
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          className="w-full h-auto rounded-lg border border-zinc-200 bg-white"
+          preserveAspectRatio="xMidYMid meet"
         >
           {/* Cuadrícula horizontal */}
           {gridLines.map((line, i) => (
