@@ -77,9 +77,11 @@ export default function Asignaturas() {
     }
 
     const handleMessage = (data: string) => {
+      console.log('[DAC SSE] Mensaje recibido:', data)
       if (cancelled) return
       try {
         const payload = JSON.parse(data || '{}')
+        console.log('[DAC SSE] Payload parseado:', payload)
         const subjectId = Number(payload.subject_id)
         if (!subjectId) return
         const eventType = String(payload.event || '').toLowerCase()
@@ -88,6 +90,7 @@ export default function Asignaturas() {
         const matchesPeriod =
           payloadYear === null ||
           (payloadYear === periodYear && (!payloadSeason || payloadSeason === expectedSeason))
+        console.log('[DAC SSE] matchesPeriod:', matchesPeriod, 'payloadYear:', payloadYear, 'periodYear:', periodYear)
         if (!matchesPeriod) {
           if (eventType === 'deleted') {
             removeSubject(subjectId)
@@ -107,8 +110,10 @@ export default function Asignaturas() {
           const label = code ? `Asignatura ${code}` : 'Asignatura'
           toast.success(`${label} procesada exitosamente.`)
         }
+        console.log('[DAC SSE] Llamando syncSubject para:', subjectId)
         void syncSubject(subjectId)
-      } catch {
+      } catch (err) {
+        console.error('[DAC SSE] Error procesando mensaje:', err)
         // Ignorar payload inválido
       }
     }
@@ -128,6 +133,8 @@ export default function Asignaturas() {
       const normalized = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
       const url = `${normalized}/subjects/stream/?token=${encodeURIComponent(accessToken)}`
       
+      console.log('[DAC SSE] Conectando a:', url)
+      
       try {
         controller = new AbortController()
         const response = await fetch(url, {
@@ -137,17 +144,22 @@ export default function Asignaturas() {
           },
         })
         
+        console.log('[DAC SSE] Response status:', response.status)
+        
         if (!response.ok) {
+          console.error('[DAC SSE] Error en response:', response.status)
           handleError()
           return
         }
 
         const reader = response.body?.getReader()
         if (!reader) {
+          console.error('[DAC SSE] No se pudo obtener reader')
           handleError()
           return
         }
 
+        console.log('[DAC SSE] Conexión establecida, leyendo stream...')
         const decoder = new TextDecoder()
         let buffer = ''
 
@@ -323,21 +335,7 @@ export default function Asignaturas() {
           onClose={() => setCreateMode('none')}
           onUploaded={async () => {
             setCreateMode('none')
-            // Polling para detectar la nueva asignatura mientras se procesa
-            const initialCount = items.length
-            let attempts = 0
-            const maxAttempts = 15 // 30 segundos
-            const poll = async () => {
-              const data = await listSubjects()
-              setItems(data)
-              attempts++
-              // Detener si apareció una nueva asignatura o se alcanzó el límite
-              if (data.length > initialCount || attempts >= maxAttempts) {
-                return
-              }
-              setTimeout(poll, 2000)
-            }
-            await poll()
+            await load()
           }}
         />
       ) : null}
