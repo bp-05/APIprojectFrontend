@@ -321,8 +321,9 @@ export default function Asignaturas() {
       {createMode === 'auto' ? (
         <UploadDescriptorAutoDialog
           onClose={() => setCreateMode('none')}
-          onUploaded={() => {
+          onUploaded={async () => {
             setCreateMode('none')
+            await load()
           }}
         />
       ) : null}
