@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   listSubjects,
   listSubjectCompetencies,
@@ -322,8 +322,8 @@ function PhaseChart({ subjects }: { subjects: Subject[] }) {
   const graphHeight = chartHeight - padding.top - padding.bottom
 
   // Generar puntos para cada línea de fase
-  const getLinePoints = (phaseIndex: number) => {
-    return phaseCounts.map((phase, i) => {
+  const getLinePoints = (_phaseIndex: number) => {
+    return phaseCounts.map((_, i) => {
       const x = padding.left + (i * graphWidth) / (phaseCounts.length - 1)
       const y = padding.top + graphHeight - (phaseCounts[i].count / maxCount) * graphHeight
       return { x, y, count: phaseCounts[i].count }
@@ -469,103 +469,6 @@ function PhaseChart({ subjects }: { subjects: Subject[] }) {
             </div>
           </div>
         ))}
-      </div>
-    </div>
-  )
-}
-
-function PhaseRow({ phase, subjects, color }: { phase: string; subjects: Subject[]; color: string }) {
-  const total = subjects.length
-  const navigate = useNavigate()
-
-  if (total === 0) {
-    return (
-      <div className="flex items-center gap-4">
-        <div className="w-32 text-sm font-medium text-zinc-700">{phase}</div>
-        <div className="flex-1">
-          <div className="h-10 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center">
-            <span className="text-xs text-zinc-400">Sin asignaturas</span>
-          </div>
-        </div>
-        <div className="w-12 text-right text-sm font-semibold text-zinc-500">0</div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex items-center gap-4">
-      <div className="w-32 text-sm font-medium text-zinc-700">{phase}</div>
-      <div className="flex-1">
-        <div className="flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
-          {subjects.map((subject) => (
-            <div
-              key={subject.id}
-              className={`group relative h-10 flex-1 cursor-pointer rounded ${color} transition-all hover:ring-2 hover:ring-offset-1 hover:ring-zinc-900`}
-              style={{ minWidth: '20px' }}
-              onClick={() => navigate(`/dc/asignaturas/${subject.id}`)}
-            >
-              {/* Tooltip al hacer hover */}
-              <div className="absolute bottom-full left-1/2 z-10 mb-2 hidden w-64 -translate-x-1/2 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg group-hover:block">
-                <div className="text-xs font-semibold text-zinc-900">{subject.code}-{subject.section}</div>
-                <div className="mt-1 text-xs text-zinc-700">{subject.name}</div>
-                <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-                  <span>👤 {subject.teacher_name || 'Sin docente'}</span>
-                </div>
-                <div className="mt-1 text-xs text-zinc-500">
-                  📚 {subject.area_name || 'Sin área'}
-                </div>
-                {/* Flecha del tooltip */}
-                <div className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2">
-                  <div className="h-2 w-2 rotate-45 border-b border-r border-zinc-200 bg-white"></div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="w-12 text-right text-sm font-semibold text-zinc-700">{total}</div>
-    </div>
-  )
-}
-
-function BarChart({
-  label,
-  current,
-  total,
-  color,
-}: {
-  label: string
-  current: number
-  total: number
-  color: string
-}) {
-  const percentage = total > 0 ? Math.round((current / total) * 100) : 0
-  const maxHeight = 250
-  const barHeight = (percentage / 100) * maxHeight
-
-  return (
-    <div className="flex flex-1 flex-col items-center">
-      <div className="relative flex w-full flex-col items-center justify-end" style={{ height: `${maxHeight}px` }}>
-        {/* Valor numérico encima de la barra */}
-        {percentage > 0 && (
-          <div className="mb-2 text-center">
-            <div className="text-lg font-bold text-zinc-900">{percentage}%</div>
-            <div className="text-xs text-zinc-500">
-              {current}/{total}
-            </div>
-          </div>
-        )}
-        
-        {/* Barra */}
-        <div
-          className={`w-full rounded-t-lg ${color} transition-all duration-700 ease-out`}
-          style={{ height: `${barHeight}px`, minHeight: percentage > 0 ? '4px' : '0px' }}
-        />
-      </div>
-      
-      {/* Etiqueta */}
-      <div className="mt-3 text-center">
-        <div className="text-xs font-medium text-zinc-700">{label}</div>
       </div>
     </div>
   )

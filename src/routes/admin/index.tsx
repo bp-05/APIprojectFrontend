@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { listCompanies, listProblemStatements, listEngagementScopes } from '../../api/companies'
 import { listSubjects, listAreas, listCareers, listCompanyRequirements, type Subject, type Area, type Career } from '../../api/subjects'
 import { usePeriodStore } from '../../store/period'
@@ -218,38 +218,6 @@ function KpiCard({ title, value, tone = 'zinc', linkTo, subtitle = 'Total' }: { 
       </div>
       <div className="mt-3 text-3xl font-semibold tracking-tight">{value}</div>
       <div className="mt-1 text-xs text-zinc-500">{subtitle}</div>
-    </div>
-  )
-}
-
-type StatTone = 'zinc' | 'blue' | 'green' | 'amber' | 'indigo' | 'violet' | 'cyan' | 'purple'
-
-function StatCard({
-  title,
-  value,
-  subtitle,
-  tone = 'zinc',
-}: {
-  title: string
-  value: ReactNode
-  subtitle?: string
-  tone?: StatTone
-}) {
-  const accents: Record<StatTone, string> = {
-    zinc: 'text-zinc-900',
-    blue: 'text-sky-600',
-    green: 'text-emerald-600',
-    amber: 'text-amber-600',
-    indigo: 'text-indigo-600',
-    violet: 'text-violet-600',
-    cyan: 'text-cyan-600',
-    purple: 'text-purple-600',
-  } as const
-  return (
-    <div className="rounded-2xl border border-zinc-200 bg-white/90 px-4 py-5 shadow-sm">
-      <p className="text-sm font-medium text-zinc-500">{title}</p>
-      <div className={`mt-3 text-3xl font-semibold ${accents[tone] || accents.zinc}`}>{value}</div>
-      {subtitle ? <p className="mt-1 text-xs text-zinc-500">{subtitle}</p> : null}
     </div>
   )
 }

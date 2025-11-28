@@ -5,10 +5,8 @@ import { listCompanies } from '../../api/companies'
 export default function VCM() {
   const [items, setItems] = useState<any[]>([])
   const [requirements, setRequirements] = useState<CompanyRequirement[]>([])
-  const [loading, setLoading] = useState(false)
 
   async function load() {
-    setLoading(true)
     try {
       const [subs, , reqs] = await Promise.all([
         listSubjects().catch(() => []),
@@ -19,8 +17,6 @@ export default function VCM() {
       setRequirements(reqs)
     } catch {
       // Error silencioso
-    } finally {
-      setLoading(false)
     }
   }
 

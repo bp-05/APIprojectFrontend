@@ -129,25 +129,6 @@ export default function COORD_DASH() {
     setFilters((fs) => fs.filter((_, idx) => idx !== i))
   }
 
-  function exportCsv() {
-    const rows = [
-      ['Fase', 'Cantidad'],
-      ['Inicio', String(phaseKpi['Inicio'])],
-      ['Formulación', String(phaseKpi['Formulación'])],
-      ['Gestión', String(phaseKpi['Gestión'])],
-      ['Validación', String(phaseKpi['Validación'])],
-      ['Completado', String(phaseKpi['Completado'])],
-    ]
-    const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `fases_coordinador_${new Date().toISOString().slice(0,10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   function exportPdf() {
     try {
       const now = new Date()
@@ -438,10 +419,6 @@ export default function COORD_DASH() {
       <div className="mb-6 mt-2 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Panel de Coordinador</h1>
         <div className="flex gap-2">
-          <button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            CSV
-          </button>
           <button onClick={exportPdf} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             PDF
@@ -466,9 +443,13 @@ export default function COORD_DASH() {
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" name="Asignaturas">
+              <YAxis 
+                allowDecimals={false}
+                domain={[0, (dataMax: number) => Math.max(10, Math.ceil(dataMax * 1.1))]}
+                tickFormatter={(value) => Math.round(value).toString()}
+              />
+              <Tooltip formatter={(value: number) => [value, 'Asignaturas']} />
+              <Bar dataKey="value" name="Asignaturas" radius={[4, 4, 0, 0]}>
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
