@@ -451,24 +451,26 @@ export default function COORD_DASH() {
       {/* Gráfico de barras */}
       <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Distribución por Fase</h2>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis 
-                allowDecimals={false}
-                domain={[0, (dataMax: number) => Math.max(10, Math.ceil(dataMax * 1.1))]}
-                tickFormatter={(value) => Math.round(value).toString()}
-              />
-              <Tooltip formatter={(value: number) => [value, 'Asignaturas']} />
-              <Bar dataKey="value" name="Asignaturas" radius={[4, 4, 0, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div style={{ width: '100%', height: 256, minHeight: 256 }}>
+          {!loading && (
+            <ResponsiveContainer width="100%" height={256}>
+              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis 
+                  allowDecimals={false}
+                  domain={[0, (dataMax: number) => Math.max(10, Math.ceil(dataMax * 1.1))]}
+                  tickFormatter={(value) => Math.round(value).toString()}
+                />
+                <Tooltip formatter={(value: number) => [value, 'Asignaturas']} />
+                <Bar dataKey="value" name="Asignaturas" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
