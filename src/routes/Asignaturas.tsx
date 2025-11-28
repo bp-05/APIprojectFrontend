@@ -984,7 +984,7 @@ function DescriptorCell({ subject, onChanged }: { subject: Subject; onChanged: (
     return (
       <div className="flex items-center gap-2">
         <span title={last.processed_at ? 'Procesado' : 'Pendiente'} className={`inline-block h-3 w-3 rounded-sm ${last.processed_at ? 'bg-green-600' : 'bg-zinc-400'}`} />
-        <a href={url} target="_blank" rel="noreferrer" className="text-xs text-red-700 hover:underline">Ver</a>
+        <a href={url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-red-700 hover:underline">Ver</a>
       </div>
     )
   }
@@ -992,7 +992,7 @@ function DescriptorCell({ subject, onChanged }: { subject: Subject; onChanged: (
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={(e) => { e.stopPropagation(); setOpen(true) }}
         className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-dashed border-zinc-400 text-zinc-600 hover:bg-zinc-50"
         title="Subir descriptor (PDF)"
       >
