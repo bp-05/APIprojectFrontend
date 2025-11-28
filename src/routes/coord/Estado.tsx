@@ -5,25 +5,18 @@ import { useSearchParams, Link } from 'react-router'
 import { usePeriodStore } from '../../store/period'
 import { toast } from '../../lib/toast'
 
-type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
-type LocalStatus = { status: ProjectState; timestamps?: Partial<Record<ProjectState, string>> }
-
 export default function EstadoCoord() {
   const [items, setItems] = useState<Subject[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [searchParams] = useSearchParams()
-  const [editTarget, setEditTarget] = useState<{ id: number; state: ProjectState } | null>(null)
+  const [editTarget, setEditTarget] = useState<{ id: number } | null>(null)
 
   // Admin phase schedules from database
   const [adminPhaseSchedules, setAdminPhaseSchedules] = useState<PeriodPhaseSchedule[]>([])
   const season = usePeriodStore((s) => s.season)
   const year = usePeriodStore((s) => s.year)
-
-  const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
-    try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
-  })
 
   // Tipo de fase que usa valores del backend directamente
   type PhaseName = 'inicio' | 'formulacion' | 'gestion' | 'validacion' | 'completado'
@@ -43,24 +36,6 @@ export default function EstadoCoord() {
     'gestion': 'Fase 2: Gestión de Requerimientos',
     'validacion': 'Fase 3: Validación de requerimientos',
     'completado': 'Fase: Completado',
-  }
-
-  function saveLocalStatus(next: Record<number, LocalStatus>) {
-    setLocalStatus(next)
-    try {
-      localStorage.setItem('coordSubjectStatus', JSON.stringify(next))
-      window.dispatchEvent(new Event('coordSubjectStatusChanged'))
-    } catch {}
-  }
-
-  function setStatus(id: number, status: ProjectState) {
-    saveLocalStatus({
-      ...localStatus,
-      [id]: {
-        status,
-        timestamps: { ...(localStatus[id]?.timestamps || {}), [status]: new Date().toISOString() },
-      },
-    })
   }
 
   // Estado para controlar cuál select está guardando
@@ -106,17 +81,6 @@ export default function EstadoCoord() {
 
   useEffect(() => { load() }, [season, year])
 
-  function mapStatus(s: any): ProjectState {
-    const local = localStatus[s.id]?.status
-    if (local) return local
-    const raw = String(s?.project_status || s?.status || '').toLowerCase()
-    if (raw.includes('observ')) return 'Observada'
-    if (raw.includes('apro') || raw.includes('aprob')) return 'Aprobada'
-    if (raw.includes('env')) return 'Enviada'
-    if (!s?.teacher) return 'Borrador'
-    return 'Enviada'
-  }
-
   function phaseOf(s: Subject): PhaseName {
     // Obtener fase directamente del Subject (base de datos)
     const phase = s.phase as PhaseName
@@ -143,20 +107,27 @@ export default function EstadoCoord() {
       }
     }
     const f = (searchParams.get('filter') || '').toLowerCase()
-    if (f && ['borrador','enviada','observada','aprobada'].includes(f)) {
-      arr = arr.filter((s) => mapStatus(s).toLowerCase() === f)
+    if (f) {
+      if (['fase1','fase2','fase3'].includes(f)) {
+        const targetPhase = f === 'fase1' ? 'formulacion' : f === 'fase2' ? 'gestion' : 'validacion'
+        arr = arr.filter((s: any) => s.phase === targetPhase)
+      } else if (f === 'inicio') {
+        arr = arr.filter((s: any) => s.phase === 'inicio')
+      } else if (f === 'completado') {
+        arr = arr.filter((s: any) => s.phase === 'completado')
+      }
     }
     if (!search) return arr
     const q = search.toLowerCase()
     return arr.filter((s) => [s.code, s.section, s.name, s.area_name || ''].some((v) => String(v || '').toLowerCase().includes(q)))
-  }, [items, search, searchParams, localStatus])
+  }, [items, search, searchParams])
 
   return (
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Estado de Proyectos</h1>
-          <p className="text-sm text-zinc-600">Resumen y acciones de estado</p>
+          <h1 className="text-xl font-semibold">Fases de Proyectos</h1>
+          <p className="text-sm text-zinc-600">Gestión de fases de asignaturas</p>
         </div>
         <div className="flex items-center gap-2">
           {searchParams.get('id') ? null : (
@@ -181,16 +152,15 @@ export default function EstadoCoord() {
               <Th>Sección</Th>
               <Th>Nombre</Th>
               <Th>Área</Th>
-              <Th>Estado</Th>
               <Th>Fase</Th>
               <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Cargando…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Sin resultados</td></tr>
             ) : (
               filtered.map((s) => (
                 <tr key={s.id} className="hover:bg-zinc-50">
@@ -198,31 +168,6 @@ export default function EstadoCoord() {
                   <Td>{s.section}</Td>
                   <Td>{s.name}</Td>
                   <Td>{s.area_name}</Td>
-                  <Td>
-                    {(() => {
-                      const st = mapStatus(s)
-                      const colorCls = st === 'Aprobada'
-                        ? 'border-green-200 bg-green-50 text-green-700'
-                        : st === 'Observada'
-                        ? 'border-amber-200 bg-amber-50 text-amber-700'
-                        : st === 'Enviada'
-                        ? 'border-blue-200 bg-blue-50 text-blue-700'
-                        : 'border-zinc-300 bg-zinc-50 text-zinc-700'
-                      return (
-                        <select
-                          value={st}
-                          onChange={(e) => setStatus(s.id, e.target.value as ProjectState)}
-                          className={`rounded-md px-2 py-1 text-xs outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10 ${colorCls}`}
-                          title="Editar estado"
-                        >
-                          <option value="Borrador">Borrador</option>
-                          <option value="Enviada">Enviada</option>
-                          <option value="Observada">Observada</option>
-                          <option value="Aprobada">Aprobada</option>
-                        </select>
-                      )
-                    })()}
-                  </Td>
                   <Td className="align-top">
                     <select
                       value={phaseOf(s)}
@@ -242,7 +187,7 @@ export default function EstadoCoord() {
                   <Td className="text-right">
                     <div className="flex flex-col items-end gap-1">
                       <button
-                        onClick={() => { const cur = mapStatus(s); setEditTarget({ id: s.id, state: cur }) }}
+                        onClick={() => setEditTarget({ id: s.id })}
                         className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                       >
                         Ver información
@@ -260,7 +205,7 @@ export default function EstadoCoord() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setEditTarget(null)}>
           <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3">
-              <h2 className="text-base font-semibold">Información adicional</h2>
+              <h2 className="text-base font-semibold">Información de fase</h2>
             </div>
             <div className="mb-4 rounded-md border border-zinc-200 bg-zinc-50 p-3">
               {(() => {
@@ -310,8 +255,6 @@ function Th({ children, className = '' }: { children: any; className?: string })
 function Td({ children, className = '' }: { children: any; className?: string }) {
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
-
-
 
 
 

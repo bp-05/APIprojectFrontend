@@ -1,9 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { listSubjects, listDescriptorsBySubject, type Subject, type Descriptor } from '../../api/subjects'
-import { useNavigate, useSearchParams  , Link } from 'react-router'
-
-type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
-type LocalStatus = { status: ProjectState; timestamps?: Partial<Record<ProjectState, string>> }
+import { useNavigate, useSearchParams, Link } from 'react-router'
 
 export default function AsignaturasCoord() {
   const [items, setItems] = useState<Subject[]>([])
@@ -11,14 +8,9 @@ export default function AsignaturasCoord() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filterInput, setFilterInput] = useState('')
-  const [advFilters, setAdvFilters] = useState<Array<{ kind: 'status' | 'risk' | 'delay'; value: string }>>([])
+  const [advFilters, setAdvFilters] = useState<Array<{ kind: 'phase'; value: string }>>([])
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [cycleVersion, setCycleVersion] = useState(0)
-  // Overlay de estado local por proyecto (hasta que backend exponga estado)
-  const [localStatus] = useState<Record<number, LocalStatus>>(() => {
-    try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
-  })
 
   async function load() {
     setLoading(true)
@@ -38,102 +30,26 @@ export default function AsignaturasCoord() {
     load()
   }, [])
 
-  // Escuchar cambios del ciclo (fases) locales
-  useEffect(() => {
-    function onCycleCustom() { setCycleVersion((v) => v + 1) }
-    function onCycleStorage(e: StorageEvent) { if (e.key === 'coordSubjectCycle') setCycleVersion((v) => v + 1) }
-    window.addEventListener('coordSubjectCycleChanged', onCycleCustom as any)
-    window.addEventListener('storage', onCycleStorage)
-    return () => {
-      window.removeEventListener('coordSubjectCycleChanged', onCycleCustom as any)
-      window.removeEventListener('storage', onCycleStorage)
-    }
-  }, [])
-  function mapStatus(s: any): ProjectState {
-    const local = localStatus[s.id]?.status
-    if (local) return local
-    const raw = String(s?.project_status || s?.status || '').toLowerCase()
-    if (raw.includes('observ')) return 'Observada'
-    if (raw.includes('apro') || raw.includes('aprob')) return 'Aprobada'
-    if (raw.includes('env')) return 'Enviada'
-    if (!s?.teacher) return 'Borrador'
-    return 'Enviada'
-  }
-  function riskScore(s: any) {
-    let score = 0
-    const st = mapStatus(s)
-    if (st === 'Observada') score += 3
-    if (!s?.teacher) score += 2
-    if (!s?.career_name) score += 1
-    if (!s?.area_name) score += 1
-    return score
-  }
-  function statusTimestamp(id: number, status: ProjectState): Date | null {
-    const iso = localStatus[id]?.timestamps?.[status]
-    if (!iso) return null
-    const d = new Date(iso)
-    return isNaN(d.getTime()) ? null : d
-  }
-  function daysBetween(a: Date, b: Date) { return Math.max(0, Math.round((b.getTime() - a.getTime()) / (1000*60*60*24))) }
-  const SLA_DAYS = 14
-  function atrasoInfo(s: Subject): { delayed: boolean; days: number } {
-    const st = mapStatus(s)
-    let ref: Date | null = null
-    if (st === 'Observada') ref = statusTimestamp(s.id, 'Observada') || statusTimestamp(s.id, 'Enviada')
-    else if (st === 'Enviada') ref = statusTimestamp(s.id, 'Enviada')
-    if (!ref) return { delayed: false, days: 0 }
-    const diff = daysBetween(ref, new Date())
-    const over = Math.max(0, diff - SLA_DAYS)
-    return { delayed: over > 0, days: over }
-  }
-
-  // Lectura de ciclo local (fase actual)
-  type LocalCycle = { phase: 'Fase 1' | 'Fase 2' | 'Fase 3'; start?: string; end?: string }
-  function readLocalCycle(): Record<number, LocalCycle> {
-    try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} as any }
-  }
-  const localCycleMap = useMemo(() => readLocalCycle(), [cycleVersion])
-
   const filtered = useMemo(() => {
     let arr = items
     const f = (searchParams.get('filter') || '').toLowerCase()
     if (f) {
-      if (['borrador','enviada','observada','aprobada'].includes(f)) {
-        arr = arr.filter((s) => mapStatus(s).toLowerCase() === f)
-      } else if (['fase1','fase2','fase3'].includes(f)) {
-        const target = f === 'fase1' ? 'Fase 1' : f === 'fase2' ? 'Fase 2' : 'Fase 3'
-        arr = arr.filter((s: any) => (localCycleMap as any)[s.id]?.phase === target)
-      } else if (f === 'atraso') {
-        arr = arr.filter((s) => mapStatus(s) === 'Observada')
-      } else if (f === 'riesgo') {
-        arr = arr
-          .map((s) => ({ s, r: riskScore(s) }))
-          .filter((x) => x.r > 0)
-          .sort((a, b) => b.r - a.r)
-          .map((x) => x.s)
+      if (['fase1','fase2','fase3'].includes(f)) {
+        const targetPhase = f === 'fase1' ? 'formulacion' : f === 'fase2' ? 'gestion' : 'validacion'
+        arr = arr.filter((s: any) => s.phase === targetPhase)
+      } else if (f === 'inicio') {
+        arr = arr.filter((s: any) => s.phase === 'inicio')
+      } else if (f === 'completado') {
+        arr = arr.filter((s: any) => s.phase === 'completado')
       }
     }
-    // Aplicar filtros avanzados (chips): AND entre tipos, OR dentro del mismo tipo
+    // Aplicar filtros avanzados (chips)
     if (advFilters.length > 0) {
-      const statusVals = advFilters.filter((f) => f.kind === 'status').map((f) => f.value.toLowerCase())
-      const riskVals = advFilters.filter((f) => f.kind === 'risk').map((f) => f.value.toLowerCase())
-      const hasDelay = advFilters.some((f) => f.kind === 'delay')
+      const phaseVals = advFilters.filter((f) => f.kind === 'phase').map((f) => f.value.toLowerCase())
       arr = arr.filter((s) => {
-        // status
-        if (statusVals.length) {
-          const st = mapStatus(s).toLowerCase()
-          if (!statusVals.includes(st)) return false
-        }
-        // riesgo
-        if (riskVals.length) {
-          const r = riskScore(s)
-          const lvl = r <= 0 ? 'sin riesgo' : r <= 2 ? 'bajo' : r <= 4 ? 'medio' : 'alto'
-          if (!riskVals.includes(lvl)) return false
-        }
-        // atraso
-        if (hasDelay) {
-          const a = atrasoInfo(s)
-          if (!a.delayed) return false
+        if (phaseVals.length) {
+          const phase = (s.phase || 'inicio').toLowerCase()
+          if (!phaseVals.includes(phase)) return false
         }
         return true
       })
@@ -144,54 +60,55 @@ export default function AsignaturasCoord() {
       [s.code, s.section, s.name, s.campus, s.area_name || '', s.career_name || '', s.semester_name || '']
         .some((v) => String(v || '').toLowerCase().includes(q))
     )
-  }, [items, search, searchParams, advFilters, cycleVersion])
+  }, [items, search, searchParams, advFilters])
 
   function openView(s: Subject) {
     navigate(`/coord/asignaturas/${s.id}`)
   }
-
-  // (Revertido) Lectura de fase local eliminada; se mantiene columna Riesgo
 
   // Utilities para filtros avanzados
   function addFilterFromInput() {
     const raw = filterInput.trim()
     if (!raw) return
     const tokens = raw.split(',').map((t) => t.trim()).filter(Boolean)
-    const next: Array<{ kind: 'status' | 'risk' | 'delay'; value: string }> = []
+    const next: Array<{ kind: 'phase'; value: string }> = []
     for (const t of tokens) {
       const k = t.toLowerCase()
-      // Estados
-      if (['borrador','enviada','enviado','observada','aprobada'].includes(k)) {
-        const map: Record<string, string> = { enviado: 'Enviada', enviada: 'Enviada', borrador: 'Borrador', observada: 'Observada', aprobada: 'Aprobada' }
-        next.push({ kind: 'status', value: map[k] })
-        continue
-      }
-      // Atraso
-      if (k === 'atraso' || k === 'atrasado' || k === 'con atraso') {
-        next.push({ kind: 'delay', value: 'atraso' })
-        continue
-      }
-      // Riesgo niveles
-      if (k.startsWith('riesgo')) {
-        const level = k.replace('riesgo', '').trim()
-        const lvl = level || 'alto' // si solo ponen "riesgo", asumir alto
-        const mapR: Record<string, string> = { alto: 'Alto', medio: 'Medio', mediano: 'Medio', bajo: 'Bajo', 'sin riesgo': 'Sin riesgo', ninguno: 'Sin riesgo' }
-        if (mapR[lvl]) next.push({ kind: 'risk', value: mapR[lvl] })
-        continue
-      }
-      if (['alto','medio','mediano','bajo','sin riesgo','ninguno'].includes(k)) {
-        const mapR: Record<string, string> = { alto: 'Alto', medio: 'Medio', mediano: 'Medio', bajo: 'Bajo', 'sin riesgo': 'Sin riesgo', ninguno: 'Sin riesgo' }
-        next.push({ kind: 'risk', value: mapR[k] })
+      // Fases
+      if (['inicio','formulacion','formulación','gestion','gestión','validacion','validación','completado'].includes(k)) {
+        const map: Record<string, string> = { 
+          inicio: 'inicio', 
+          formulacion: 'formulacion', 
+          'formulación': 'formulacion',
+          gestion: 'gestion',
+          'gestión': 'gestion',
+          validacion: 'validacion',
+          'validación': 'validacion',
+          completado: 'completado'
+        }
+        next.push({ kind: 'phase', value: map[k] })
         continue
       }
     }
     if (next.length) {
       setAdvFilters((prev) => {
-        const exists = (f: { kind: 'status'|'risk'|'delay'; value: string }) => prev.some((p) => p.kind === f.kind && p.value === f.value)
+        const exists = (f: { kind: 'phase'; value: string }) => prev.some((p) => p.kind === f.kind && p.value === f.value)
         return [...prev, ...next.filter((f) => !exists(f))]
       })
       setFilterInput('')
     }
+  }
+
+  // Obtener label de fase
+  function getPhaseLabel(phase: string): string {
+    const labels: Record<string, string> = {
+      'inicio': 'Inicio',
+      'formulacion': 'Formulación',
+      'gestion': 'Gestión',
+      'validacion': 'Validación',
+      'completado': 'Completado',
+    }
+    return labels[phase] || phase
   }
 
   return (
@@ -205,14 +122,14 @@ export default function AsignaturasCoord() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={'Buscar asignatura por c\u00F3digo, secci\u00F3n o nombre'}
+            placeholder="Buscar asignatura por código, sección o nombre"
             className="w-72 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
           />
         </div>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {/* BotÃ³n Todos */}
+        {/* Botón Todos */}
         <button
           onClick={() => {
             setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('filter'); return p })
@@ -225,23 +142,23 @@ export default function AsignaturasCoord() {
         {/* Chips de filtros agregados */}
         {advFilters.map((f, i) => (
           <span key={i} className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-            {f.kind === 'status' ? `Estado: ${f.value}` : f.kind === 'risk' ? `Riesgo: ${f.value}` : 'Atraso'}
+            Fase: {getPhaseLabel(f.value)}
             <button
               onClick={() => setAdvFilters((fs) => fs.filter((_, idx) => idx !== i))}
               className="rounded-full border border-red-200 bg-white px-1 text-red-700 hover:bg-red-50"
               title="Quitar filtro"
             >
-              Ã—
+              ×
             </button>
           </span>
         ))}
         <div className="ml-auto" />
-        {/* Input y acciÃ³n para agregar filtrado */}
+        {/* Input y acción para agregar filtrado */}
         <input
           value={filterInput}
           onChange={(e) => setFilterInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFilterFromInput() } }}
-          placeholder="Filtrar por estado, riesgo, etc."
+          placeholder="Filtrar por fase (inicio, formulacion, etc.)"
           className="w-72 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
         />
       </div>
@@ -255,25 +172,24 @@ export default function AsignaturasCoord() {
           <thead className="bg-zinc-50">
             <tr>
               <Th>Descriptor</Th>
-              <Th>{'C\u00F3digo'}</Th>
-              <Th>{'Secci\u00F3n'}</Th>
+              <Th>Código</Th>
+              <Th>Sección</Th>
               <Th>Nombre</Th>
-              <Th>{'\u00C1rea'}</Th>
+              <Th>Área</Th>
               <Th>Carrera</Th>
               <Th>Semestre</Th>
-              <Th>Estado</Th>
-              <Th>Riesgo</Th>
+              <Th>Fase</Th>
               <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={10}>CargandoÃ¢â‚¬Â¦</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={10}>Sin resultados</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={9}>Sin resultados</td>
               </tr>
             ) : (
               filtered.map((s) => (
@@ -292,35 +208,9 @@ export default function AsignaturasCoord() {
                   <Td>{s.career_name || '-'}</Td>
                   <Td>{s.semester_name}</Td>
                   <Td>
-                    {(() => {
-                      const st = mapStatus(s)
-                      const cls = st === 'Aprobada'
-                        ? 'bg-green-50 text-green-700'
-                        : st === 'Observada'
-                        ? 'bg-amber-50 text-amber-700'
-                        : st === 'Enviada'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'bg-zinc-100 text-zinc-700'
-                      return (
-                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{st}</span>
-                      )
-                    })()}
-                  </Td>
-                  <Td>
-                    {(() => {
-                      const r = riskScore(s)
-                      const lvl = r <= 0 ? 'Sin riesgo' : r <= 2 ? 'Bajo' : r <= 4 ? 'Medio' : 'Alto'
-                      const cls = lvl === 'Alto'
-                        ? 'bg-red-50 text-red-700'
-                        : lvl === 'Medio'
-                        ? 'bg-orange-50 text-orange-700'
-                        : lvl === 'Bajo'
-                        ? 'bg-amber-50 text-amber-700'
-                        : 'bg-green-50 text-green-700'
-                      return (
-                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{lvl}</span>
-                      )
-                    })()}
+                    <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                      {getPhaseLabel(s.phase || 'inicio')}
+                    </span>
                   </Td>
                   <Td className="text-right">
                     <Link
@@ -328,7 +218,7 @@ export default function AsignaturasCoord() {
                       onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 hover:bg-zinc-50"
                     >
-                      Ver estado
+                      Ver fase
                     </Link>
                   </Td>
                 </tr>

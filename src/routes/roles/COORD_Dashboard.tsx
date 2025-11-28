@@ -1,61 +1,25 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
-import { listSubjects, listSubjectPhaseProgress, type Subject, type PhaseProgressPhase } from '../../api/subjects'
-import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
+import { useEffect, useMemo, useState } from 'react'
+import { listSubjects, type Subject } from '../../api/subjects'
 import { usePeriodStore } from '../../store/period'
 import jsPDF from 'jspdf'
-
-// Mapeo de nombre de fase en backend a número
-const PHASE_NAME_TO_NUM: Record<PhaseProgressPhase, 1 | 2 | 3> = {
-  formulacion: 1,
-  gestion: 2,
-  validacion: 3,
-}
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 export default function COORD_DASH() {
   const [items, setItems] = useState<Subject[]>([])
-  const [phaseProgressMap, setPhaseProgressMap] = useState<Record<number, Record<number, string>>>({})
-  const [lsVersion, setLsVersion] = useState(0)
-  const [cycleVersion, setCycleVersion] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterInput, setFilterInput] = useState('')
   const [filters, setFilters] = useState<Array<{ key: 'docente' | 'carrera' | 'area'; value?: string }>>([])
-  const [adminPhases, setAdminPhases] = useState<PeriodPhaseSchedule[]>([])
-  const [showPhasesModal, setShowPhasesModal] = useState<number | null>(null)
   const season = usePeriodStore((s) => s.season)
   const year = usePeriodStore((s) => s.year)
-
-  // Cargar progreso de fases desde la base de datos
-  const loadPhaseProgress = useCallback(async () => {
-    try {
-      const progressData = await listSubjectPhaseProgress()
-      console.log('Progreso de fases cargado:', progressData)
-      const map: Record<number, Record<number, string>> = {}
-      for (const p of progressData) {
-        const phaseNum = PHASE_NAME_TO_NUM[p.phase]
-        if (!map[p.subject]) map[p.subject] = {}
-        map[p.subject][phaseNum] = p.status
-      }
-      console.log('Mapa de progreso:', map)
-      setPhaseProgressMap(map)
-    } catch (e) {
-      console.error('Error cargando progreso de fases:', e)
-    }
-  }, [])
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      const [data, phases] = await Promise.all([
-        listSubjects(),
-        listPeriodPhaseSchedules({ period_year: year, period_season: season }),
-      ])
+      const data = await listSubjects()
       setItems(Array.isArray(data) ? data : [])
-      setAdminPhases(phases || [])
-      // Cargar progreso de fases después de los otros datos
-      await loadPhaseProgress()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar proyectos'
       setError(msg)
@@ -66,217 +30,48 @@ export default function COORD_DASH() {
 
   useEffect(() => { load() }, [season, year])
 
-  // Escuchar cambios de estado local de proyectos para sincronizar KPIs
-  useEffect(() => {
-    function onCustom() { setLsVersion((v) => v + 1) }
-    function onStorage(e: StorageEvent) { if (e.key === 'coordSubjectStatus') setLsVersion((v) => v + 1) }
-    window.addEventListener('coordSubjectStatusChanged', onCustom as any)
-    window.addEventListener('storage', onStorage)
-    return () => {
-      window.removeEventListener('coordSubjectStatusChanged', onCustom as any)
-      window.removeEventListener('storage', onStorage)
-    }
-  }, [])
-
-  // Escuchar cambios del ciclo (fechas inicio/fin) guardados localmente
-  useEffect(() => {
-    function onCycleCustom() { setCycleVersion((v) => v + 1) }
-    function onCycleStorage(e: StorageEvent) { if (e.key === 'coordSubjectCycle') setCycleVersion((v) => v + 1) }
-    window.addEventListener('coordSubjectCycleChanged', onCycleCustom as any)
-    window.addEventListener('storage', onCycleStorage)
-    return () => {
-      window.removeEventListener('coordSubjectCycleChanged', onCycleCustom as any)
-      window.removeEventListener('storage', onCycleStorage)
-    }
-  }, [])
-
   const active = useMemo(() => items.filter((s) => !!s.teacher), [items])
 
-  // KPI: Conteo por estado de proyecto (considera estado local guardado)
-  type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
-  function readLocalStatus(): Record<number, { status: ProjectState }> {
-    try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
+  // Mapeo de fase del backend a fase del frontend
+  const PHASE_MAP: Record<string, string> = {
+    'inicio': 'Inicio',
+    'formulacion': 'Formulación',
+    'gestion': 'Gestión',
+    'validacion': 'Validación',
+    'completado': 'Completado',
   }
-  const localStatusMap = useMemo(() => readLocalStatus(), [lsVersion])
-  function mapStatus(s: any): ProjectState {
-    const local = (localStatusMap as any)[s.id]?.status as ProjectState | undefined
-    if (local) return local
-    const raw = String(s?.project_status || s?.status || '').toLowerCase()
-    if (raw.includes('observ')) return 'Observada'
-    if (raw.includes('apro') || raw.includes('aprob')) return 'Aprobada'
-    if (raw.includes('env')) return 'Enviada'
-    if (!s?.teacher) return 'Borrador'
-    return 'Enviada'
-  }
-
-  const kpi = useMemo(() => {
-    const result: Record<ProjectState, number> = { Borrador: 0, Enviada: 0, Observada: 0, Aprobada: 0 }
-    for (const s of items) {
-      const st = mapStatus(s)
-      result[st] = (result[st] ?? 0) + 1
+  
+  // KPI: Conteo por fase
+  const phaseKpi = useMemo(() => {
+    const res: Record<string, number> = { 
+      'Inicio': 0, 
+      'Formulación': 0, 
+      'Gestión': 0, 
+      'Validación': 0, 
+      'Completado': 0 
     }
-    return result
-  }, [items, localStatusMap])
-
-  // % con atraso (cálculo basado en fases no completadas)
-  const delayedPct = useMemo(() => {
-    console.log('Calculando delayedPct:', { itemsLen: items.length, phasesLen: adminPhases.length, progressMapKeys: Object.keys(phaseProgressMap) })
-    if (!items.length) return 0
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    // Calcular % de atraso para cada asignatura
-    const delayScores = items.map(subject => {
-      const subjectMarks = phaseProgressMap[subject.id] || {}
-      
-      let delayCount = 0
-      let totalPhases = 3 // Siempre hay 3 fases
-
-      for (let phaseNum = 1; phaseNum <= 3; phaseNum++) {
-        const phaseMark = subjectMarks[phaseNum]
-        
-        // Buscar la fecha de término para esta fase (si existe)
-        const phaseSchedule = adminPhases.find(p => {
-          const phaseKey = String(p.phase || '').toLowerCase()
-          return phaseNum === 1 ? phaseKey === 'formulacion'
-               : phaseNum === 2 ? phaseKey === 'gestion'
-               : phaseNum === 3 ? phaseKey === 'validacion'
-               : false
-        })
-
-        // Si hay fechas configuradas, verificar si está atrasada
-        if (phaseSchedule && phaseSchedule.end_date) {
-          const endDate = new Date(phaseSchedule.end_date)
-          endDate.setHours(0, 0, 0, 0)
-          
-          // Si la fase no está realizada y ya pasó la fecha de término, está atrasada
-          if (phaseMark !== 'rz' && today > endDate) {
-            delayCount++
-          }
-        } else {
-          // Si no hay fechas configuradas, considerar atrasada si no está realizada
-          // Solo si hay algún progreso registrado para esta asignatura
-          if (Object.keys(subjectMarks).length > 0 && phaseMark !== 'rz') {
-            delayCount++
-          }
-        }
-      }
-
-      // Si no hay progreso registrado para esta asignatura, no contar atraso
-      if (Object.keys(subjectMarks).length === 0) return 0
-      
-      return Math.round((delayCount / totalPhases) * 100)
-    })
-
-    // Solo considerar asignaturas que tienen algún progreso registrado
-    const scoresWithProgress = delayScores.filter(s => s > 0 || items.some(i => phaseProgressMap[i.id]))
-    if (scoresWithProgress.length === 0) return 0
-    
-    const avg = delayScores.reduce((a, b) => a + b, 0) / delayScores.length
-    const result = Math.round(avg)
-    console.log('delayedPct calculado:', result, 'scores:', delayScores)
-    return result
-  }, [items, adminPhases, phaseProgressMap])
-
-  // Función para calcular % de atraso de una asignatura (usando datos de BD)
-  function calculateSubjectDelayPct(subject: Subject): number {
-    const subjectMarks = phaseProgressMap[subject.id] || {}
-    
-    // Si no hay progreso registrado, no hay atraso
-    if (Object.keys(subjectMarks).length === 0) return 0
-    
-    let delayCount = 0
-    const totalPhases = 3
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    for (let phaseNum = 1; phaseNum <= 3; phaseNum++) {
-      const phaseMark = subjectMarks[phaseNum]
-      
-      // Buscar la fecha de término para esta fase
-      const phaseSchedule = adminPhases.find(p => {
-        const phaseKey = String(p.phase || '').toLowerCase()
-        return phaseNum === 1 ? phaseKey === 'formulacion'
-             : phaseNum === 2 ? phaseKey === 'gestion'
-             : phaseNum === 3 ? phaseKey === 'validacion'
-             : false
-      })
-
-      if (phaseSchedule && phaseSchedule.end_date) {
-        const endDate = new Date(phaseSchedule.end_date)
-        endDate.setHours(0, 0, 0, 0)
-        
-        // Si la fase no está realizada y ya pasó la fecha de término, está atrasada
-        if (phaseMark !== 'rz' && today > endDate) {
-          delayCount++
-        }
-      } else {
-        // Si no hay fechas configuradas, considerar atrasada si no está realizada
-        if (phaseMark !== 'rz') {
-          delayCount++
-        }
-      }
+    for (const s of items as any[]) {
+      const backendPhase = s.phase || 'inicio'
+      const mappedPhase = PHASE_MAP[backendPhase] || 'Inicio'
+      res[mappedPhase] = (res[mappedPhase] || 0) + 1
     }
-
-    return Math.round((delayCount / totalPhases) * 100)
-  }
-
-  // Escuchar cambios en el almacenamiento local para actualizar KPIs
-  function riskScore(s: any) {
-    let score = 0
-    const st = mapStatus(s)
-    if (st === 'Observada') score += 3
-    if (!s?.teacher) score += 2
-    if (!s?.career_name) score += 1
-    if (!s?.area_name) score += 1
-    
-    // Agregar puntuación por atraso
-    const delayPct = calculateSubjectDelayPct(s)
-    if (delayPct >= 50) score += 4  // Alto riesgo por atraso significativo
-    else if (delayPct >= 30) score += 2  // Riesgo moderado
-    
-    return score
-  }
-  // Función para obtener detalles del riesgo
-  function getRiskDetails(s: Subject): string[] {
-    const details: string[] = []
-    const st = mapStatus(s)
-    if (st === 'Observada') details.push('Estado: Observada')
-    if (!s?.teacher) details.push('Sin docente asignado')
-    if (!s?.career_name) details.push('Sin carrera asignada')
-    if (!s?.area_name) details.push('Sin área asignada')
-    
-    const delayPct = calculateSubjectDelayPct(s)
-    if (delayPct >= 50) details.push(`${delayPct}% de fases en atraso`)
-    else if (delayPct >= 30) details.push(`${delayPct}% de fases en atraso`)
-    
-    return details
-  }
-
-  // Clasificación de riesgo y listado (solo proyectos con riesgo > 0)
-  function riskLevel(score: number): 'Sin riesgo' | 'Bajo' | 'Medio' | 'Alto' {
-    if (score <= 0) return 'Sin riesgo'
-    if (score <= 2) return 'Bajo'
-    if (score <= 4) return 'Medio'
-    return 'Alto'
-  }
-  const allRisk = useMemo(() => {
-    return items
-      .map((s) => ({ s, score: riskScore(s) }))
-      .filter(({ score }) => score > 0)
-      .sort((a, b) => b.score - a.score)
+    return res
   }, [items])
-  const topRisk = useMemo(() => allRisk.slice(0, 1), [allRisk])
-  const [showExpandedRisk, setShowExpandedRisk] = useState(false)
-  const [showRiskModal, setShowRiskModal] = useState(false)
+
+  // Datos para el gráfico de barras
+  const chartData = useMemo(() => {
+    return [
+      { name: 'Inicio', value: phaseKpi['Inicio'], color: '#71717a' },
+      { name: 'Formulación', value: phaseKpi['Formulación'], color: '#3b82f6' },
+      { name: 'Gestión', value: phaseKpi['Gestión'], color: '#f59e0b' },
+      { name: 'Validación', value: phaseKpi['Validación'], color: '#a855f7' },
+      { name: 'Completado', value: phaseKpi['Completado'], color: '#22c55e' },
+    ]
+  }, [phaseKpi])
 
   useEffect(() => {
-    try {
-      ;(window as any).kpi = kpi
-      ;(window as any).delayedPct = delayedPct
-    } catch {}
-  }, [kpi, delayedPct])
+    try { (window as any).phaseKpi = phaseKpi } catch {}
+  }, [phaseKpi])
 
   function norm(s: string) {
     try { return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase() } catch { return s.toLowerCase() }
@@ -305,33 +100,6 @@ export default function COORD_DASH() {
     })
   }, [active, filters])
 
-  // Lectura de fechas de ciclo locales (desde "Editar ciclo")
-  type LocalCycle = { phase: 'Fase: Inicio' | 'Fase 1' | 'Fase 2' | 'Fase 3' | 'Fase: Completado'; start?: string; end?: string; phases?: Record<string, { start?: string; end?: string }> }
-  function readLocalCycle(): Record<number, LocalCycle> {
-    try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} as any }
-  }
-  const localCycleMap = useMemo(() => readLocalCycle(), [cycleVersion])
-  const phaseKpi = useMemo(() => {
-    const res: Record<string, number> = { 
-      'Fase: Inicio': 0, 
-      'Fase 1': 0, 
-      'Fase 2': 0, 
-      'Fase 3': 0, 
-      'Fase: Completado': 0 
-    }
-    for (const s of items as any[]) {
-      const p = (localCycleMap as any)[s.id]?.phase
-      if (p === 'Fase 1' || p === 'Fase 2' || p === 'Fase 3' || p === 'Fase: Inicio' || p === 'Fase: Completado') {
-        res[p] = (res[p] || 0) + 1
-      }
-    }
-    return res
-  }, [items, localCycleMap])
-
-  useEffect(() => {
-    try { (window as any).phaseKpi = phaseKpi } catch {}
-  }, [phaseKpi])
-
   function addFilterFromInput() {
     const raw = filterInput.trim()
     if (!raw) return
@@ -346,9 +114,8 @@ export default function COORD_DASH() {
     let key: 'docente' | 'carrera' | 'area' | null = null
     if (k === 'docente') key = 'docente'
     else if (k === 'carrera') key = 'carrera'
-    else if (k === 'area' || k === 'ǭrea') key = 'area'
+    else if (k === 'area' || k === 'área') key = 'area'
     if (!key) {
-      // Si no coincide, intentar interpretarlo como búsqueda por docente
       setFilters((fs) => [...fs, { key: 'docente', value: raw }])
       setFilterInput('')
       return
@@ -361,147 +128,103 @@ export default function COORD_DASH() {
     setFilters((fs) => fs.filter((_, idx) => idx !== i))
   }
 
+  function exportCsv() {
+    const rows = [
+      ['Fase', 'Cantidad'],
+      ['Inicio', String(phaseKpi['Inicio'])],
+      ['Formulación', String(phaseKpi['Formulación'])],
+      ['Gestión', String(phaseKpi['Gestión'])],
+      ['Validación', String(phaseKpi['Validación'])],
+      ['Completado', String(phaseKpi['Completado'])],
+    ]
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `fases_coordinador_${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function exportPdf() {
+    const doc = new jsPDF()
+    const d = new Date()
+    doc.setFontSize(18)
+    doc.text('Resumen de Fases - Coordinador', 14, 22)
+    doc.setFontSize(10)
+    doc.text(`Fecha: ${d.toLocaleString()}`, 14, 30)
+    
+    let y = 45
+    doc.setFontSize(12)
+    doc.text('Fase', 14, y)
+    doc.text('Cantidad', 100, y)
+    y += 8
+    
+    doc.setFontSize(10)
+    const phases = ['Inicio', 'Formulación', 'Gestión', 'Validación', 'Completado']
+    for (const phase of phases) {
+      doc.text(phase, 14, y)
+      doc.text(String(phaseKpi[phase] || 0), 100, y)
+      y += 6
+    }
+    
+    doc.save(`fases_coordinador_${new Date().toISOString().slice(0,10)}.pdf`)
+  }
+
+  // Obtener label de fase
+  function getPhaseLabel(phase: string): string {
+    return PHASE_MAP[phase] || phase
+  }
+
   return (
     <section className="p-6">
       <div className="mb-6 mt-2 flex items-center justify-between">
-        <h1 className="text-2xl">Panel de Coordinador</h1>
+        <h1 className="text-2xl font-bold">Panel de Coordinador</h1>
         <div className="flex gap-2">
-          <button onClick={exportCsvPhases} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+          <button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             CSV
           </button>
-          <button onClick={exportPdfPhases} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+          <button onClick={exportPdf} className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             PDF
           </button>
         </div>
       </div>
-      {/* KPI Cards */}
+
+      {/* KPI Cards por Fase */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <KpiCard title="Inicio" value={phaseKpi['Fase: Inicio']} tone="zinc" linkTo="/coord/asignaturas?filter=inicio" />
-        <KpiCard title="Fase 1: Formulación de requerimientos" value={phaseKpi['Fase 1']} tone="zinc" linkTo="/coord/asignaturas?filter=fase1" />
-        <KpiCard title="Fase 2: Gestión de Requerimientos" value={phaseKpi['Fase 2']} tone="blue" linkTo="/coord/asignaturas?filter=fase2" />
-        <KpiCard title="Fase 3: Validación de requerimientos" value={phaseKpi['Fase 3']} tone="amber" linkTo="/coord/asignaturas?filter=fase3" />
-        <KpiCard title="Proyectos Completados" value={phaseKpi['Fase: Completado']} tone="green" linkTo="/coord/asignaturas?filter=completado" />
+        <KpiCard title="Inicio" value={phaseKpi['Inicio']} tone="zinc" linkTo="/coord/asignaturas?filter=inicio" />
+        <KpiCard title="Formulación" value={phaseKpi['Formulación']} tone="blue" linkTo="/coord/asignaturas?filter=fase1" />
+        <KpiCard title="Gestión" value={phaseKpi['Gestión']} tone="amber" linkTo="/coord/asignaturas?filter=fase2" />
+        <KpiCard title="Validación" value={phaseKpi['Validación']} tone="purple" linkTo="/coord/asignaturas?filter=fase3" />
+        <KpiCard title="Completado" value={phaseKpi['Completado']} tone="green" linkTo="/coord/asignaturas?filter=completado" />
       </div>
 
-      {/* KPIs avanzados */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
-        <KpiCard title="% con atraso" value={`${delayedPct}%`} tone="amber" linkTo="/coord/asignaturas?filter=atraso" subtitle="Sobre el total de proyectos" />
-        <div className="relative">
-          <div className={`rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ring-zinc-200 ${showExpandedRisk ? 'absolute z-50 w-full' : ''}`}>
-            <div className="mb-2 flex items-center justify-between">
-              <div className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Proyectos en Riesgo</div>
-              <button onClick={() => setShowRiskModal(true)} className="text-xs font-medium text-red-700 hover:underline">Ver detalle</button>
-            </div>
-            {topRisk.length === 0 ? (
-              <div className="text-sm text-zinc-600">Sin datos</div>
-            ) : (
-              <div className={showExpandedRisk ? 'max-h-96 overflow-y-auto' : ''}>
-                <ul className="space-y-2">
-                  {(showExpandedRisk ? allRisk : topRisk).map(({ s, score }) => (
-                    <li key={(s as any).id} className="flex items-center justify-between text-sm">
-                      <div className="min-w-0">
-                        <div className="truncate font-medium">{s.name}</div>
-                        <div className="truncate text-xs text-zinc-500">{s.code}-{s.section}</div>
-                      </div>
-                      {(() => {
-                        const lvl = riskLevel(score)
-                        const cls = lvl === 'Alto'
-                          ? 'bg-red-50 text-red-700'
-                          : lvl === 'Medio' || lvl === 'Bajo'
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-zinc-100 text-zinc-700'
-                        return <span className={`ml-2 rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{lvl}</span>
-                      })()}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <div className="mt-3 border-t border-zinc-200" />
-            <div className="mt-2 flex justify-center">
-              <button
-                onClick={() => setShowExpandedRisk((v) => !v)}
-                aria-label="Alternar lista completa de proyectos en riesgo"
-                title={showExpandedRisk ? 'Colapsar' : 'Ver más'}
-                className="inline-flex items-center rounded-full border border-zinc-300 bg-white p-1 text-zinc-700 hover:bg-zinc-50"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className={`h-4 w-4 transform transition-transform ${showExpandedRisk ? 'rotate-180' : ''}`}
-                >
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
+      {/* Gráfico de barras */}
+      <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-4 text-lg font-semibold">Distribución por Fase</h2>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="value" name="Asignaturas">
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
-
-      {/* Modal: Proyectos en Riesgo Detallado */}
-      {showRiskModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setShowRiskModal(false)}>
-          <div className="w-full max-w-3xl rounded-lg border border-zinc-200 bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-200 p-4">
-              <h2 className="text-lg font-semibold">Proyectos en Riesgo</h2>
-              <button onClick={() => setShowRiskModal(false)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
-            </div>
-            <div className="max-h-[70vh] overflow-auto p-4">
-              {allRisk.length === 0 ? (
-                <div className="text-sm text-zinc-600">No hay proyectos en riesgo</div>
-              ) : (
-                <div className="space-y-4">
-                  {allRisk.map(({ s, score }) => {
-                    const lvl = riskLevel(score)
-                    const details = getRiskDetails(s)
-                    const cls = lvl === 'Alto'
-                      ? 'border-red-200 bg-red-50'
-                      : lvl === 'Medio' || lvl === 'Bajo'
-                      ? 'border-amber-200 bg-amber-50'
-                      : 'border-zinc-200 bg-zinc-50'
-                    const headCls = lvl === 'Alto'
-                      ? 'text-red-700'
-                      : lvl === 'Medio' || lvl === 'Bajo'
-                      ? 'text-amber-700'
-                      : 'text-zinc-700'
-                    const badgeCls = lvl === 'Alto'
-                      ? 'bg-red-100 text-red-700'
-                      : lvl === 'Medio' || lvl === 'Bajo'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-zinc-100 text-zinc-700'
-                    return (
-                      <div key={(s as any).id} className={`rounded-lg border-2 p-4 ${cls}`}>
-                        <div className="mb-2 flex items-start justify-between">
-                          <div>
-                            <h3 className={`font-semibold ${headCls}`}>{s.name}</h3>
-                            <p className="text-xs text-zinc-600">{s.code}-{s.section}</p>
-                          </div>
-                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${badgeCls}`}>{lvl}</span>
-                        </div>
-                        <div className="text-sm">
-                          <p className="mb-2 font-medium text-zinc-700">Motivos del riesgo:</p>
-                          <ul className="space-y-1 pl-4">
-                            {details.map((detail, idx) => (
-                              <li key={idx} className="list-disc text-zinc-600">{detail}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Proyectos API en curso</h1>
+          <h2 className="text-xl font-semibold">Proyectos API en curso</h2>
           <p className="text-sm text-zinc-600">Listado de proyectos activos asignados a docentes</p>
         </div>
         <div>
@@ -528,7 +251,7 @@ export default function COORD_DASH() {
             value={filterInput}
             onChange={(e) => setFilterInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFilterFromInput() } }}
-            placeholder="Ej: docente: juan | carrera: informatica | area: informatica"
+            placeholder="Ej: docente: juan | carrera: informática | area: informática"
             className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
           />
         </div>
@@ -546,20 +269,21 @@ export default function COORD_DASH() {
               <Th>Asignatura</Th>
               <Th>Área</Th>
               <Th>Carrera</Th>
+              <Th>Fase</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={4}>Cargando…</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={5}>Cargando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="p-4 text-sm text-zinc-600" colSpan={4}>No hay proyectos activos</td>
+                <td className="p-4 text-sm text-zinc-600" colSpan={5}>No hay proyectos activos</td>
               </tr>
             ) : (
               filtered.map((s) => (
-                <tr key={s.id} onClick={() => setShowPhasesModal(s.id)} className="cursor-pointer hover:bg-zinc-100 transition-colors">
+                <tr key={s.id} className="hover:bg-zinc-50">
                   <Td>{s.teacher_name || '-'}</Td>
                   <Td>
                     <div className="text-sm">{s.name}</div>
@@ -567,80 +291,19 @@ export default function COORD_DASH() {
                   </Td>
                   <Td>{s.area_name || '-'}</Td>
                   <Td>{s.career_name || '-'}</Td>
+                  <Td>
+                    <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                      {getPhaseLabel(s.phase || 'inicio')}
+                    </span>
+                  </Td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
-
-      {showPhasesModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setShowPhasesModal(null)}>
-          <div className="w-full max-w-2xl rounded-lg border border-zinc-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Fechas de fases asignadas</h2>
-              <button onClick={() => setShowPhasesModal(null)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
-            </div>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {adminPhases.length === 0 ? (
-                <div className="text-sm text-zinc-600">Sin fases configuradas</div>
-              ) : (
-                sortPhases(adminPhases).map((phase) => (
-                  <div key={phase.id} className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <div className="text-xs font-medium text-zinc-600">Fase:</div>
-                        <div className="text-zinc-800">{formatPhaseName(phase.phase)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs font-medium text-zinc-600">Fecha de inicio:</div>
-                        <div className="text-zinc-800">{formatDate(phase.start_date) || '-'}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs font-medium text-zinc-600">Fecha de término:</div>
-                        <div className="text-zinc-800">{formatDate(phase.end_date) || '-'}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   )
-
-  function formatPhaseName(phase: string): string {
-    const labels: Record<string, string> = {
-      'inicio': 'Inicio',
-      'formulacion': 'Formulación de requerimientos',
-      'gestion': 'Gestión de requerimientos',
-      'validacion': 'Validación de requerimientos',
-      'completado': 'Completado',
-    }
-    return labels[phase] || phase
-  }
-
-  function sortPhases(phases: PeriodPhaseSchedule[]): PeriodPhaseSchedule[] {
-    const order = ['inicio', 'formulacion', 'gestion', 'validacion', 'completado']
-    return [...phases].sort((a, b) => {
-      const indexA = order.indexOf(a.phase)
-      const indexB = order.indexOf(b.phase)
-      return indexA - indexB
-    })
-  }
-
-  function formatDate(dateStr: string | null): string {
-    if (!dateStr) return ''
-    try {
-      const d = new Date(dateStr)
-      if (isNaN(d.getTime())) return ''
-      return d.toLocaleDateString('es-CL')
-    } catch {
-      return ''
-    }
-  }
 }
 
 function Th({ children, className = '' }: { children: any; className?: string }) {
@@ -655,18 +318,20 @@ function Td({ children, className = '' }: { children: any; className?: string })
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
 
-function KpiCard({ title, value, tone = 'zinc', linkTo, subtitle = 'Total de proyectos' }: { title: string; value: number | string; tone?: 'zinc' | 'blue' | 'amber' | 'green'; linkTo?: string; subtitle?: string }) {
+function KpiCard({ title, value, tone = 'zinc', linkTo, subtitle = 'Total de proyectos' }: { title: string; value: number | string; tone?: 'zinc' | 'blue' | 'amber' | 'green' | 'purple'; linkTo?: string; subtitle?: string }) {
   const ring = {
     zinc: 'ring-zinc-200',
     blue: 'ring-blue-200',
     amber: 'ring-amber-200',
     green: 'ring-green-200',
+    purple: 'ring-purple-200',
   }[tone]
   const badgeBg = {
     zinc: 'bg-zinc-100 text-zinc-700',
     blue: 'bg-blue-50 text-blue-700',
     amber: 'bg-amber-50 text-amber-700',
     green: 'bg-green-50 text-green-700',
+    purple: 'bg-purple-50 text-purple-700',
   }[tone]
   return (
     <div className={`rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ${ring}`}>
@@ -680,112 +345,5 @@ function KpiCard({ title, value, tone = 'zinc', linkTo, subtitle = 'Total de pro
       <div className="mt-1 text-xs text-zinc-500">{subtitle}</div>
     </div>
   )
-}
-
-function exportCsvPhases() {
-  const rows = [
-    ['Métrica', 'Valor'],
-    ['Fase 1: Formulación de requerimientos', String((window as any).phaseKpi?.['Fase 1'] ?? '')],
-    ['Fase 2: Gestión de Requerimientos', String((window as any).phaseKpi?.['Fase 2'] ?? '')],
-    ['Fase 3: Validación de requerimientos', String((window as any).phaseKpi?.['Fase 3'] ?? '')],
-    ['Aprobada', String((window as any).kpi?.Aprobada ?? '')],
-    ['% con atraso', String((window as any).delayedPct ?? '')],
-  ]
-  const csv = rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `kpis_coordinador_${new Date().toISOString().slice(0,10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function exportPdfPhases() {
-  const doc = new jsPDF()
-  const d = new Date()
-  
-  // Título
-  doc.setFontSize(20)
-  doc.setFont('helvetica', 'bold')
-  doc.text('KPIs Coordinador', 20, 20)
-  
-  doc.setFontSize(12)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Reporte de Métricas y Desempeño', 20, 28)
-  
-  // Línea separadora
-  doc.setDrawColor(200, 200, 200)
-  doc.line(20, 32, 190, 32)
-  
-  // Metadata
-  doc.setFontSize(10)
-  doc.setTextColor(100, 100, 100)
-  doc.text(`Período: ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}`, 20, 40)
-  doc.text(`Hora: ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`, 140, 40)
-  
-  // Tabla resumen de métricas
-  doc.setFontSize(11)
-  doc.setTextColor(0, 0, 0)
-  doc.setFont('helvetica', 'bold')
-  
-  let yPos = 55
-  const tableStartY = yPos - 5
-  
-  // Header de tabla con fondo rojo
-  doc.setFillColor(220, 38, 38)
-  doc.rect(20, yPos - 5, 170, 10, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.text('Métrica', 25, yPos)
-  doc.text('Valor', 155, yPos)
-  
-  yPos += 10
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(0, 0, 0)
-  
-  const metrics = [
-    ['Inicio', `${(window as any).phaseKpi?.['Fase: Inicio'] ?? 0} proyectos`, false],
-    ['Formulación de requerimientos', `${(window as any).phaseKpi?.['Fase 1'] ?? 0} proyectos`, false],
-    ['Gestión de requerimientos', `${(window as any).phaseKpi?.['Fase 2'] ?? 0} proyectos`, false],
-    ['Validación de requerimientos', `${(window as any).phaseKpi?.['Fase 3'] ?? 0} proyectos`, false],
-    ['Completado', `${(window as any).phaseKpi?.['Fase: Completado'] ?? 0} proyectos`, false],
-    ['% con atraso', `${(window as any).delayedPct ?? 0}%`, true] // true = tiene fondo de alerta
-  ]
-  
-  const tableHeight = 10 + (metrics.length * 10)
-  
-  doc.setDrawColor(229, 231, 235)
-  doc.setLineWidth(0.3)
-  
-  metrics.forEach(([metric, value, isAlert], index) => {
-    if (isAlert) {
-      doc.setFillColor(254, 215, 170)
-      doc.rect(20, yPos - 5, 170, 10, 'F')
-    }
-    
-    doc.text(metric as string, 25, yPos)
-    doc.text(value as string, 155, yPos)
-    
-    if (index < metrics.length - 1) {
-      doc.line(20, yPos + 5, 190, yPos + 5)
-    }
-    
-    yPos += 10
-  })
-  
-  // Bordes negros de la tabla
-  doc.setDrawColor(0, 0, 0)
-  doc.setLineWidth(0.5)
-  doc.rect(20, tableStartY, 170, tableHeight, 'D')
-  doc.line(150, tableStartY, 150, tableStartY + tableHeight)
-  doc.line(20, tableStartY + 10, 190, tableStartY + 10)
-  
-  // Footer
-  doc.setFontSize(8)
-  doc.setTextColor(150, 150, 150)
-  doc.text('API Projects Management System - Documento generado automáticamente', 105, 280, { align: 'center' })
-  
-  // Descargar PDF
-  doc.save(`KPIs_Coordinador_${new Date().toISOString().slice(0,10)}.pdf`)
 }
 
