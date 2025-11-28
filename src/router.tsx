@@ -52,6 +52,12 @@ import EmpresaDetalleDoc from './routes/doc/EmpresaDetalle'
 import DCProyectos from './routes/dc/Proyectos'
 import ProyectoDetalle from './routes/dc/ProyectoDetalle'
 import Fichas from './routes/doc/Fichas'
+import DOCProyectos from './routes/doc/Proyectos'
+import DOCProyectoDetalle from './routes/doc/ProyectoDetalle'
+import DOCAlcances from './routes/doc/Alcances'
+import DOCAlcanceDetalle from './routes/doc/AlcanceDetalle'
+import DOCPosibleContraparte from './routes/doc/PosibleContraparte'
+import DOCPosibleContraparteDetalle from './routes/doc/PosibleContraparteDetalle'
 import FichasDC from './routes/dc/Fichas'
 import FichasVCM from './routes/vcm/Fichas'
 import AdminProyectos from './routes/admin/Proyectos'
@@ -128,6 +134,12 @@ export const router = createBrowserRouter([
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
       { path: 'doc/empresas', loader: requireRoleLoader('DOC'), element: <EmpresasGestionDoc /> },
       { path: 'doc/empresas/:companyId', loader: requireRoleLoader('DOC'), element: <EmpresaDetalleDoc /> },
+      { path: 'doc/proyectos', loader: requireRoleLoader('DOC'), element: <DOCProyectos /> },
+      { path: 'doc/proyectos/:id', loader: requireRoleLoader('DOC'), element: <DOCProyectoDetalle /> },
+      { path: 'doc/alcances', loader: requireRoleLoader('DOC'), element: <DOCAlcances /> },
+      { path: 'doc/alcances/:id', loader: requireRoleLoader('DOC'), element: <DOCAlcanceDetalle /> },
+      { path: 'doc/posible-contraparte', loader: requireRoleLoader('DOC'), element: <DOCPosibleContraparte /> },
+      { path: 'doc/posible-contraparte/:subjectId', loader: requireRoleLoader('DOC'), element: <DOCPosibleContraparteDetalle /> },
       { path: 'doc/fichas', loader: requireRoleLoader('DOC'), element: <Fichas /> },
       { path: 'mis-asignaturas', loader: requireRoleLoader('DOC'), element: <MisAsignaturas /> },
       { path: 'coord', loader: requireRoleLoader('COORD'), element: <COORD_DASH /> },

@@ -476,8 +476,8 @@ export default function COORD_DASH() {
 
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">Proyectos API en curso</h2>
-          <p className="text-sm text-zinc-600">Listado de proyectos activos asignados a docentes</p>
+          <h2 className="text-xl font-semibold">Asignaturas API en curso</h2>
+          <p className="text-sm text-zinc-600">Listado de asignaturas activas asignadas a docentes</p>
         </div>
         <div>
           <button
@@ -570,7 +570,7 @@ function Td({ children, className = '' }: { children: any; className?: string })
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
 
-function KpiCard({ title, value, tone = 'zinc', linkTo, subtitle = 'Total de proyectos' }: { title: string; value: number | string; tone?: 'zinc' | 'blue' | 'amber' | 'green' | 'purple'; linkTo?: string; subtitle?: string }) {
+function KpiCard({ title, value, tone = 'zinc', linkTo, subtitle = 'Total de asignaturas' }: { title: string; value: number | string; tone?: 'zinc' | 'blue' | 'amber' | 'green' | 'purple'; linkTo?: string; subtitle?: string }) {
   const ring = {
     zinc: 'ring-zinc-200',
     blue: 'ring-blue-200',
