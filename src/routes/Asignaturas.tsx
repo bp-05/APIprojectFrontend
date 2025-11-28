@@ -970,7 +970,7 @@ function DescriptorCell({ subject, onChanged }: { subject: Subject; onChanged: (
       }
     }, 5000) as any
     return () => { if (pollRef.current) { clearInterval(pollRef.current as any); pollRef.current = null } }
-  }, [items])
+  }, [items, onChanged])
 
   const hasDescriptor = !!items && items.length > 0
   const last: Descriptor | undefined = hasDescriptor ? items![items!.length - 1] : undefined
