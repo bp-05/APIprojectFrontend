@@ -47,7 +47,8 @@ import Reportes from './routes/coord/Reportes'
 import Notificaciones from './routes/coord/Notificaciones'
 import Areas from './routes/Areas'
 import Carreras from './routes/Carreras'
-import EmpresasDoc from './routes/doc/Empresas'
+import EmpresasGestionDoc from './routes/doc/EmpresasGestion'
+import EmpresaDetalleDoc from './routes/doc/EmpresaDetalle'
 import DCProyectos from './routes/dc/Proyectos'
 import ProyectoDetalle from './routes/dc/ProyectoDetalle'
 import Fichas from './routes/doc/Fichas'
@@ -125,7 +126,8 @@ export const router = createBrowserRouter([
       { path: 'dc/posible-contraparte/:subjectId', loader: requireRoleLoader('DC'), element: <PosibleContraparteDetalle /> },
       { path: 'dc/fichas', loader: requireRoleLoader('DC'), element: <FichasDC /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
-      { path: 'doc/empresas', loader: requireRoleLoader('DOC'), element: <EmpresasDoc /> },
+      { path: 'doc/empresas', loader: requireRoleLoader('DOC'), element: <EmpresasGestionDoc /> },
+      { path: 'doc/empresas/:companyId', loader: requireRoleLoader('DOC'), element: <EmpresaDetalleDoc /> },
       { path: 'doc/fichas', loader: requireRoleLoader('DOC'), element: <Fichas /> },
       { path: 'mis-asignaturas', loader: requireRoleLoader('DOC'), element: <MisAsignaturas /> },
       { path: 'coord', loader: requireRoleLoader('COORD'), element: <COORD_DASH /> },
