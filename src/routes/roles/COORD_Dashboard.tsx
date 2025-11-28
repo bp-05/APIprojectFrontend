@@ -301,8 +301,6 @@ export default function COORD_DASH() {
           return PHASE_MAP[backendPhase] === phaseName
         })
 
-        if (subjectsInPhase.length === 0) continue
-
         // Verificar espacio para título de fase (necesitamos al menos 20mm)
         if (y > pageHeight - 30) {
           pdf.addPage()
@@ -324,6 +322,21 @@ export default function COORD_DASH() {
         pdf.setFont('helvetica', 'bold')
         pdf.text(`${phaseName} (${subjectsInPhase.length} proyectos)`, margin + 5, y + 5.5)
         y += 12
+
+        if (subjectsInPhase.length === 0) {
+          // Mostrar mensaje cuando no hay proyectos
+          pdf.setFillColor(240, 240, 240)
+          pdf.setDrawColor(220, 220, 220)
+          pdf.setLineWidth(0.1)
+          pdf.rect(margin, y, pageWidth - 2 * margin, 10, 'FD')
+          
+          pdf.setTextColor(100, 100, 100)
+          pdf.setFontSize(9)
+          pdf.setFont('helvetica', 'italic')
+          pdf.text('No hay proyectos en esta fase', pageWidth / 2, y + 6, { align: 'center' })
+          y += 15
+          continue
+        }
 
         // Procesar cada asignatura
         for (const subject of subjectsInPhase) {
