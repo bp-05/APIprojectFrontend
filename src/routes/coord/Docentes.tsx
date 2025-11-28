@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { listDocentes, type User as AppUser } from '../../api/users'
 import { listSubjectCodeSections, type BasicSubject, updateSubject } from '../../api/subjects'
 import { nameCase } from '../../lib/strings'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 
 export default function DocentesCoord() {
   const [teachers, setTeachers] = useState<AppUser[]>([])

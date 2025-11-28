@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from '../lib/toast'
 import {
   createCareer,
   deleteCareer,

@@ -47,10 +47,17 @@ import Reportes from './routes/coord/Reportes'
 import Notificaciones from './routes/coord/Notificaciones'
 import Areas from './routes/Areas'
 import Carreras from './routes/Carreras'
-import EmpresasDoc from './routes/doc/Empresas'
+import EmpresasGestionDoc from './routes/doc/EmpresasGestion'
+import EmpresaDetalleDoc from './routes/doc/EmpresaDetalle'
 import DCProyectos from './routes/dc/Proyectos'
 import ProyectoDetalle from './routes/dc/ProyectoDetalle'
 import Fichas from './routes/doc/Fichas'
+import DOCProyectos from './routes/doc/Proyectos'
+import DOCProyectoDetalle from './routes/doc/ProyectoDetalle'
+import DOCAlcances from './routes/doc/Alcances'
+import DOCAlcanceDetalle from './routes/doc/AlcanceDetalle'
+import DOCPosibleContraparte from './routes/doc/PosibleContraparte'
+import DOCPosibleContraparteDetalle from './routes/doc/PosibleContraparteDetalle'
 import FichasDC from './routes/dc/Fichas'
 import FichasVCM from './routes/vcm/Fichas'
 import AdminProyectos from './routes/admin/Proyectos'
@@ -61,6 +68,7 @@ import AdminPosibleContraparte from './routes/admin/PosibleContraparte'
 import AdminPosibleContraparteDetalle from './routes/admin/PosibleContraparteDetalle'
 import AdminFichas from './routes/admin/Fichas'
 import FichasCoord from './routes/coord/Fichas'
+import GestionFasesCoord from './routes/coord/GestionFases'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -124,7 +132,14 @@ export const router = createBrowserRouter([
       { path: 'dc/posible-contraparte/:subjectId', loader: requireRoleLoader('DC'), element: <PosibleContraparteDetalle /> },
       { path: 'dc/fichas', loader: requireRoleLoader('DC'), element: <FichasDC /> },
       { path: 'doc', loader: requireRoleLoader('DOC'), element: <DOC /> },
-      { path: 'doc/empresas', loader: requireRoleLoader('DOC'), element: <EmpresasDoc /> },
+      { path: 'doc/empresas', loader: requireRoleLoader('DOC'), element: <EmpresasGestionDoc /> },
+      { path: 'doc/empresas/:companyId', loader: requireRoleLoader('DOC'), element: <EmpresaDetalleDoc /> },
+      { path: 'doc/proyectos', loader: requireRoleLoader('DOC'), element: <DOCProyectos /> },
+      { path: 'doc/proyectos/:id', loader: requireRoleLoader('DOC'), element: <DOCProyectoDetalle /> },
+      { path: 'doc/alcances', loader: requireRoleLoader('DOC'), element: <DOCAlcances /> },
+      { path: 'doc/alcances/:id', loader: requireRoleLoader('DOC'), element: <DOCAlcanceDetalle /> },
+      { path: 'doc/posible-contraparte', loader: requireRoleLoader('DOC'), element: <DOCPosibleContraparte /> },
+      { path: 'doc/posible-contraparte/:subjectId', loader: requireRoleLoader('DOC'), element: <DOCPosibleContraparteDetalle /> },
       { path: 'doc/fichas', loader: requireRoleLoader('DOC'), element: <Fichas /> },
       { path: 'mis-asignaturas', loader: requireRoleLoader('DOC'), element: <MisAsignaturas /> },
       { path: 'coord', loader: requireRoleLoader('COORD'), element: <COORD_DASH /> },
@@ -133,6 +148,7 @@ export const router = createBrowserRouter([
       { path: 'coord/asignaturas/:id/empresa/:companyId', loader: requireRoleLoader('COORD'), element: <EmpresaDetalle /> },
       { path: 'coord/docentes', loader: requireRoleLoader('COORD'), element: <DocentesCoord /> },
       { path: 'coord/fichas', loader: requireRoleLoader('COORD'), element: <FichasCoord /> },
+      { path: 'coord/gestion-fases', loader: requireRoleLoader('COORD'), element: <GestionFasesCoord /> },
       { path: 'coord/estado', loader: requireRoleLoader('COORD'), element: <EstadoCoord /> },
       { path: 'coord/gantt', loader: requireRoleLoader('COORD'), element: <Gantt /> },
       { path: 'coord/reportes', loader: requireRoleLoader('COORD'), element: <Reportes /> },

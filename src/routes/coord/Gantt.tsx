@@ -1,10 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
-import { listSubjects, type Subject } from '../../api/subjects'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import {
+  listSubjects,
+  listSubjectPhaseProgress,
+  bulkUpsertSubjectPhaseProgress,
+  type Subject,
+  type PhaseProgressPhase,
+  type PhaseProgressStatus,
+} from '../../api/subjects'
 import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
 import { usePeriodStore } from '../../store/period'
+import { toast } from '../../lib/toast'
 
-type PhaseMark = 'nr' | 'ec' | 'rz'
+type PhaseMark = PhaseProgressStatus // 'nr' | 'ec' | 'rz'
 type PhaseMarks = { 1?: PhaseMark; 2?: PhaseMark; 3?: PhaseMark }
+
+// Mapeo de número de fase a nombre de fase en backend
+const PHASE_NUM_TO_NAME: Record<1 | 2 | 3, PhaseProgressPhase> = {
+  1: 'formulacion',
+  2: 'gestion',
+  3: 'validacion',
+}
+
+const PHASE_NAME_TO_NUM: Record<PhaseProgressPhase, 1 | 2 | 3> = {
+  formulacion: 1,
+  gestion: 2,
+  validacion: 3,
+}
 
 export default function Gantt() {
   const [items, setItems] = useState<Subject[]>([])
@@ -14,16 +35,26 @@ export default function Gantt() {
   const [search, setSearch] = useState('')
   const [ganttTarget, setGanttTarget] = useState<Subject | null>(null)
   const [marks, setMarks] = useState<PhaseMarks>({})
-  const [marksMap, setMarksMap] = useState<Record<number, PhaseMarks>>(() => {
-    try { return JSON.parse(localStorage.getItem('coordGanttMarks') || '{}') } catch { return {} }
-  })
+  const [marksMap, setMarksMap] = useState<Record<number, PhaseMarks>>({})
+  const [saving, setSaving] = useState(false)
   const season = usePeriodStore((s) => s.season)
   const year = usePeriodStore((s) => s.year)
 
-  function saveMarksMap(next: Record<number, PhaseMarks>) {
-    setMarksMap(next)
-    try { localStorage.setItem('coordGanttMarks', JSON.stringify(next)) } catch {}
-  }
+  // Cargar progreso desde la base de datos
+  const loadProgress = useCallback(async () => {
+    try {
+      const progressData = await listSubjectPhaseProgress()
+      const map: Record<number, PhaseMarks> = {}
+      for (const p of progressData) {
+        const phaseNum = PHASE_NAME_TO_NUM[p.phase]
+        if (!map[p.subject]) map[p.subject] = {}
+        map[p.subject][phaseNum] = p.status
+      }
+      setMarksMap(map)
+    } catch (e) {
+      console.error('Error cargando progreso de fases:', e)
+    }
+  }, [])
 
   async function load() {
     setLoading(true)
@@ -32,6 +63,7 @@ export default function Gantt() {
       const [data, phases] = await Promise.all([
         listSubjects(),
         listPeriodPhaseSchedules({ period_year: year, period_season: season }),
+        loadProgress(),
       ])
       setItems(data)
       setAdminPhases(phases || [])
@@ -51,6 +83,7 @@ export default function Gantt() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const updatedMarks = { ...currentMarks }
+    let hasChanges = false
     
     for (let phaseNum = 1; phaseNum <= 3; phaseNum++) {
       // Solo auto-marcar si no hay marca previa
@@ -69,25 +102,73 @@ export default function Gantt() {
           // Si la fecha ya pasó y no hay marca, marcar como "no realizado"
           if (today > endDate) {
             updatedMarks[phaseNum as 1 | 2 | 3] = 'nr'
+            hasChanges = true
           }
         }
       }
     }
     
     setMarks(updatedMarks)
-    // Si hubo cambios, guardar
-    if (JSON.stringify(updatedMarks) !== JSON.stringify(currentMarks)) {
-      const mapNext = { ...marksMap, [s.id]: updatedMarks }
-      saveMarksMap(mapNext)
+    // Si hubo cambios por fases vencidas, guardar en BD
+    if (hasChanges) {
+      saveMarksToDB(s.id, updatedMarks)
     }
   }
 
-  function updateMark(phase: 1 | 2 | 3, t: PhaseMark) {
+  async function saveMarksToDB(subjectId: number, marksToSave: PhaseMarks) {
+    const items: Array<{
+      subject: number
+      phase: PhaseProgressPhase
+      status: PhaseProgressStatus
+    }> = []
+
+    for (const [num, status] of Object.entries(marksToSave)) {
+      if (status) {
+        const phaseNum = parseInt(num) as 1 | 2 | 3
+        items.push({
+          subject: subjectId,
+          phase: PHASE_NUM_TO_NAME[phaseNum],
+          status: status,
+        })
+      }
+    }
+
+    if (items.length === 0) return
+
+    try {
+      await bulkUpsertSubjectPhaseProgress(items)
+      // Actualizar el mapa local
+      setMarksMap((prev) => ({ ...prev, [subjectId]: marksToSave }))
+    } catch (e) {
+      console.error('Error guardando progreso:', e)
+    }
+  }
+
+  async function updateMark(phase: 1 | 2 | 3, t: PhaseMark) {
+    if (!ganttTarget) return
+
     const next = { ...marks, [phase]: t }
     setMarks(next)
-    if (ganttTarget) {
-      const mapNext = { ...marksMap, [ganttTarget.id]: next }
-      saveMarksMap(mapNext)
+    setSaving(true)
+
+    try {
+      await bulkUpsertSubjectPhaseProgress([
+        {
+          subject: ganttTarget.id,
+          phase: PHASE_NUM_TO_NAME[phase],
+          status: t,
+        },
+      ])
+      // Actualizar el mapa local
+      setMarksMap((prev) => ({ ...prev, [ganttTarget.id]: next }))
+      toast.success('Progreso guardado')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al guardar progreso'
+      toast.error(msg)
+      // Revertir el cambio visual
+      setMarks(marks)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -185,12 +266,15 @@ export default function Gantt() {
               <h2 className="text-base font-semibold">
                 Actividades · {ganttTarget.name} ({ganttTarget.code}-{ganttTarget.section})
               </h2>
-              <button
-                onClick={() => setGanttTarget(null)}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
-              >
-                Cerrar
-              </button>
+              <div className="flex items-center gap-2">
+                {saving && <span className="text-xs text-zinc-500">Guardando...</span>}
+                <button
+                  onClick={() => setGanttTarget(null)}
+                  className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
             <div className="max-h-[70vh] overflow-auto rounded-md border border-zinc-200 bg-white">
               <table className="min-w-full divide-y divide-zinc-200">
@@ -208,13 +292,13 @@ export default function Gantt() {
                       Fase 1: Formulación de Requerimientos
                     </td>
                     <td className="px-4 py-2 text-center bg-amber-50 border-l border-amber-200">
-                      <MarkBtn phase={1} type="nr" active={marks[1] === 'nr'} onSelect={(t) => updateMark(1, t)} />
+                      <MarkBtn phase={1} type="nr" active={marks[1] === 'nr'} disabled={saving} onSelect={(t) => updateMark(1, t)} />
                     </td>
                     <td className="px-4 py-2 text-center bg-blue-50 border-l border-blue-200">
-                      <MarkBtn phase={1} type="ec" active={marks[1] === 'ec'} onSelect={(t) => updateMark(1, t)} />
+                      <MarkBtn phase={1} type="ec" active={marks[1] === 'ec'} disabled={saving} onSelect={(t) => updateMark(1, t)} />
                     </td>
                     <td className="px-4 py-2 text-center bg-green-50 border-l border-green-200">
-                      <MarkBtn phase={1} type="rz" active={marks[1] === 'rz'} onSelect={(t) => updateMark(1, t)} />
+                      <MarkBtn phase={1} type="rz" active={marks[1] === 'rz'} disabled={saving} onSelect={(t) => updateMark(1, t)} />
                     </td>
                   </tr>
                   <tr>
@@ -222,13 +306,13 @@ export default function Gantt() {
                       Fase 2: Gestión de Requerimientos
                     </td>
                     <td className="px-4 py-2 text-center bg-amber-50 border-l border-amber-200">
-                      <MarkBtn phase={2} type="nr" active={marks[2] === 'nr'} onSelect={(t) => updateMark(2, t)} />
+                      <MarkBtn phase={2} type="nr" active={marks[2] === 'nr'} disabled={saving} onSelect={(t) => updateMark(2, t)} />
                     </td>
                     <td className="px-4 py-2 text-center bg-blue-50 border-l border-blue-200">
-                      <MarkBtn phase={2} type="ec" active={marks[2] === 'ec'} onSelect={(t) => updateMark(2, t)} />
+                      <MarkBtn phase={2} type="ec" active={marks[2] === 'ec'} disabled={saving} onSelect={(t) => updateMark(2, t)} />
                     </td>
                     <td className="px-4 py-2 text-center bg-green-50 border-l border-green-200">
-                      <MarkBtn phase={2} type="rz" active={marks[2] === 'rz'} onSelect={(t) => updateMark(2, t)} />
+                      <MarkBtn phase={2} type="rz" active={marks[2] === 'rz'} disabled={saving} onSelect={(t) => updateMark(2, t)} />
                     </td>
                   </tr>
                   <tr>
@@ -236,13 +320,13 @@ export default function Gantt() {
                       Fase 3: Validación de requerimientos
                     </td>
                     <td className="px-4 py-2 text-center bg-amber-50 border-l border-amber-200">
-                      <MarkBtn phase={3} type="nr" active={marks[3] === 'nr'} onSelect={(t) => updateMark(3, t)} />
+                      <MarkBtn phase={3} type="nr" active={marks[3] === 'nr'} disabled={saving} onSelect={(t) => updateMark(3, t)} />
                     </td>
                     <td className="px-4 py-2 text-center bg-blue-50 border-l border-blue-200">
-                      <MarkBtn phase={3} type="ec" active={marks[3] === 'ec'} onSelect={(t) => updateMark(3, t)} />
+                      <MarkBtn phase={3} type="ec" active={marks[3] === 'ec'} disabled={saving} onSelect={(t) => updateMark(3, t)} />
                     </td>
                     <td className="px-4 py-2 text-center bg-green-50 border-l border-green-200">
-                      <MarkBtn phase={3} type="rz" active={marks[3] === 'rz'} onSelect={(t) => updateMark(3, t)} />
+                      <MarkBtn phase={3} type="rz" active={marks[3] === 'rz'} disabled={saving} onSelect={(t) => updateMark(3, t)} />
                     </td>
                   </tr>
                 </tbody>
@@ -267,7 +351,7 @@ function Td({ children, className = '' }: { children: any; className?: string })
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
 
-function MarkBtn({ phase, type, active, onSelect }: { phase: 1 | 2 | 3; type: PhaseMark; active: boolean; onSelect: (t: PhaseMark) => void }) {
+function MarkBtn({ type, active, disabled, onSelect }: { phase: 1 | 2 | 3; type: PhaseMark; active: boolean; disabled?: boolean; onSelect: (t: PhaseMark) => void }) {
   const symbol = type === 'nr' ? '×' : type === 'ec' ? '…' : '✓'
   const classMap: Record<string, string> = {
     nrIdle: 'border-amber-300 text-amber-600 bg-white hover:bg-amber-50',
@@ -283,7 +367,8 @@ function MarkBtn({ phase, type, active, onSelect }: { phase: 1 | 2 | 3; type: Ph
       type="button"
       aria-pressed={active}
       onClick={() => onSelect(type)}
-      className={`inline-flex h-6 w-6 items-center justify-center rounded border text-sm font-semibold ${cls}`}
+      disabled={disabled}
+      className={`inline-flex h-6 w-6 items-center justify-center rounded border text-sm font-semibold ${cls} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       title={type === 'nr' ? 'No realizado' : type === 'ec' ? 'En curso' : 'Realizado'}
     >
       {active ? symbol : ''}

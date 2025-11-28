@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import { listCompanies, listProblemStatements, type Company, type ProblemStatement, listCounterpartContacts } from '../../api/companies'
 import { listSubjectCodeSections, type BasicSubject, createCompanyRequirement, listCompanyRequirements, type CompanyRequirement, updateCompanyRequirement, deleteCompanyRequirement } from '../../api/subjects'
 import http from '../../lib/http'
@@ -124,8 +124,6 @@ function normalizeAssignments(
 export default function PosibleContraparte() {
   const [items, setItems] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [_recentlyUpdated, setRecentlyUpdated] = useState<Set<string>>(new Set())
 
   const [viewing, setViewing] = useState<Prospect | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
@@ -153,7 +151,6 @@ export default function PosibleContraparte() {
 
   useEffect(() => {
     setLoading(true)
-    setError(null)
     ;(async () => {
       try {
         const [comps, subs, problems] = await Promise.all([
@@ -225,8 +222,8 @@ export default function PosibleContraparte() {
         const locals = loadProspects()
         const localFiltered = locals.filter((p) => !dbRows.some((d) => (d.company_name || '').trim().toLowerCase() === (p.company_name || '').trim().toLowerCase()))
         setItems([...dbRows, ...localFiltered])
-      } catch (e) {
-        setError(null)
+      } catch {
+        // Error silencioso, ya se muestra toast en caso necesario
       } finally {
         setLoading(false)
       }
@@ -328,15 +325,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
   return cleanContactInfo(fallback || null)
 }
 
-  function _openAssign(p: Prospect) {
-    if (p.source === 'db') return // solo lectura para filas de BD
-    setAssigningId(p.id)
-    const candidate = findCompanyByName(p.company_name)
-    const fallback = candidate ? companyContacts.get(candidate.id) || null : null
-    const contact = getPrimaryContact(candidate, fallback)
-    setAssignName(contact?.name?.trim() || '')
-  }
-
   function saveAssign() {
     const name = assignName.trim()
     try {
@@ -351,30 +339,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
       setAssigningId(null)
       setAssignName('')
     }
-  }
-
-  function _openEdit(p: Prospect) {
-    setEditing(p)
-    setEditName(p.company_name || '')
-    setEditSector(p.sector || '')
-    setEditInterest(!!p.interest_collaborate)
-    const assigned = subjectsForProspect(p.id, subjectProspectsMap)
-    if (assigned.length) {
-      setEditAssignedSubjects(assigned)
-    } else if (p.subject_hint) {
-      setEditAssignedSubjects([p.subject_hint])
-    } else {
-      setEditAssignedSubjects([])
-    }
-    setEditWorkedBefore(!!p.worked_before)
-    setEditCanDevelopActivities(!!p.can_develop_activities)
-    setEditWillingDesignProject(!!p.willing_design_project)
-    setEditInteractionTypes((p.interaction_types && p.interaction_types.length > 0)
-      ? p.interaction_types.slice()
-      : (p.interaction_type ? [p.interaction_type] : []))
-    setEditHasGuide(!!p.has_guide)
-    setEditCanReceiveAlternance(!!p.can_receive_alternance)
-    setEditQuotaStr(typeof p.alternance_students_quota === 'number' ? String(p.alternance_students_quota) : '')
   }
 
   function openCreate() {
@@ -530,7 +494,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
           
           // Determinar cuáles crear y cuáles eliminar
           const toCreate = editAssignedSubjects.filter((id) => !existingSubjects.has(id))
-          const toDelete = existingForCompany.filter((r) => r.subject !== null && !selectedSubjects.has(r.subject))
+          const toDelete = existingForCompany.filter((r) => r.subject != null && !selectedSubjects.has(r.subject))
           
           // Eliminar requerimientos deseleccionados
           for (const req of toDelete) {
@@ -640,21 +604,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
           setItems(idx >= 0 ? arr.slice() : [updatedRow, ...arr])
           toast.success('Requerimiento actualizado')
             updateSubjectAssignments(updatedRow.id, editAssignedSubjects)
-
-          // marcar como modificado durante unos segundos
-          const key = `db:${updated.id}`
-          setRecentlyUpdated((prev) => {
-            const n = new Set(prev)
-            n.add(key)
-            return n
-          })
-          setTimeout(() => {
-            setRecentlyUpdated((prev) => {
-              const n = new Set(prev)
-              n.delete(key)
-              return n
-            })
-          }, 3500)
         }
         } catch (e: any) {
           const msg = e?.response?.data ? JSON.stringify(e.response.data) : (e instanceof Error ? e.message : 'No se pudo actualizar en BD')
@@ -779,26 +728,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
       }
   }
 
-  async function _onDelete(p: Prospect) {
-    if (!confirm(`¿Eliminar "${p.company_name}"?`)) return
-    if (p.source === 'db') {
-      const sure = confirm('Se eliminará el requerimiento en la base de datos. Esta acción no se puede deshacer. ¿Deseas continuar?')
-      if (!sure) return
-    }
-    try {
-        if (p.source === 'db' && p.requirement_id) {
-          await http.delete(`/company-requirements/${p.requirement_id}/`)
-        }
-        const arr = items.filter((x) => x.id !== p.id)
-        setItems(arr)
-        updateSubjectAssignments(p.id, [])
-        toast.success('Eliminado')
-    } catch (e: any) {
-      const msg = e?.response?.data ? JSON.stringify(e.response.data) : (e instanceof Error ? e.message : 'No se pudo eliminar')
-      toast.error(msg)
-    }
-  }
-
   // Agrupar por empresa
   const [expandedCompanies, setExpandedCompanies] = useState<Record<string, boolean>>({})
   const [viewMode, setViewMode] = useState<'company' | 'subject'>('company')
@@ -850,8 +779,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
         <button onClick={openCreate} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Nueva contraparte</button>
       </div>
 
-      {error ? (<div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>) : null}
-
       {/* Tabs de vista */}
       <div className="mb-4 flex gap-2 border-b border-zinc-200">
         <button
@@ -902,7 +829,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
                             ? subjects.find((s) => s.id === r.subject_hint)?.name || `(ID: ${r.subject_hint})`
                             : '—'
                           return (
-                            <div key={r.id} className="flex items-center justify-between p-2 rounded bg-zinc-50 hover:bg-zinc-100 transition-colors cursor-pointer" onClick={() => { setViewing(r); setShowDetailModal(true) }}>
+                            <div key={r.id} className="flex items-center justify-between p-2 rounded bg-zinc-50 hover:bg-zinc-100 transition-colors cursor-pointer" onClick={() => setViewing(r)}>
                               <div className="flex-1 text-sm text-zinc-700">
                                 <div className="font-medium">{subjectName}</div>
                                 {r.responsible_name && <div className="text-xs text-zinc-600">{r.responsible_name}</div>}
@@ -944,7 +871,7 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
                     <div className="border-t border-zinc-200 p-4">
                       <div className="space-y-2">
                         {reqs.map((r) => (
-                          <div key={r.id} className="flex items-center justify-between p-2 rounded bg-zinc-50 hover:bg-zinc-100 transition-colors cursor-pointer" onClick={() => { setViewing(r); setShowDetailModal(true) }}>
+                          <div key={r.id} className="flex items-center justify-between p-2 rounded bg-zinc-50 hover:bg-zinc-100 transition-colors cursor-pointer" onClick={() => setViewing(r)}>
                             <div className="flex-1 text-sm text-zinc-700">
                               <div className="font-medium">{r.company_name || '—'}</div>
                               {r.responsible_name && <div className="text-xs text-zinc-600">{r.responsible_name}</div>}
@@ -1172,14 +1099,6 @@ function getPrimaryContact(company?: Company, fallback?: ContactInfo | null): Co
   )
 }
 
-function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-4 py-2 text-left text-xs font-semibold text-zinc-600 ${className}`}>{children}</th>
-}
-
-function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <td className={`py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
-}
-
 function Item({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="text-sm">
@@ -1237,10 +1156,3 @@ function YesNoChoice({ label, value, onChange }: { label: string; value: boolean
     </div>
   )
 }
-
-
-
-
-
-
-

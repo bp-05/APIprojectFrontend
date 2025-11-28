@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { listCompanies, listProblemStatements, listEngagementScopes } from '../../api/companies'
 import { listSubjects, listAreas, listCareers, listCompanyRequirements, type Subject, type Area, type Career } from '../../api/subjects'
 import { usePeriodStore } from '../../store/period'
@@ -90,92 +90,99 @@ export default function AdminDashboard() {
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }))
   }, [problems, subjects])
 
-  const hasData =
-    totalSubjects > 0 ||
-    totalAreas > 0 ||
-    totalCareers > 0 ||
-    (companyTotal !== null && companyTotal > 0) ||
-    (problemTotal !== null && problemTotal > 0) ||
-    (engagementScopesTotal !== null && engagementScopesTotal > 0) ||
-    (companyRequirementsTotal !== null && companyRequirementsTotal > 0)
-
   return (
-    <section className="space-y-8 p-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-zinc-900">Panel admin</h1>
-        <p className="text-sm text-zinc-500">
-          Indicadores clave del periodo en curso y estado global del ecosistema con empresas.
+    <section className="p-6">
+      <div className="mb-6 mt-2 text-center">
+        <h1 className="text-2xl font-bold">Panel de Administrador</h1>
+        <p className="mt-1 text-sm text-zinc-600">
+          Indicadores clave del periodo en curso y estado global del ecosistema con empresas
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Botón de actualización y periodo */}
+      <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"
           onClick={loadDashboard}
-          className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={loading}
         >
           {loading ? 'Actualizando...' : 'Actualizar'}
         </button>
-        <span className="text-xs text-zinc-500">
-          Periodo seleccionado:{' '}
-          <span className="font-semibold text-zinc-700">{periodCode ? periodCode : 'Sin configurar'}</span>
+        <span className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-600">
+          Periodo: <span className="font-semibold text-zinc-900">{periodCode || 'Sin configurar'}</span>
         </span>
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Periodo actual" value={periodCode || '--'} subtitle="Configuracion vigente" tone="zinc" />
-        <StatCard
-          title="Asignaturas activas"
+      {/* KPI Cards principales - Fila 1 */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          title="Asignaturas"
           value={loading && !totalSubjects ? '--' : totalSubjects}
-          subtitle="Solo periodo seleccionado"
           tone="blue"
+          linkTo="/asignaturas"
+          subtitle="Periodo actual"
         />
-        <StatCard
-          title="Áreas registradas"
+        <KpiCard
+          title="Áreas"
           value={totalAreas ?? '--'}
-          subtitle="Inventario global"
-          tone="indigo"
-        />
-        <StatCard
-          title="Carreras registradas"
-          value={totalCareers ?? '--'}
-          subtitle="Inventario global"
-          tone="violet"
-        />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Empresas registradas"
-          value={companyTotal ?? '--'}
-          subtitle="Inventario global"
-          tone="green"
-        />
-        <StatCard
-          title="Proyectos registrados"
-          value={problemTotal ?? '--'}
-          subtitle="Todas las empresas"
-          tone="amber"
-        />
-        <StatCard
-          title="Alcances contrapartes"
-          value={engagementScopesTotal ?? '--'}
-          subtitle="Asignaturas con alcance"
-          tone="cyan"
-        />
-        <StatCard
-          title="Posibles contrapartes"
-          value={companyRequirementsTotal ?? '--'}
-          subtitle="Requisitos por asignatura"
           tone="purple"
+          linkTo="/areas"
+          subtitle="Inventario global"
+        />
+        <KpiCard
+          title="Carreras"
+          value={totalCareers ?? '--'}
+          tone="amber"
+          linkTo="/carreras"
+          subtitle="Inventario global"
+        />
+        <KpiCard
+          title="Empresas"
+          value={companyTotal ?? '--'}
+          tone="green"
+          linkTo="/empresas"
+          subtitle="Registradas"
         />
       </div>
 
+      {/* KPI Cards secundarios - Fila 2 */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          title="Proyectos"
+          value={problemTotal ?? '--'}
+          tone="red"
+          linkTo="/admin/proyectos"
+          subtitle="Todas las empresas"
+        />
+        <KpiCard
+          title="Alcances"
+          value={engagementScopesTotal ?? '--'}
+          tone="zinc"
+          linkTo="/admin/alcances"
+          subtitle="Contrapartes"
+        />
+        <KpiCard
+          title="Posibles Contrapartes"
+          value={companyRequirementsTotal ?? '--'}
+          tone="zinc"
+          linkTo="/admin/posible-contraparte"
+          subtitle="Requisitos"
+        />
+        <KpiCard
+          title="Periodo"
+          value={periodCode || '--'}
+          tone="zinc"
+          linkTo="/admin/periodos"
+          subtitle="Vigente"
+        />
+      </div>
+
+      {/* Gráficos de resumen */}
       <div className="grid gap-4 lg:grid-cols-2">
         <PhaseBreakdown data={phaseSummary} total={totalSubjects} loading={loading} />
         <ProblemsByArea data={problemsByArea} loading={loading} />
@@ -184,34 +191,33 @@ export default function AdminDashboard() {
   )
 }
 
-type StatTone = 'zinc' | 'blue' | 'green' | 'amber' | 'indigo' | 'violet' | 'cyan' | 'purple'
-
-function StatCard({
-  title,
-  value,
-  subtitle,
-  tone = 'zinc',
-}: {
-  title: string
-  value: ReactNode
-  subtitle?: string
-  tone?: StatTone
-}) {
-  const accents: Record<StatTone, string> = {
-    zinc: 'text-zinc-900',
-    blue: 'text-sky-600',
-    green: 'text-emerald-600',
-    amber: 'text-amber-600',
-    indigo: 'text-indigo-600',
-    violet: 'text-violet-600',
-    cyan: 'text-cyan-600',
-    purple: 'text-purple-600',
-  } as const
+function KpiCard({ title, value, tone = 'zinc', linkTo, subtitle = 'Total' }: { title: string; value: number | string; tone?: 'zinc' | 'blue' | 'amber' | 'green' | 'purple' | 'red'; linkTo?: string; subtitle?: string }) {
+  const ring = {
+    zinc: 'ring-zinc-200',
+    blue: 'ring-blue-200',
+    amber: 'ring-amber-200',
+    green: 'ring-green-200',
+    purple: 'ring-purple-200',
+    red: 'ring-red-200',
+  }[tone]
+  const badgeBg = {
+    zinc: 'bg-zinc-100 text-zinc-700',
+    blue: 'bg-blue-50 text-blue-700',
+    amber: 'bg-amber-50 text-amber-700',
+    green: 'bg-green-50 text-green-700',
+    purple: 'bg-purple-50 text-purple-700',
+    red: 'bg-red-50 text-red-700',
+  }[tone]
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white/90 px-4 py-5 shadow-sm">
-      <p className="text-sm font-medium text-zinc-500">{title}</p>
-      <div className={`mt-3 text-3xl font-semibold ${accents[tone] || accents.zinc}`}>{value}</div>
-      {subtitle ? <p className="mt-1 text-xs text-zinc-500">{subtitle}</p> : null}
+    <div className={`rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ring-1 ${ring}`}>
+      <div className="flex items-center justify-between">
+        <div className={`rounded px-2 py-0.5 text-xs font-medium ${badgeBg}`}>{title}</div>
+        {linkTo ? (
+          <a href={linkTo} className="text-xs font-medium text-red-700 hover:underline">Ver detalle</a>
+        ) : null}
+      </div>
+      <div className="mt-3 text-3xl font-semibold tracking-tight">{value}</div>
+      <div className="mt-1 text-xs text-zinc-500">{subtitle}</div>
     </div>
   )
 }
@@ -226,16 +232,16 @@ function PhaseBreakdown({
   loading: boolean
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white/90 shadow-sm">
-      <div className="border-b border-zinc-100 px-5 py-4">
-        <div className="text-sm font-medium text-zinc-900">Fases de asignaturas</div>
-        <p className="text-xs text-zinc-500">Distribucion del periodo actual</p>
+    <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
+      <div className="border-b border-zinc-200 px-5 py-4">
+        <div className="text-sm font-semibold text-zinc-900">Fases de asignaturas</div>
+        <p className="text-xs text-zinc-500">Distribución del periodo actual</p>
       </div>
       <div className="px-5 py-4">
         {loading ? (
           <p className="text-sm text-zinc-500">Preparando resumen...</p>
         ) : !total ? (
-          <p className="text-sm text-zinc-500">Aun no hay asignaturas que reportar en este periodo.</p>
+          <p className="text-sm text-zinc-500">Aún no hay asignaturas que reportar en este periodo.</p>
         ) : (
           <ul className="space-y-3">
             {data.map((entry) => {
@@ -291,9 +297,9 @@ function ProblemsByArea({
   loading: boolean
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white/90 shadow-sm">
-      <div className="border-b border-zinc-100 px-5 py-4">
-        <div className="text-sm font-medium text-zinc-900">Proyectos por área</div>
+    <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
+      <div className="border-b border-zinc-200 px-5 py-4">
+        <div className="text-sm font-semibold text-zinc-900">Proyectos por área</div>
         <p className="text-xs text-zinc-500">Agrupadas por área de la asignatura asociada</p>
       </div>
       <div className="px-5 py-4">

@@ -5,6 +5,17 @@ import { listDocentes, type User as AppUser, getTeacher } from '../../api/users'
 import { listProblemStatements, getCompany, type ProblemStatement } from '../../api/companies'
 import { nameCase } from '../../lib/strings'
 
+// Mapeo de códigos de tipos de interacción a etiquetas en español
+const interactionTypeLabels: Record<string, string> = {
+  'virtual': 'Virtual',
+  'onsite_inacap': 'Presencial INACAP',
+  'onsite_company': 'Presencial empresa',
+}
+
+function translateInteractionType(code: string): string {
+  return interactionTypeLabels[code] || code
+}
+
 export default function AsignaturaCoordDetalle() {
   const { id } = useParams()
   const subjectId = Number(id)
@@ -231,20 +242,6 @@ export default function AsignaturaCoordDetalle() {
     }
   }
 
-  async function removeTeacher() {
-    if (!subject) return
-    setTeacherError(null)
-    try {
-      await updateSubject(subject.id, { teacher: null })
-      const s = await getSubject(subject.id)
-      setSubject(s)
-      setTeacher(null)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'No se pudo eliminar el docente'
-      setTeacherError(msg)
-    }
-  }
-
   return (
     <section className="p-6">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -273,7 +270,7 @@ export default function AsignaturaCoordDetalle() {
                   <div className="text-xs uppercase tracking-wide text-zinc-500">Docente</div>
                   {subject.teacher ? (
                     <>
-                      <div className="font-medium">{nameCase(subject.teacher_name || teacher?.full_name || teacher?.email || '') || '-'}</div>
+                      <div className="font-medium">{nameCase(subject.teacher_name || (teacher ? `${teacher.first_name} ${teacher.last_name}`.trim() : '') || teacher?.email || '') || '-'}</div>
                       <div className="text-xs text-zinc-600">{teacher?.email || '-'}</div>
                     </>
                   ) : (
@@ -421,7 +418,7 @@ export default function AsignaturaCoordDetalle() {
                     <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">Diseñar proyecto</div>
                     <div className="text-zinc-800">{r.willing_design_project ? 'Sí' : 'No'}</div>
                     <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">Interacción</div>
-                    <div className="text-zinc-800">{r.interaction_type && r.interaction_type.length ? r.interaction_type.join(', ') : '-'}</div>
+                    <div className="text-zinc-800">{r.interaction_type && r.interaction_type.length ? r.interaction_type.map(it => translateInteractionType(it)).join(', ') : '-'}</div>
                     <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">Guía</div>
                     <div className="text-zinc-800">{r.has_guide ? 'Sí' : 'No'}</div>
                     <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">Alternancia</div>
@@ -467,22 +464,6 @@ export default function AsignaturaCoordDetalle() {
                 </button>
               </div>
               <div className="mt-2 text-xs text-zinc-600">Haz clic en "Ver detalles" para ver la información de API 3.</div>
-            </div>
-          ) : null}
-
-          {editingTeacher && subject ? (
-            <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              {teacherError ? (
-                <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{teacherError}</div>
-              ) : null}
-              <EditTeacherPanel
-                currentId={subject.teacher ?? null}
-                teachers={teachers}
-                selected={teacherSel}
-                onChangeSelected={setTeacherSel}
-                onCancel={() => setEditingTeacher(false)}
-                onSave={() => saveTeacher()}
-              />
             </div>
           ) : null}
         </div>
@@ -537,40 +518,36 @@ export default function AsignaturaCoordDetalle() {
           onClick={() => setApiModal(null)}
         >
           <div
-            className="w-full max-w-xl rounded-lg border border-zinc-200 bg-white p-4 shadow-lg"
+            className="w-full max-w-xl rounded-lg border border-zinc-200 bg-white shadow-lg flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 border-b border-zinc-200 p-4">
               <h2 className="text-base font-semibold">Tipo de API {apiModal}</h2>
-              <button
-                onClick={() => setApiModal(null)}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
-              >
-                Cerrar
-              </button>
             </div>
             {apiModal === 2 ? (
               api2 ? (
-                <div className="grid gap-2 text-sm">
+                <div className="max-h-[60vh] overflow-y-auto px-4 py-3">
+                  <div className="grid gap-2 text-sm">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Project goal students</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Objetivo del proyecto estudiantes</div>
                     <div className="text-zinc-800">{api2.project_goal_students || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Deliverables at end</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Entregables al final</div>
                     <div className="text-zinc-800">{api2.deliverables_at_end || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Company expected participation</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Participación esperada de la empresa</div>
                     <div className="text-zinc-800">{api2.company_expected_participation || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Other activities</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Otras actividades</div>
                     <div className="text-zinc-800">{api2.other_activities || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Subject</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Asignatura</div>
                     <div className="text-zinc-800">{subject?.name || '-'}</div>
+                  </div>
                   </div>
                 </div>
               ) : (
@@ -578,36 +555,37 @@ export default function AsignaturaCoordDetalle() {
               )
             ) : apiModal === 3 ? (
               api3 ? (
-                <div className="grid gap-2 text-sm">
+                <div className="max-h-[60vh] overflow-y-auto px-4 py-3">
+                  <div className="grid gap-2 text-sm">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Project goal students</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Objetivo del proyecto estudiantes</div>
                     <div className="text-zinc-800">{api3.project_goal_students || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Deliverables at end</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Entregables al final</div>
                     <div className="text-zinc-800">{api3.deliverables_at_end || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Expected student role</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Rol esperado del estudiante</div>
                     <div className="text-zinc-800">{api3.expected_student_role || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Other activities</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Otras actividades</div>
                     <div className="text-zinc-800">{api3.other_activities || '-'}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-500">Master guide expected support</div>
+                    <div className="text-xs uppercase tracking-wide text-zinc-500">Apoyo esperado del tutor</div>
                     <div className="text-zinc-800">{api3.master_guide_expected_support || '-'}</div>
                   </div>
                   {alternance ? (
                     <>
-                      <div className="mt-2 text-sm font-semibold text-zinc-700">API 3 alternance</div>
+                      <div className="mt-2 text-sm font-semibold text-zinc-700">API 3 Alternancia</div>
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-zinc-500">Student role</div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">Rol del estudiante</div>
                         <div className="text-zinc-800">{alternance.student_role || '-'}</div>
                       </div>
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-zinc-500">Students quota</div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">Cuota de estudiantes</div>
                         <div className="text-zinc-800">{alternance.students_quota ?? '-'}</div>
                       </div>
                       <div>
@@ -615,16 +593,65 @@ export default function AsignaturaCoordDetalle() {
                         <div className="text-zinc-800">{alternance.tutor_name || '-'} | {alternance.tutor_email || '-'}</div>
                       </div>
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-zinc-500">Alternance hours</div>
+                        <div className="text-xs uppercase tracking-wide text-zinc-500">Horas de alternancia</div>
                         <div className="text-zinc-800">{alternance.alternance_hours ?? '-'}</div>
                       </div>
                     </>
                   ) : null}
+                  </div>
                 </div>
               ) : (
-                <div className="text-sm text-zinc-600">Sin API type 3 completions registradas</div>
+                <div className="px-4 py-3 text-sm text-zinc-600">Sin API type 3 completions registradas</div>
               )
             ) : null}
+            <div className="border-t border-zinc-200 flex justify-end gap-2 p-4">
+              <button
+                onClick={() => setApiModal(null)}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Modal de edición de docente */}
+      {editingTeacher && subject ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setEditingTeacher(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-zinc-200 p-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold">Asignar Docente</h2>
+                <button
+                  onClick={() => setEditingTeacher(false)}
+                  className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="p-4">
+              {teacherError ? (
+                <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{teacherError}</div>
+              ) : null}
+              <EditTeacherPanel
+                currentId={subject.teacher ?? null}
+                teachers={teachers}
+                selected={teacherSel}
+                onChangeSelected={setTeacherSel}
+                onCancel={() => setEditingTeacher(false)}
+                onSave={() => saveTeacher()}
+              />
+            </div>
           </div>
         </div>
       ) : null}
@@ -649,35 +676,36 @@ function EditTeacherPanel({ currentId, teachers, selected, onChangeSelected, onC
   }, [teachers, search])
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-      <div className="mb-2 grid grid-cols-2 gap-3">
-        <div className="col-span-2">
-          <label className="mb-1 block text-xs font-medium text-zinc-700">Buscar docente</label>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" placeholder="Nombre o correo" />
-        </div>
-        <div className="col-span-2">
-          <label className="mb-1 block text-xs font-medium text-zinc-700">Docentes</label>
-          <select
-            value={selected === '' ? '' : Number(selected)}
-            onChange={(e) => onChangeSelected(e.target.value === '' ? '' : Number(e.target.value))}
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            size={6}
-          >
-            <option value="">Seleccione…</option>
-            {currentId && !teachers.some((u) => u.id === currentId) ? (
-              <option value={currentId}>Docente #{currentId}</option>
-            ) : null}
-            {filtered.map((u) => (
-              <option key={u.id} value={u.id}>
-                {nameCase(`${u.first_name} ${u.last_name}`)} · {u.email}
-              </option>
-            ))}
-          </select>
-        </div>
+    <div>
+      <div className="mb-3">
+        <label className="mb-1 block text-xs font-medium text-zinc-700">Buscar docente</label>
+        <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-md border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10" placeholder="Nombre o correo" />
       </div>
-      <div className="mt-2 flex justify-end gap-2">
+      <div className="mb-4">
+        <label className="mb-1 block text-xs font-medium text-zinc-700">Seleccionar docente</label>
+        <select
+          value={selected === '' ? '' : Number(selected)}
+          onChange={(e) => onChangeSelected(e.target.value === '' ? '' : Number(e.target.value))}
+          className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+          size={8}
+        >
+          <option value="">-- Seleccione un docente --</option>
+          {currentId && !teachers.some((u) => u.id === currentId) ? (
+            <option value={currentId}>Docente #{currentId}</option>
+          ) : null}
+          {filtered.map((u) => (
+            <option key={u.id} value={u.id}>
+              {nameCase(`${u.first_name} ${u.last_name}`)} · {u.email}
+            </option>
+          ))}
+        </select>
+        {teachers.length === 0 && (
+          <p className="mt-2 text-xs text-zinc-500">Cargando docentes...</p>
+        )}
+      </div>
+      <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cancelar</button>
-        <button type="button" onClick={onSave} className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700">Guardar</button>
+        <button type="button" onClick={onSave} disabled={selected === ''} className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-50">Guardar</button>
       </div>
     </div>
   )

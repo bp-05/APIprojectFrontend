@@ -14,7 +14,7 @@ import {
 import { listSubjectCodeSections, type BasicSubject } from '../../api/subjects'
 
 
-export default function DCProyectos() {
+export default function DOCProyectos() {
 
   const navigate = useNavigate()
   const [items, setItems] = useState<ProblemStatement[]>([])
@@ -350,7 +350,7 @@ export default function DCProyectos() {
 
                             key={p.id}
 
-                            onClick={() => navigate(`/dc/proyectos/${p.id}`)}
+                            onClick={() => navigate(`/doc/proyectos/${p.id}`)}
 
                             className="px-4 py-3 hover:bg-zinc-100 cursor-pointer transition-colors"
 
@@ -504,7 +504,7 @@ export default function DCProyectos() {
 
                                   key={p.id}
 
-                                  onClick={() => navigate(`/dc/proyectos/${p.id}`)}
+                                  onClick={() => navigate(`/doc/proyectos/${p.id}`)}
 
                                   className="px-4 py-3 hover:bg-zinc-100 cursor-pointer transition-colors"
 
@@ -550,7 +550,7 @@ export default function DCProyectos() {
 
       {showForm && (
 
-        <DCProyectoForm
+        <DOCProyectoForm
 
           initial={editing || undefined}
 
@@ -580,7 +580,7 @@ export default function DCProyectos() {
 
 
 
-function DCProyectoForm({
+function DOCProyectoForm({
 
   initial,
 

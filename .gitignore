@@ -50,3 +50,4 @@ scripts/deploy_ec2_userdata.sh
 .pnp.*
 
 basesaseguir
+scripts

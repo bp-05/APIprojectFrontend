@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useId, useCallback } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import { useNavigate } from 'react-router'
 import {
   createEngagementScope,

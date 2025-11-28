@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createUser, deleteUser, listUsers, updateUser, type User } from '../api/users'
 import { listAreas, listCareers, type Area, type Career } from '../api/subjects'
-import { toast } from 'react-hot-toast'
+import { toast } from '../lib/toast'
 import { listRoles as fetchRoles } from '../api/roles'
 import { nameCase } from '../lib/strings'
 import { roleLabelMap } from './roleMap'

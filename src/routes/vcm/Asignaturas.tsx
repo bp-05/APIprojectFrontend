@@ -10,8 +10,6 @@ export default function AsignaturasVCM() {
   const [loading, setLoading] = useState(false)
   const [companies, setCompanies] = useState<Company[]>([])
   const [requirements, setRequirements] = useState<CompanyRequirement[]>([])
-  const [prospects, setProspects] = useState<Prospect[]>(() => loadProspects())
-  const [subjectProspects, setSubjectProspects] = useState<Record<number, string[]>>(() => loadSubjectProspects())
 
   const handleRowClick = useCallback(
     (event: React.MouseEvent<HTMLTableRowElement>, subjectId: number) => {
@@ -46,14 +44,6 @@ export default function AsignaturasVCM() {
 
   useEffect(() => {
     load()
-    const handler = () => {
-      try {
-        setProspects(loadProspects())
-        setSubjectProspects(loadSubjectProspects())
-      } catch {}
-    }
-    window.addEventListener('vcm:prospects-updated', handler)
-    return () => window.removeEventListener('vcm:prospects-updated', handler)
   }, [])
 
   const filtered = useMemo(() => {
@@ -174,30 +164,5 @@ function Th({ children, className = '' }: { children: ReactNode; className?: str
 
 function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
-}
-
-type Prospect = { id: string; company_name: string }
-
-function loadProspects(): Prospect[] {
-  try {
-    const raw = localStorage.getItem('vcm_posibles_contrapartes')
-    const arr = raw ? JSON.parse(raw) : []
-    if (Array.isArray(arr)) {
-      return arr.map((p: any) => ({ id: String(p.id), company_name: String(p.company_name || '') }))
-    }
-    return []
-  } catch {
-    return []
-  }
-}
-
-function loadSubjectProspects(): Record<number, string[]> {
-  try {
-    const raw = localStorage.getItem('vcm_subject_prospects')
-    const obj = raw ? JSON.parse(raw) : {}
-    return obj && typeof obj === 'object' ? obj : {}
-  } catch {
-    return {}
-  }
 }
 

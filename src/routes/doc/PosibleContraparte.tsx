@@ -7,7 +7,7 @@ type SubjectWithCount = Subject & {
   counterpartCount: number
 }
 
-export default function AdminPosibleContraparte() {
+export default function PosibleContraparte() {
   const navigate = useNavigate()
   const [items, setItems] = useState<CompanyRequirement[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -79,7 +79,7 @@ export default function AdminPosibleContraparte() {
           {subjectsWithCount.map((subject) => (
             <div
               key={subject.id}
-              onClick={() => navigate(`/admin/posible-contraparte/${subject.id}`)}
+              onClick={() => navigate(`/doc/posible-contraparte/${subject.id}`)}
               className="cursor-pointer rounded-lg border border-zinc-200 bg-white p-4 hover:border-red-300 hover:shadow-md transition"
             >
               <div className="flex items-start justify-between">

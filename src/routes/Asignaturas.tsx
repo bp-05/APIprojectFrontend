@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { createSubject, listSubjects, updateSubject, type Subject, listAreas, listSemesters, type Area, type SemesterLevel, uploadDescriptor, processDescriptor, type Descriptor, listDescriptorsBySubject, listCareers, type Career, getSubject } from '../api/subjects'
 import { listDocentes, type User as AppUser } from '../api/users'
 import { nameCase } from '../lib/strings'
-import { toast } from 'react-hot-toast'
+import { toast } from '../lib/toast'
 import { usePeriodStore } from '../store/period'
 import { useAuth } from '../store/auth'
 import { apiBaseUrl } from '../lib/env'
@@ -123,8 +123,7 @@ export default function Asignaturas() {
     }
 
     async function connect() {
-      if (cancelled) return
-      if (!accessToken) return
+      if (cancelled || !accessToken) return
       const baseUrl = apiBaseUrl()
       const normalized = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
       const url = `${normalized}/subjects/stream/?token=${encodeURIComponent(accessToken)}`

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { useAuth } from '../store/auth'
 import type { UserRole } from '../store/auth'
 import { pathForRole } from './roleMap'
-import { toast } from 'react-hot-toast'
+import { toast } from '../lib/toast'
 import { roleLabelMap } from './roleMap'
 import { nameCase } from '../lib/strings'
 
@@ -13,11 +13,9 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
     setLoading(true)
     try {
       await login(email.trim(), password)
@@ -36,9 +34,17 @@ export default function Login() {
       const storedRole = localStorage.getItem('user_role') as UserRole | null
       const role: UserRole | null = me.role || storedRole || null
       navigate(pathForRole(role))
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error de autenticación'
-      setError(message)
+    } catch (err: any) {
+      let message = 'Error de autenticación'
+      
+      if (err instanceof Error) {
+        message = err.message
+      } else if (err.response?.data?.detail) {
+        message = err.response.data.detail
+      } else if (err.response?.data?.non_field_errors) {
+        message = err.response.data.non_field_errors[0] || message
+      }
+      
       toast.error(message)
     } finally {
       setLoading(false)
@@ -87,12 +93,6 @@ export default function Login() {
               className="block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 shadow-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
             />
           </div>
-
-          {error ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
 
           <button
             type="submit"

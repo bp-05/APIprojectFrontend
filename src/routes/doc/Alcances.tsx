@@ -50,7 +50,7 @@ export default function Alcances() {
     (event: React.MouseEvent<HTMLTableRowElement>, alcanceId: number) => {
       const target = event.target as HTMLElement
       if (target.closest('button, a, input, select, textarea, [role="button"]')) return
-      navigate(`/vcm/alcances/${alcanceId}`)
+      navigate(`/doc/alcances/${alcanceId}`)
     },
     [navigate]
   )
@@ -164,7 +164,7 @@ function AlcanceForm({
     e.preventDefault()
     
     // Validaciones
-    if (!form.subject) {
+    if (!subjectId) {
       toast.error('Selecciona una Asignatura')
       return
     }
@@ -183,11 +183,14 @@ function AlcanceForm({
     
     setSaving(true)
     try {
+      // Asegurar que se envía el subject actualizado
+      const payload = { ...form, subject: subjectId }
+      
       if (initial) {
-        await updateEngagementScope(initial.id, form)
+        await updateEngagementScope(initial.id, payload)
         toast.success('Alcance actualizado')
       } else {
-        await createEngagementScope(form)
+        await createEngagementScope(payload)
         toast.success('Alcance creado')
       }
       await onSaved()
@@ -216,17 +219,26 @@ function AlcanceForm({
           {/* Botón Cerrar superior eliminado para unificar formato */}
         </div>
         <form className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 sm:px-6" onSubmit={onSubmit}>
-          <Select
-            label="Asignatura"
-            value={String(subjectId || '')}
-            onChange={(v) => setSubjectId(Number(v))}
-            options={subjects.map((s) => ({
-              value: String(s.id),
-              label: `${s.name || '(sin nombre)'} (${s.code}-${s.section})`,
-            }))}
-            placeholder={subjects.length === 0 ? 'Sin asignaturas disponibles' : 'Seleccionar asignatura'}
-            disabled={subjects.length === 0 || !!initial}
-          />
+          {initial ? (
+            <Text
+              label="Asignatura"
+              value={subjects.find(s => s.id === initial.subject)?.name || `#${initial.subject}`}
+              onChange={() => {}}
+              readOnly
+            />
+          ) : (
+            <Select
+              label="Asignatura"
+              value={String(subjectId || '')}
+              onChange={(v) => setSubjectId(Number(v))}
+              options={subjects.map((s) => ({
+                value: String(s.id),
+                label: `${s.name || '(sin nombre)'} (${s.code}-${s.section})`,
+              }))}
+              placeholder={subjects.length === 0 ? 'Sin asignaturas disponibles' : 'Seleccionar asignatura'}
+              disabled={subjects.length === 0}
+            />
+          )}
 
           <Area
             label="¿Qué beneficios podría aportar un estudiante a su organización? *"
@@ -272,6 +284,30 @@ function AlcanceForm({
         </form>
       </div>
     </div>
+  )
+}
+
+function Text({
+  label,
+  value,
+  onChange,
+  readOnly,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  readOnly?: boolean
+}) {
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block font-medium text-zinc-800">{label}</span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
+        className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+      />
+    </label>
   )
 }
 

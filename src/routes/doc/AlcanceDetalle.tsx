@@ -46,7 +46,7 @@ export default function AlcanceDetalle() {
     try {
       await deleteEngagementScope(alcanceId)
       toast.success('Alcance eliminado')
-      navigate('/dc/alcances')
+      navigate('/doc/alcances')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al eliminar')
     }
@@ -72,7 +72,7 @@ export default function AlcanceDetalle() {
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <button
-          onClick={() => navigate('/dc/alcances')}
+          onClick={() => navigate('/doc/alcances')}
           className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
         >
           Volver

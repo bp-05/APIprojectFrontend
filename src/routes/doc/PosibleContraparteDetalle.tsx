@@ -16,7 +16,7 @@ type Row = CompanyRequirement & {
   company_name?: string
 }
 
-export default function AdminPosibleContraparteDetalle() {
+export default function PosibleContraparteDetalle() {
   const { subjectId } = useParams<{ subjectId: string }>()
   const navigate = useNavigate()
   const [subject, setSubject] = useState<Subject | null>(null)
@@ -48,7 +48,7 @@ export default function AdminPosibleContraparteDetalle() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al cargar datos'
       toast.error(msg)
-      navigate('/admin/posible-contraparte')
+      navigate('/doc/posible-contraparte')
     } finally {
       setLoading(false)
     }
@@ -100,7 +100,7 @@ export default function AdminPosibleContraparteDetalle() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <button 
-            onClick={() => navigate('/admin/posible-contraparte')}
+            onClick={() => navigate('/doc/posible-contraparte')}
             className="mb-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
           >
             Volver
@@ -134,6 +134,7 @@ export default function AdminPosibleContraparteDetalle() {
         <div className="space-y-3">
           {items.map((item) => (
             <div key={item.id} className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+              {/* Header */}
               <div 
                 onClick={() => toggleExpand(item.id)}
                 className="flex cursor-pointer items-center justify-between px-4 py-3 hover:bg-zinc-50 transition"
@@ -167,6 +168,7 @@ export default function AdminPosibleContraparteDetalle() {
                 </div>
               </div>
 
+              {/* Detalles expandibles */}
               {expandedId === item.id && (
                 <div className="border-t border-zinc-100 bg-zinc-50 px-4 py-3">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

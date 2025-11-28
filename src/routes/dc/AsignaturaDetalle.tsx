@@ -61,17 +61,18 @@ export default function DCAsignaturaDetalle() {
 
   return (
     <section className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Asignatura</h1>
-          <p className="text-sm text-zinc-600">Vista de solo lectura</p>
-        </div>
+      <div className="mb-4 flex items-center justify-between">
         <button
           onClick={() => navigate('/dc')}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:border-zinc-400"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
         >
           Volver
         </button>
+      </div>
+
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold text-zinc-900">{subject?.name || 'Asignatura'}</h1>
+        <p className="text-sm text-zinc-600">{subject?.code}-{subject?.section} - {subject?.period_code || ''}</p>
       </div>
 
       {loading ? (

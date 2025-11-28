@@ -1,17 +1,15 @@
-import { useState } from 'react'
-import { toast } from 'react-hot-toast'
+import { useState, useEffect } from 'react'
+import { toast } from '../../lib/toast'
 import { listSubjects, type Subject, exportSubjectAPISheet, exportSubjectProyectoAPI } from '../../api/subjects'
 import { listProblemStatements, type ProblemStatement } from '../../api/companies'
-import { useEffect } from 'react'
 
 export default function Fichas() {
   const [subjects, setSubjects] = useState<Subject[]>([])
+  const [problemStatements, setProblemStatements] = useState<ProblemStatement[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null)
   const [selectedSubjectProyecto, setSelectedSubjectProyecto] = useState<number | null>(null)
-  const [problemStatements, setProblemStatements] = useState<ProblemStatement[]>([])
   const [selectedProblemStatement, setSelectedProblemStatement] = useState<number | null>(null)
-  const [loadingProjects, setLoadingProjects] = useState(false)
 
   async function loadSubjects() {
     setLoading(true)
@@ -29,20 +27,16 @@ export default function Fichas() {
     loadSubjects()
   }, [])
 
-  // Cargar proyectos cuando se selecciona una asignatura para Proyecto API
   useEffect(() => {
-    if (!selectedSubjectProyecto) {
-      setProblemStatements([])
-      setSelectedProblemStatement(null)
-      return
-    }
-    
-    async function loadProjects() {
-      setLoadingProjects(true)
+    async function loadProblemStatements() {
+      if (!selectedSubjectProyecto) {
+        setProblemStatements([])
+        setSelectedProblemStatement(null)
+        return
+      }
       try {
-        const data = await listProblemStatements({ subject: selectedSubjectProyecto! })
+        const data = await listProblemStatements({ subject: selectedSubjectProyecto })
         setProblemStatements(data)
-        // Auto-seleccionar si solo hay un proyecto
         if (data.length === 1) {
           setSelectedProblemStatement(data[0].id)
         } else {
@@ -51,11 +45,9 @@ export default function Fichas() {
       } catch (e) {
         toast.error('Error al cargar proyectos')
         setProblemStatements([])
-      } finally {
-        setLoadingProjects(false)
       }
     }
-    loadProjects()
+    loadProblemStatements()
   }, [selectedSubjectProyecto])
 
   async function handleExportFichaAPI() {
@@ -110,6 +102,12 @@ export default function Fichas() {
       return
     }
 
+    const problemStatement = problemStatements.find(p => p.id === selectedProblemStatement)
+    if (!problemStatement) {
+      toast.error('Proyecto no encontrado')
+      return
+    }
+
     try {
       toast.loading('Generando archivo Excel...')
       const blob = await exportSubjectProyectoAPI(selectedSubjectProyecto, selectedProblemStatement)
@@ -118,7 +116,7 @@ export default function Fichas() {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `Proyecto_API_${subject.code}_${subject.section}.xlsx`
+      link.download = `Proyecto_API_${subject.code}_${subject.section}_Proyecto${problemStatement.id}.xlsx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -225,29 +223,25 @@ export default function Fichas() {
                 </select>
               </div>
 
-              {/* Selector de proyecto */}
               {selectedSubjectProyecto && (
                 <div>
                   <label className="mb-2 block text-sm font-medium text-zinc-700">
                     Selecciona un proyecto
                   </label>
-                  {loadingProjects ? (
-                    <p className="text-sm text-zinc-600">Cargando proyectos...</p>
-                  ) : problemStatements.length === 0 ? (
-                    <p className="text-sm text-amber-600">Esta asignatura no tiene proyectos asociados</p>
-                  ) : (
-                    <select
-                      value={selectedProblemStatement || ''}
-                      onChange={(e) => setSelectedProblemStatement(Number(e.target.value) || null)}
-                      className="block w-full max-w-md rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-                    >
-                      <option value="">-- Selecciona un proyecto --</option>
-                      {problemStatements.map((ps) => (
-                        <option key={ps.id} value={ps.id}>
-                          Proyecto #{ps.id} - {ps.problem_to_address?.slice(0, 50) || 'Sin descripción'}{ps.problem_to_address && ps.problem_to_address.length > 50 ? '...' : ''}
-                        </option>
-                      ))}
-                    </select>
+                  <select
+                    value={selectedProblemStatement || ''}
+                    onChange={(e) => setSelectedProblemStatement(Number(e.target.value) || null)}
+                    className="block w-full max-w-md rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                  >
+                    <option value="">-- Selecciona un proyecto --</option>
+                    {problemStatements.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        Proyecto #{p.id} - {p.problem_to_address ? p.problem_to_address.substring(0, 50) + '...' : 'Sin descripción'}
+                      </option>
+                    ))}
+                  </select>
+                  {problemStatements.length === 0 && (
+                    <p className="mt-2 text-sm text-amber-600">Esta asignatura no tiene proyectos asociados</p>
                   )}
                 </div>
               )}

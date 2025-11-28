@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { listSubjects, type Subject, listSubjectUnits, type SubjectUnit } from '../../api/subjects'
-import { listProblemStatements, type ProblemStatement } from '../../api/companies'
+import { listSubjects, type Subject, listSubjectUnits } from '../../api/subjects'
+import { listProblemStatements } from '../../api/companies'
 import { usePeriodStore } from '../../store/period'
 
 type StatTone = 'zinc' | 'blue' | 'green' | 'amber' | 'indigo' | 'violet' | 'cyan' | 'purple'
 
 export default function DocDashboard() {
   const { periodCode } = usePeriodStore()
-  const [subjects, setSubjects] = useState<Subject[]>([])
   const [mySubjects, setMySubjects] = useState<Subject[]>([])
   const [totalUnits, setTotalUnits] = useState<number | null>(null)
   const [totalProjects, setTotalProjects] = useState<number | null>(null)
@@ -21,7 +20,6 @@ export default function DocDashboard() {
       // Cargar todas las asignaturas
       const subjectList = await listSubjects()
       const subjectsArr = Array.isArray(subjectList) ? subjectList : []
-      setSubjects(subjectsArr)
       setMySubjects(subjectsArr)
 
       // Cargar unidades de todas mis asignaturas

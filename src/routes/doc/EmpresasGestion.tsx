@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { listCompanies, createCompany, updateCompany, type Company } from '../../api/companies'
+import { listCompanies, createCompany, type Company } from '../../api/companies'
 import { toast } from '../../lib/toast'
 
-export default function DCEmpresas() {
+export default function EmpresasGestionDoc() {
   const [items, setItems] = useState<Company[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,8 +43,8 @@ export default function DCEmpresas() {
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Empresas</h1>
-          <p className="text-sm text-zinc-600">Gestión de empresas asociadas</p>
+          <h1 className="text-xl font-semibold">Gestión de Empresas</h1>
+          <p className="text-sm text-zinc-600">Administra todas las empresas del sistema</p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -72,9 +72,9 @@ export default function DCEmpresas() {
             <tr>
               <Th>Nombre</Th>
               <Th>Correo</Th>
-              <Th>Telefono</Th>
+              <Th>Teléfono</Th>
               <Th>Sector</Th>
-              <Th>Direccion (Principal)</Th>
+              <Th>Dirección</Th>
               <Th>Empleados</Th>
               <Th>Contacto</Th>
             </tr>
@@ -98,11 +98,11 @@ export default function DCEmpresas() {
                   key={company.id}
                   tabIndex={0}
                   role="button"
-                  onClick={() => navigate(`/dc/empresas/${company.id}`)}
+                  onClick={() => navigate(`/doc/empresas/${company.id}`)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      navigate(`/dc/empresas/${company.id}`)
+                      navigate(`/doc/empresas/${company.id}`)
                     }
                   }}
                   className="cursor-pointer hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600/40"
@@ -183,13 +183,8 @@ function CompanyDialog({
     setError(null)
     setLoading(true)
     try {
-      if (company) {
-        await updateCompany(company.id, form)
-        toast.success('Empresa actualizada')
-      } else {
-        await createCompany(form)
-        toast.success('Empresa creada')
-      }
+      await createCompany(form)
+      toast.success('Empresa creada')
       await onSaved()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'No se pudo guardar la empresa'
@@ -200,12 +195,12 @@ function CompanyDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">{title}</h2>
           <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100">
-            Cerrar
+            ✕
           </button>
         </div>
         {error ? (
@@ -231,7 +226,7 @@ function CompanyDialog({
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Telefono</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Teléfono</label>
             <input
               value={form.phone}
               onChange={(e) => handleChange('phone', e.target.value)}
@@ -257,7 +252,7 @@ function CompanyDialog({
             />
           </div>
           <div className="col-span-2">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Direccion principal</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Dirección principal</label>
             <input
               value={form.address}
               onChange={(e) => handleChange('address', e.target.value)}
@@ -265,7 +260,7 @@ function CompanyDialog({
             />
           </div>
           <div className="col-span-2">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Direccion gerencia</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Dirección gerencia</label>
             <input
               value={form.management_address}
               onChange={(e) => handleChange('management_address', e.target.value)}

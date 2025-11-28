@@ -1,8 +1,8 @@
-﻿import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import toast from 'react-hot-toast'
-import html2canvas from 'html2canvas'
+import { toast } from '../../lib/toast'
 import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { useAuth } from '../../store/auth'
 import {
   getSubject,
@@ -265,7 +265,7 @@ export default function AsignaturaVCMDetalle() {
   if (error || !subject) {
     return (
       <div className="p-6">
-        <button className="mb-3 text-sm text-red-600 hover:underline" onClick={() => navigate(-1)}>Volver</button>
+        <button className="mb-3 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" onClick={() => navigate(-1)}>Volver</button>
         <p className="text-sm text-red-600">{error || 'No se encontro la asignatura solicitada.'}</p>
       </div>
     )
@@ -277,440 +277,342 @@ export default function AsignaturaVCMDetalle() {
       return
     }
 
-    try {
-      const toastId = toast.loading('Generando reporte PDF...')
+    const toastId = toast.loading('Generando reporte PDF...')
 
-      // Obtener la fecha actual
+    try {
       const now = new Date()
       const dateStr = now.toLocaleDateString('es-ES') + ', ' + now.toLocaleTimeString('es-ES')
+      const showApi2 = subject.api_type === 2
+      const showApi3 = subject.api_type === 3
 
-      // Determinar estado de secciones
-      const hasCompetencies = competencies.length > 0
-      const hasUnits = units.length > 0
-      const hasBoundaryCondition = boundaryCondition !== null
-      const hasRequirements = requirements.filter(r => r.subject === subject.id).length > 0
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      let yPos = 20
 
-      // Crear HTML del reporte
-      const reportHTML = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>REPORTE DE ASIGNATURA - VCM</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; background: white; line-height: 1.6; }
-    @media print {
-      body { background: white; }
-      page-break-inside: avoid;
-      h1, h2, h3 { page-break-after: avoid; }
-      table { page-break-inside: avoid; }
-    }
-    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-    
-    .header { 
-      border-bottom: 4px solid #c41e3a; 
-      margin-bottom: 30px; 
-      padding-bottom: 15px;
-    }
-    .header h1 {
-      color: #c41e3a;
-      font-size: 28px;
-      font-weight: bold;
-      margin-bottom: 5px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin-bottom: 20px;
-    }
-    .info-row {
-      display: flex;
-      gap: 10px;
-    }
-    .info-label {
-      font-weight: bold;
-      color: #333;
-      min-width: 100px;
-    }
-    .info-value {
-      color: #666;
-    }
+      // Encabezado
+      pdf.setFillColor(196, 30, 58)
+      pdf.rect(0, 0, pageWidth, 15, 'F')
+      pdf.setTextColor(255, 255, 255)
+      pdf.setFontSize(14)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('REPORTE DE ASIGNATURA - VCM', pageWidth / 2, 10, { align: 'center' })
+      pdf.setTextColor(0, 0, 0)
+      pdf.setFont('helvetica', 'normal')
 
-    h2 {
-      color: white;
-      background: #c41e3a;
-      padding: 10px 15px;
-      margin: 30px 0 15px 0;
-      font-size: 16px;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+      // Información de la asignatura
+      autoTable(pdf, {
+        startY: yPos,
+        head: [['Campo', 'Valor']],
+        body: [
+          ['Asignatura', subject.name || '-'],
+          ['Código', `${subject.code}-${subject.section}`],
+          ['Carrera', subject.career_name || '-'],
+          ['Área', subject.area_name || '-'],
+          ['Docente', subject.teacher_name || '-'],
+          ['Tipo API', `API ${subject.api_type || 1}`]
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [196, 30, 58], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 9 },
+        margin: { left: 14, right: 14 }
+      })
 
-    .validation-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 20px;
-      border: 1px solid #ddd;
-    }
-    .validation-table th {
-      background: #f5f5f5;
-      padding: 12px;
-      text-align: left;
-      font-weight: bold;
-      color: #333;
-      border: 1px solid #ddd;
-    }
-    .validation-table td {
-      padding: 12px;
-      border: 1px solid #ddd;
-    }
-    .validation-table tr:nth-child(even) {
-      background: #fafafa;
-    }
-    .status-complete { color: #22c55e; font-weight: bold; }
-    .status-pending { color: #ef4444; font-weight: bold; }
+      yPos = (pdf as any).lastAutoTable.finalY + 10
 
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 20px;
-      border: 1px solid #ddd;
-    }
-    .data-table th {
-      background: #f5f5f5;
-      padding: 12px;
-      text-align: left;
-      font-weight: bold;
-      color: #333;
-      border: 1px solid #ddd;
-      border-bottom: 2px solid #c41e3a;
-    }
-    .data-table td {
-      padding: 12px;
-      border: 1px solid #ddd;
-      font-size: 13px;
-    }
-    .data-table tr:nth-child(even) {
-      background: #fafafa;
-    }
+      // Competencias
+      if (competencies.length > 0) {
+        pdf.setFillColor(196, 30, 58)
+        pdf.rect(14, yPos, pageWidth - 28, 8, 'F')
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFontSize(11)
+        pdf.setFont('helvetica', 'bold')
+        pdf.text(`COMPETENCIAS TÉCNICAS (${competencies.length})`, 16, yPos + 5.5)
+        pdf.setTextColor(0, 0, 0)
+        pdf.setFont('helvetica', 'normal')
+        yPos += 10
 
-    .text-box {
-      background: #f9f9f9;
-      border-left: 4px solid #c41e3a;
-      padding: 15px;
-      margin: 15px 0;
-      line-height: 1.6;
-      font-size: 13px;
-    }
-    .text-box-label {
-      font-weight: bold;
-      color: #333;
-      margin-bottom: 8px;
-    }
-    .text-box-content {
-      color: #666;
-    }
+        autoTable(pdf, {
+          startY: yPos,
+          head: [['Nº', 'Descripción']],
+          body: competencies.map(c => [c.number.toString(), c.description || '-']),
+          theme: 'grid',
+          headStyles: { fillColor: [245, 245, 245], textColor: 0, fontStyle: 'bold' },
+          styles: { fontSize: 8 },
+          columnStyles: { 0: { cellWidth: 15 } },
+          margin: { left: 14, right: 14 }
+        })
+        yPos = (pdf as any).lastAutoTable.finalY + 10
+      } else {
+        pdf.setFillColor(240, 240, 240)
+        pdf.rect(14, yPos, pageWidth - 28, 10, 'F')
+        pdf.setFontSize(9)
+        pdf.text('Sin competencias técnicas registradas', pageWidth / 2, yPos + 6, { align: 'center' })
+        yPos += 15
+      }
 
-    .footer {
-      margin-top: 40px;
-      text-align: right;
-      font-size: 12px;
-      color: #999;
-      border-top: 1px solid #eee;
-      padding-top: 15px;
-    }
+      // Unidades
+      if (yPos > 250) { pdf.addPage(); yPos = 20 }
+      if (units.length > 0) {
+        pdf.setFillColor(196, 30, 58)
+        pdf.rect(14, yPos, pageWidth - 28, 8, 'F')
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFontSize(11)
+        pdf.setFont('helvetica', 'bold')
+        pdf.text(`UNIDADES DE ASIGNATURA (${units.length})`, 16, yPos + 5.5)
+        pdf.setTextColor(0, 0, 0)
+        pdf.setFont('helvetica', 'normal')
+        yPos += 10
 
-    .empty-message {
-      background: #f0f0f0;
-      padding: 15px;
-      text-align: center;
-      color: #666;
-      border-radius: 4px;
-      margin: 15px 0;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <h1>REPORTE DE ASIGNATURA - VCM</h1>
-    </div>
+        autoTable(pdf, {
+          startY: yPos,
+          head: [['Unidad', 'Horas', 'Aprendizaje Esperado']],
+          body: units.map(u => [
+            `Unidad ${u.number}`,
+            u.unit_hours?.toString() || '-',
+            u.expected_learning ? (u.expected_learning.substring(0, 60) + (u.expected_learning.length > 60 ? '...' : '')) : '-'
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [245, 245, 245], textColor: 0, fontStyle: 'bold' },
+          styles: { fontSize: 8 },
+          columnStyles: { 1: { cellWidth: 20 } },
+          margin: { left: 14, right: 14 }
+        })
+        yPos = (pdf as any).lastAutoTable.finalY + 10
+      } else {
+        pdf.setFillColor(240, 240, 240)
+        pdf.rect(14, yPos, pageWidth - 28, 10, 'F')
+        pdf.setFontSize(9)
+        pdf.text('Sin unidades de asignatura registradas', pageWidth / 2, yPos + 6, { align: 'center' })
+        yPos += 15
+      }
 
-    <!-- Subject Info -->
-    <div class="info-grid">
-      <div class="info-row">
-        <span class="info-label">Asignatura:</span>
-        <span class="info-value">${subject.name || '-'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Código:</span>
-        <span class="info-value">${subject.code}-${subject.section}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Carrera:</span>
-        <span class="info-value">${subject.career_name || '-'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Área:</span>
-        <span class="info-value">${subject.area_name || '-'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Docente:</span>
-        <span class="info-value">${subject.teacher_name || '-'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Tipo API:</span>
-        <span class="info-value">API ${subject.api_type || 1}</span>
-      </div>
-    </div>
+      // Condiciones Límite
+      if (yPos > 250) { pdf.addPage(); yPos = 20 }
+      if (boundaryCondition) {
+        pdf.setFillColor(196, 30, 58)
+        pdf.rect(14, yPos, pageWidth - 28, 8, 'F')
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFontSize(11)
+        pdf.setFont('helvetica', 'bold')
+        pdf.text('CONDICIONES LÍMITE DE EMPRESA', 16, yPos + 5.5)
+        pdf.setTextColor(0, 0, 0)
+        pdf.setFont('helvetica', 'normal')
+        yPos += 12
 
-    <!-- Validation Section -->
-    <h2>VALIDACIÓN DE CONFIGURACIÓN</h2>
-    <table class="validation-table">
-      <thead>
-        <tr>
-          <th>Elemento</th>
-          <th>Estado</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Competencias Técnicas</td>
-          <td><span class="${hasCompetencies ? 'status-complete' : 'status-pending'}">${hasCompetencies ? '✓ Completado' : '✗ Pendiente'}</span></td>
-        </tr>
-        <tr>
-          <td>Unidades de Asignatura</td>
-          <td><span class="${hasUnits ? 'status-complete' : 'status-pending'}">${hasUnits ? '✓ Completado' : '✗ Pendiente'}</span></td>
-        </tr>
-        <tr>
-          <td>Posibles Contrapartes</td>
-          <td><span class="${hasRequirements ? 'status-complete' : 'status-pending'}">${hasRequirements ? '✓ Completado' : '✗ Pendiente'}</span></td>
-        </tr>
-        <tr>
-          <td>Condiciones Límite de Empresa</td>
-          <td><span class="${hasBoundaryCondition ? 'status-complete' : 'status-pending'}">${hasBoundaryCondition ? '✓ Completado' : '✗ Pendiente'}</span></td>
-        </tr>
-      </tbody>
-    </table>
-
-    <!-- Competencies Section -->
-    ${hasCompetencies ? `
-    <h2>COMPETENCIAS TÉCNICAS (${competencies.length})</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Nº</th>
-          <th>Descripción</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${competencies.map(comp => `
-        <tr>
-          <td style="width: 50px; text-align: center;"><strong>${comp.number}</strong></td>
-          <td>${comp.description || '-'}</td>
-        </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    ` : '<div class="empty-message">Sin competencias técnicas registradas</div>'}
-
-    <!-- Units Section -->
-    ${hasUnits ? `
-    <h2>UNIDADES DE ASIGNATURA (${units.length})</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Unidad</th>
-          <th>Horas</th>
-          <th>Aprendizaje Esperado</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${units.map(unit => `
-        <tr>
-          <td><strong>Unidad ${unit.number}</strong></td>
-          <td style="width: 60px; text-align: center;">${unit.unit_hours || '-'}</td>
-          <td>${unit.expected_learning ? unit.expected_learning.substring(0, 80) + (unit.expected_learning.length > 80 ? '...' : '') : '-'}</td>
-        </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    ` : '<div class="empty-message">Sin unidades de asignatura registradas</div>'}
-
-    <!-- Boundary Conditions Section -->
-    ${hasBoundaryCondition ? `
-    <h2>CONDICIONES LÍMITE DE EMPRESA</h2>
-    <div class="text-box">
-      <div class="text-box-label">Tipos de Empresa:</div>
-      <div class="text-box-content">
-        ${[
+        const tipos = [
           boundaryCondition.large_company && 'Gran Empresa',
           boundaryCondition.medium_company && 'Mediana Empresa',
           boundaryCondition.small_company && 'Pequeña Empresa',
           boundaryCondition.family_enterprise && 'Empresa Familiar',
           boundaryCondition.not_relevant && 'No Relevante'
-        ].filter(Boolean).join(', ') || 'No especificado'}
-      </div>
-    </div>
-    ` : '<div class="empty-message">Sin condiciones límite de empresa registradas</div>'}
+        ].filter(Boolean).join(', ') || 'No especificado'
 
-    <!-- Requirements Section -->
-    ${hasRequirements ? `
-    <h2>POSIBLES CONTRAPARTES (${requirements.filter(r => r.subject === subject.id).length})</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Empresa</th>
-          <th>Sector</th>
-          <th>Ha Trabajado</th>
-          <th>Interés en Colaborar</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${requirements.filter(r => r.subject === subject.id).map(req => {
-          const company = companies.find(c => c.id === req.company)
-          return `
-          <tr>
-            <td><strong>${company?.name || 'Empresa ' + req.company}</strong></td>
-            <td>${req.sector || '-'}</td>
-            <td style="text-align: center;">${req.worked_before ? 'Sí' : 'No'}</td>
-            <td style="text-align: center;">${req.interest_collaborate ? 'Sí' : 'No'}</td>
-          </tr>
-          `
-        }).join('')}
-      </tbody>
-    </table>
-    ` : '<div class="empty-message">Sin posibles contrapartes registradas</div>'}
-
-    <!-- API Type Sections -->
-    ${showApi2 ? `
-    <h2>API TIPO 2 - INFORMACIÓN DEL PROYECTO</h2>
-    ${api2Completion ? `
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Campo</th>
-          <th>Contenido</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${api2Completion.project_goal_students ? `<tr><td><strong>Objetivo para estudiantes</strong></td><td>${api2Completion.project_goal_students}</td></tr>` : ''}
-        ${api2Completion.deliverables_at_end ? `<tr><td><strong>Entregables al final</strong></td><td>${api2Completion.deliverables_at_end}</td></tr>` : ''}
-        ${api2Completion.company_expected_participation ? `<tr><td><strong>Participación esperada</strong></td><td>${api2Completion.company_expected_participation}</td></tr>` : ''}
-        ${api2Completion.other_activities ? `<tr><td><strong>Otras actividades</strong></td><td>${api2Completion.other_activities}</td></tr>` : ''}
-      </tbody>
-    </table>
-    ` : '<div class="empty-message">Sin información registrada</div>'}
-    ` : ''}
-
-    ${showApi3 ? `
-    <h2>API TIPO 3 - INFORMACIÓN DEL PROYECTO</h2>
-    ${api3Completion ? `
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Campo</th>
-          <th>Contenido</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${api3Completion.project_goal_students ? `<tr><td><strong>Objetivo para estudiantes</strong></td><td>${api3Completion.project_goal_students}</td></tr>` : ''}
-        ${api3Completion.deliverables_at_end ? `<tr><td><strong>Entregables al final</strong></td><td>${api3Completion.deliverables_at_end}</td></tr>` : ''}
-        ${api3Completion.expected_student_role ? `<tr><td><strong>Rol esperado del estudiante</strong></td><td>${api3Completion.expected_student_role}</td></tr>` : ''}
-        ${api3Completion.other_activities ? `<tr><td><strong>Otras actividades</strong></td><td>${api3Completion.other_activities}</td></tr>` : ''}
-        ${api3Completion.master_guide_expected_support ? `<tr><td><strong>Apoyo maestro guía</strong></td><td>${api3Completion.master_guide_expected_support}</td></tr>` : ''}
-      </tbody>
-    </table>
-    ` : '<div class="empty-message">Sin información registrada</div>'}
-
-    ${acceptsAlternance && alternance ? `
-    <h2>ALTERNANCIA (API 3)</h2>
-    <table class="data-table">
-      <tbody>
-        ${alternance.student_role ? `<tr><td><strong>Rol del estudiante</strong></td><td>${alternance.student_role}</td></tr>` : ''}
-        ${alternance.students_quota ? `<tr><td><strong>Cupos</strong></td><td>${alternance.students_quota} estudiantes</td></tr>` : ''}
-        ${alternance.tutor_name ? `<tr><td><strong>Tutor</strong></td><td>${alternance.tutor_name}</td></tr>` : ''}
-        ${alternance.tutor_email ? `<tr><td><strong>Correo tutor</strong></td><td>${alternance.tutor_email}</td></tr>` : ''}
-        ${alternance.alternance_hours ? `<tr><td><strong>Horas de alternancia</strong></td><td>${alternance.alternance_hours} horas</td></tr>` : ''}
-      </tbody>
-    </table>
-    ` : ''}
-    ` : ''}
-
-    <!-- Footer -->
-    <div class="footer">
-      <p>Generado: ${dateStr}</p>
-    </div>
-  </div>
-</body>
-</html>
-      `
-
-      // Crear elemento temporal para html2canvas
-      const container = document.createElement('div')
-      container.innerHTML = reportHTML
-      container.style.position = 'absolute'
-      container.style.left = '-9999px'
-      container.style.top = '-9999px'
-      container.style.width = '1000px'
-      document.body.appendChild(container)
-
-      // Convertir a canvas
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        windowHeight: container.scrollHeight,
-      })
-
-      // Remover contenedor temporal
-      document.body.removeChild(container)
-
-      // Crear PDF
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      })
-
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const pageHeight = pdf.internal.pageSize.getHeight()
-      const margin = 10
-      const contentWidth = pageWidth - 2 * margin
-
-      const imgData = canvas.toDataURL('image/png')
-      const imgHeight = (canvas.height * contentWidth) / canvas.width
-
-      // Primera página
-      pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, imgHeight)
-
-      // Páginas adicionales
-      let heightLeft = imgHeight - (pageHeight - 2 * margin)
-      let pageNum = 1
-
-      while (heightLeft > 0) {
-        pageNum += 1
-        pdf.addPage()
-        const topPosition = (pageNum - 1) * pageHeight - margin
-        pdf.addImage(imgData, 'PNG', margin, -topPosition + margin, contentWidth, imgHeight)
-        heightLeft -= pageHeight
+        pdf.setFillColor(249, 249, 249)
+        pdf.rect(14, yPos, pageWidth - 28, 15, 'F')
+        pdf.setDrawColor(196, 30, 58)
+        pdf.setLineWidth(1)
+        pdf.line(14, yPos, 14, yPos + 15)
+        pdf.setFontSize(9)
+        pdf.setFont('helvetica', 'bold')
+        pdf.text('Tipos de Empresa:', 18, yPos + 5)
+        pdf.setFont('helvetica', 'normal')
+        const lines = pdf.splitTextToSize(tipos, pageWidth - 32)
+        pdf.text(lines, 18, yPos + 10)
+        yPos += 20
+      } else {
+        pdf.setFillColor(240, 240, 240)
+        pdf.rect(14, yPos, pageWidth - 28, 10, 'F')
+        pdf.setFontSize(9)
+        pdf.text('Sin condiciones límite registradas', pageWidth / 2, yPos + 6, { align: 'center' })
+        yPos += 15
       }
+
+      // Posibles Contrapartes
+      if (yPos > 250) { pdf.addPage(); yPos = 20 }
+      const reqFiltered = requirements.filter(r => r.subject === subject.id)
+      if (reqFiltered.length > 0) {
+        pdf.setFillColor(196, 30, 58)
+        pdf.rect(14, yPos, pageWidth - 28, 8, 'F')
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFontSize(11)
+        pdf.setFont('helvetica', 'bold')
+        pdf.text(`POSIBLES CONTRAPARTES (${reqFiltered.length})`, 16, yPos + 5.5)
+        pdf.setTextColor(0, 0, 0)
+        pdf.setFont('helvetica', 'normal')
+        yPos += 10
+
+        autoTable(pdf, {
+          startY: yPos,
+          head: [['Empresa', 'Sector', 'Trabajado', 'Interés']],
+          body: reqFiltered.map(req => {
+            const company = companies.find(c => c.id === req.company)
+            return [
+              company?.name || `Empresa ${req.company}`,
+              req.sector || '-',
+              req.worked_before ? 'Sí' : 'No',
+              req.interest_collaborate ? 'Sí' : 'No'
+            ]
+          }),
+          theme: 'grid',
+          headStyles: { fillColor: [245, 245, 245], textColor: 0, fontStyle: 'bold' },
+          styles: { fontSize: 8 },
+          columnStyles: { 2: { cellWidth: 20 }, 3: { cellWidth: 20 } },
+          margin: { left: 14, right: 14 }
+        })
+        yPos = (pdf as any).lastAutoTable.finalY + 10
+      } else {
+        pdf.setFillColor(240, 240, 240)
+        pdf.rect(14, yPos, pageWidth - 28, 10, 'F')
+        pdf.setFontSize(9)
+        pdf.text('Sin posibles contrapartes registradas', pageWidth / 2, yPos + 6, { align: 'center' })
+        yPos += 15
+      }
+
+      // API 2
+      if (showApi2) {
+        if (yPos > 250) { pdf.addPage(); yPos = 20 }
+        pdf.setFillColor(196, 30, 58)
+        pdf.rect(14, yPos, pageWidth - 28, 8, 'F')
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFontSize(11)
+        pdf.setFont('helvetica', 'bold')
+        pdf.text('API TIPO 2 - INFORMACIÓN DEL PROYECTO', 16, yPos + 5.5)
+        pdf.setTextColor(0, 0, 0)
+        pdf.setFont('helvetica', 'normal')
+        yPos += 10
+
+        if (api2Completion) {
+          const api2Data = [
+            api2Completion.project_goal_students && ['Objetivo para estudiantes', api2Completion.project_goal_students],
+            api2Completion.deliverables_at_end && ['Entregables al final', api2Completion.deliverables_at_end],
+            api2Completion.company_expected_participation && ['Participación esperada', api2Completion.company_expected_participation],
+            api2Completion.other_activities && ['Otras actividades', api2Completion.other_activities]
+          ].filter(Boolean) as string[][]
+
+          if (api2Data.length > 0) {
+            autoTable(pdf, {
+              startY: yPos,
+              head: [['Campo', 'Contenido']],
+              body: api2Data,
+              theme: 'grid',
+              headStyles: { fillColor: [245, 245, 245], textColor: 0, fontStyle: 'bold' },
+              styles: { fontSize: 8 },
+              columnStyles: { 0: { cellWidth: 50 } },
+              margin: { left: 14, right: 14 }
+            })
+            yPos = (pdf as any).lastAutoTable.finalY + 10
+          } else {
+            pdf.setFillColor(240, 240, 240)
+            pdf.rect(14, yPos, pageWidth - 28, 10, 'F')
+            pdf.setFontSize(9)
+            pdf.text('Sin información registrada', pageWidth / 2, yPos + 6, { align: 'center' })
+            yPos += 15
+          }
+        } else {
+          pdf.setFillColor(240, 240, 240)
+          pdf.rect(14, yPos, pageWidth - 28, 10, 'F')
+          pdf.setFontSize(9)
+          pdf.text('Sin información registrada', pageWidth / 2, yPos + 6, { align: 'center' })
+          yPos += 15
+        }
+      }
+
+      // API 3
+      if (showApi3) {
+        if (yPos > 250) { pdf.addPage(); yPos = 20 }
+        pdf.setFillColor(196, 30, 58)
+        pdf.rect(14, yPos, pageWidth - 28, 8, 'F')
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFontSize(11)
+        pdf.setFont('helvetica', 'bold')
+        pdf.text('API TIPO 3 - INFORMACIÓN DEL PROYECTO', 16, yPos + 5.5)
+        pdf.setTextColor(0, 0, 0)
+        pdf.setFont('helvetica', 'normal')
+        yPos += 10
+
+        if (api3Completion) {
+          const api3Data = [
+            api3Completion.project_goal_students && ['Objetivo para estudiantes', api3Completion.project_goal_students],
+            api3Completion.deliverables_at_end && ['Entregables al final', api3Completion.deliverables_at_end],
+            api3Completion.expected_student_role && ['Rol esperado del estudiante', api3Completion.expected_student_role],
+            api3Completion.other_activities && ['Otras actividades', api3Completion.other_activities],
+            api3Completion.master_guide_expected_support && ['Apoyo maestro guía', api3Completion.master_guide_expected_support]
+          ].filter(Boolean) as string[][]
+
+          if (api3Data.length > 0) {
+            autoTable(pdf, {
+              startY: yPos,
+              head: [['Campo', 'Contenido']],
+              body: api3Data,
+              theme: 'grid',
+              headStyles: { fillColor: [245, 245, 245], textColor: 0, fontStyle: 'bold' },
+              styles: { fontSize: 8 },
+              columnStyles: { 0: { cellWidth: 50 } },
+              margin: { left: 14, right: 14 }
+            })
+            yPos = (pdf as any).lastAutoTable.finalY + 10
+          } else {
+            pdf.setFillColor(240, 240, 240)
+            pdf.rect(14, yPos, pageWidth - 28, 10, 'F')
+            pdf.setFontSize(9)
+            pdf.text('Sin información registrada', pageWidth / 2, yPos + 6, { align: 'center' })
+            yPos += 15
+          }
+        } else {
+          pdf.setFillColor(240, 240, 240)
+          pdf.rect(14, yPos, pageWidth - 28, 10, 'F')
+          pdf.setFontSize(9)
+          pdf.text('Sin información registrada', pageWidth / 2, yPos + 6, { align: 'center' })
+          yPos += 15
+        }
+
+        // Alternancia
+        if (acceptsAlternance && alternance) {
+          if (yPos > 250) { pdf.addPage(); yPos = 20 }
+          pdf.setFillColor(196, 30, 58)
+          pdf.rect(14, yPos, pageWidth - 28, 8, 'F')
+          pdf.setTextColor(255, 255, 255)
+          pdf.setFontSize(11)
+          pdf.setFont('helvetica', 'bold')
+          pdf.text('ALTERNANCIA (API 3)', 16, yPos + 5.5)
+          pdf.setTextColor(0, 0, 0)
+          pdf.setFont('helvetica', 'normal')
+          yPos += 10
+
+          const alternanceData = [
+            alternance.student_role && ['Rol del estudiante', alternance.student_role],
+            alternance.students_quota && ['Cupos', `${alternance.students_quota} estudiantes`],
+            alternance.tutor_name && ['Tutor', alternance.tutor_name],
+            alternance.tutor_email && ['Correo tutor', alternance.tutor_email],
+            alternance.alternance_hours && ['Horas de alternancia', `${alternance.alternance_hours} horas`]
+          ].filter(Boolean) as string[][]
+
+          if (alternanceData.length > 0) {
+            autoTable(pdf, {
+              startY: yPos,
+              body: alternanceData,
+              theme: 'grid',
+              styles: { fontSize: 8 },
+              columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } },
+              margin: { left: 14, right: 14 }
+            })
+            yPos = (pdf as any).lastAutoTable.finalY + 10
+          }
+        }
+      }
+
+      // Footer
+      const finalY = pdf.internal.pageSize.getHeight() - 10
+      pdf.setFontSize(8)
+      pdf.setTextColor(150, 150, 150)
+      pdf.text(`Generado: ${dateStr}`, pageWidth - 14, finalY, { align: 'right' })
 
       pdf.save(`Reporte_${subject.code}-${subject.section}.pdf`)
       toast.dismiss(toastId)
       toast.success('Reporte descargado exitosamente')
     } catch (error) {
       console.error('Error al generar PDF:', error)
+      toast.dismiss(toastId)
       toast.error('Error al generar el PDF. Intenta nuevamente.')
     }
   }
@@ -718,7 +620,7 @@ export default function AsignaturaVCMDetalle() {
   return (
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-4 flex items-center justify-between">
-        <button className="text-sm text-red-600 hover:underline" onClick={() => navigate(-1)}>Volver</button>
+        <button className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" onClick={() => navigate(-1)}>Volver</button>
         <button
           onClick={generatePDF}
           className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
@@ -1019,7 +921,7 @@ export default function AsignaturaVCMDetalle() {
                           </div>
                           {req.can_receive_alternance && (
                             <div className="mt-3 rounded bg-green-100 p-2">
-                              <p className="text-sm font-medium text-green-700">✓ Acepta alternancia</p>
+                              <p className="text-sm font-medium text-green-700">? Acepta alternancia</p>
                               <p className="text-xs text-green-600 mt-1">Cupos disponibles: {req.alternance_students_quota || 0} estudiantes</p>
                             </div>
                           )}
@@ -1306,7 +1208,7 @@ export default function AsignaturaVCMDetalle() {
                 onClick={() => setShowAlternanceModal(false)}
                 className="text-zinc-400 hover:text-zinc-600"
               >
-                ✕
+                ?
               </button>
             </div>
             <div className="px-6 py-4 space-y-4">

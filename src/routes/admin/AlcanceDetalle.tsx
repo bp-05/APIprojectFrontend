@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import toast from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import {
   getEngagementScope,
   updateEngagementScope,
@@ -72,7 +72,7 @@ export default function AdminAlcanceDetalle() {
       <div className="mb-6 flex items-center justify-between">
         <button
           onClick={() => navigate('/admin/alcances')}
-          className="text-sm text-red-600 hover:underline"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
         >
           Volver
         </button>

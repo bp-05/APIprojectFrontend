@@ -1,11 +1,9 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { listSubjects, type Subject } from '../../api/subjects'
+import { listSubjects, updateSubject, type Subject } from '../../api/subjects'
 import { listPeriodPhaseSchedules, type PeriodPhaseSchedule } from '../../api/periods'
 import { useSearchParams, Link } from 'react-router'
 import { usePeriodStore } from '../../store/period'
-
-type ProjectState = 'Borrador' | 'Enviada' | 'Observada' | 'Aprobada'
-type LocalStatus = { status: ProjectState; timestamps?: Partial<Record<ProjectState, string>> }
+import { toast } from '../../lib/toast'
 
 export default function EstadoCoord() {
   const [items, setItems] = useState<Subject[]>([])
@@ -13,55 +11,52 @@ export default function EstadoCoord() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [searchParams] = useSearchParams()
-  const [editTarget, setEditTarget] = useState<{ id: number; state: ProjectState } | null>(null)
-  const [editSelection, setEditSelection] = useState<ProjectState>('Borrador')
+  const [editTarget, setEditTarget] = useState<{ id: number } | null>(null)
 
   // Admin phase schedules from database
   const [adminPhaseSchedules, setAdminPhaseSchedules] = useState<PeriodPhaseSchedule[]>([])
   const season = usePeriodStore((s) => s.season)
   const year = usePeriodStore((s) => s.year)
 
-  const [localStatus, setLocalStatus] = useState<Record<number, LocalStatus>>(() => {
-    try { return JSON.parse(localStorage.getItem('coordSubjectStatus') || '{}') } catch { return {} }
-  })
-  type PhaseName = 'Fase: Inicio' | 'Fase 1' | 'Fase 2' | 'Fase 3' | 'Fase: Completado'
-  type PhaseDates = { start?: string; end?: string }
-  type LocalCycleEntry = { phase: PhaseName; start?: string; end?: string; phases?: Record<PhaseName, PhaseDates> }
+  // Tipo de fase que usa valores del backend directamente
+  type PhaseName = 'inicio' | 'formulacion' | 'gestion' | 'validacion' | 'completado'
   
-  const PHASES = [
-    { value: 'Fase: Inicio' as PhaseName, label: 'Inicio' },
-    { value: 'Fase 1' as PhaseName, label: 'Formulación de requerimientos' },
-    { value: 'Fase 2' as PhaseName, label: 'Gestión de requerimientos' },
-    { value: 'Fase 3' as PhaseName, label: 'Validación de requerimientos' },
-    { value: 'Fase: Completado' as PhaseName, label: 'Completado' },
+  const PHASES: { value: PhaseName; label: string }[] = [
+    { value: 'inicio', label: 'Inicio' },
+    { value: 'formulacion', label: 'Formulación de requerimientos' },
+    { value: 'gestion', label: 'Gestión de requerimientos' },
+    { value: 'validacion', label: 'Validación de requerimientos' },
+    { value: 'completado', label: 'Completado' },
   ]
-  
-  const [localCycle, setLocalCycle] = useState<Record<number, LocalCycleEntry>>(() => {
-    try { return JSON.parse(localStorage.getItem('coordSubjectCycle') || '{}') } catch { return {} }
-  })
-  function saveLocalStatus(next: Record<number, LocalStatus>) {
-    setLocalStatus(next)
-    try {
-      localStorage.setItem('coordSubjectStatus', JSON.stringify(next))
-      window.dispatchEvent(new Event('coordSubjectStatusChanged'))
-    } catch {}
-  }
-  function setStatus(id: number, status: ProjectState) {
-    saveLocalStatus({
-      ...localStatus,
-      [id]: {
-        status,
-        timestamps: { ...(localStatus[id]?.timestamps || {}), [status]: new Date().toISOString() },
-      },
-    })
+
+  // Mapeo de valores de backend a etiquetas completas
+  const phaseLabels: Record<PhaseName, string> = {
+    'inicio': 'Fase: Inicio',
+    'formulacion': 'Fase 1: Formulación de Requerimientos',
+    'gestion': 'Fase 2: Gestión de Requerimientos',
+    'validacion': 'Fase 3: Validación de requerimientos',
+    'completado': 'Fase: Completado',
   }
 
-  function saveCycle(next: Record<number, LocalCycleEntry>) {
-    setLocalCycle(next)
+  // Estado para controlar cuál select está guardando
+  const [savingPhase, setSavingPhase] = useState<number | null>(null)
+
+  // Función para actualizar fase en el backend
+  async function handlePhaseChange(subjectId: number, phase: PhaseName) {
+    setSavingPhase(subjectId)
     try {
-      localStorage.setItem('coordSubjectCycle', JSON.stringify(next))
-      window.dispatchEvent(new Event('coordSubjectCycleChanged'))
-    } catch {}
+      await updateSubject(subjectId, { phase })
+      // Actualizar el item local con la nueva fase
+      setItems((prev) =>
+        prev.map((s) => (s.id === subjectId ? { ...s, phase } : s))
+      )
+      toast.success('Fase actualizada correctamente')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al actualizar fase'
+      toast.error(msg)
+    } finally {
+      setSavingPhase(null)
+    }
   }
 
   async function load() {
@@ -86,61 +81,19 @@ export default function EstadoCoord() {
 
   useEffect(() => { load() }, [season, year])
 
-  function mapStatus(s: any): ProjectState {
-    const local = localStatus[s.id]?.status
-    if (local) return local
-    const raw = String(s?.project_status || s?.status || '').toLowerCase()
-    if (raw.includes('observ')) return 'Observada'
-    if (raw.includes('apro') || raw.includes('aprob')) return 'Aprobada'
-    if (raw.includes('env')) return 'Enviada'
-    if (!s?.teacher) return 'Borrador'
-    return 'Enviada'
+  function phaseOf(s: Subject): PhaseName {
+    // Obtener fase directamente del Subject (base de datos)
+    const phase = s.phase as PhaseName
+    return phase || 'inicio'
   }
 
-  function riskScore(s: any) {
-    let score = 0
-    const st = mapStatus(s)
-    if (st === 'Observada') score += 3
-    if (!s?.teacher) score += 2
-    if (!s?.career_name) score += 1
-    if (!s?.area_name) score += 1
-    return score
+  function phaseLabel(phase: PhaseName): string {
+    return phaseLabels[phase] || phase
   }
 
-  function phaseOf(s: Subject) {
-    const local = localCycle[s.id]?.phase
-    return local || (s as any)?.phase || 'Fase: Inicio'
-  }
-
-  function phaseLabel(p?: string | null) {
-    const v = String(p || '').toLowerCase()
-    if (v === 'fase: inicio') return 'Fase: Inicio'
-    if (v === 'fase 1') return 'Fase 1: Formulación de Requerimientos'
-    if (v === 'fase 2') return 'Fase 2: Gestión de Requerimientos'
-    if (v === 'fase 3') return 'Fase 3: Validación de requerimientos'
-    if (v === 'fase: completado') return 'Fase: Completado'
-    return p || '-'
-  }
-
-  function getAdminPhaseInfo(phaseName: PhaseName): { start?: string; end?: string } | null {
-    // Map frontend phase names to backend phase names
-    const backendPhaseMap: Record<PhaseName, string> = {
-      'Fase: Inicio': 'inicio',
-      'Fase 1': 'formulacion',
-      'Fase 2': 'gestion',
-      'Fase 3': 'validacion',
-      'Fase: Completado': 'completado',
-    }
-    const backendPhaseName = backendPhaseMap[phaseName]
-    const schedule = adminPhaseSchedules.find((s) => s.phase.toLowerCase() === backendPhaseName.toLowerCase())
+  function getAdminPhaseInfo(phase: PhaseName): { start?: string; end?: string } | null {
+    const schedule = adminPhaseSchedules.find((s) => s.phase.toLowerCase() === phase.toLowerCase())
     return schedule ? { start: schedule.start_date || undefined, end: schedule.end_date || undefined } : null
-  }
-
-  function statusLabel(st: ProjectState) {
-    if (st === 'Borrador') return 'Borrador'
-    if (st === 'Enviada') return 'Enviada'
-    if (st === 'Observada') return 'Observada'
-    return 'Aprobada'
   }
 
   const filtered = useMemo(() => {
@@ -154,27 +107,34 @@ export default function EstadoCoord() {
       }
     }
     const f = (searchParams.get('filter') || '').toLowerCase()
-    if (f && ['borrador','enviada','observada','aprobada'].includes(f)) {
-      arr = arr.filter((s) => mapStatus(s).toLowerCase() === f)
+    if (f) {
+      if (['fase1','fase2','fase3'].includes(f)) {
+        const targetPhase = f === 'fase1' ? 'formulacion' : f === 'fase2' ? 'gestion' : 'validacion'
+        arr = arr.filter((s: any) => s.phase === targetPhase)
+      } else if (f === 'inicio') {
+        arr = arr.filter((s: any) => s.phase === 'inicio')
+      } else if (f === 'completado') {
+        arr = arr.filter((s: any) => s.phase === 'completado')
+      }
     }
     if (!search) return arr
     const q = search.toLowerCase()
     return arr.filter((s) => [s.code, s.section, s.name, s.area_name || ''].some((v) => String(v || '').toLowerCase().includes(q)))
-  }, [items, search, searchParams, localStatus])
+  }, [items, search, searchParams])
 
   return (
     <section className="p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Estado de Proyectos</h1>
-          <p className="text-sm text-zinc-600">Resumen y acciones de estado</p>
+          <h1 className="text-xl font-semibold">Fases de Proyectos</h1>
+          <p className="text-sm text-zinc-600">Gestión de fases de asignaturas</p>
         </div>
         <div className="flex items-center gap-2">
           {searchParams.get('id') ? null : (
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={'Buscar por cÃ³digo, secciÃ³n o nombre'}
+              placeholder="Buscar por código, sección o nombre"
               className="w-72 max-w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
             />
           )}
@@ -192,16 +152,15 @@ export default function EstadoCoord() {
               <Th>Sección</Th>
               <Th>Nombre</Th>
               <Th>Área</Th>
-              <Th>Estado</Th>
               <Th>Fase</Th>
               <Th className="text-right">Acciones</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 bg-white">
             {loading ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Cargando…</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Cargando…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="p-4 text-sm text-zinc-600" colSpan={7}>Sin resultados</td></tr>
+              <tr><td className="p-4 text-sm text-zinc-600" colSpan={6}>Sin resultados</td></tr>
             ) : (
               filtered.map((s) => (
                 <tr key={s.id} className="hover:bg-zinc-50">
@@ -209,46 +168,15 @@ export default function EstadoCoord() {
                   <Td>{s.section}</Td>
                   <Td>{s.name}</Td>
                   <Td>{s.area_name}</Td>
-                  <Td>
-                    {(() => {
-                      const st = mapStatus(s)
-                      const colorCls = st === 'Aprobada'
-                        ? 'border-green-200 bg-green-50 text-green-700'
-                        : st === 'Observada'
-                        ? 'border-amber-200 bg-amber-50 text-amber-700'
-                        : st === 'Enviada'
-                        ? 'border-blue-200 bg-blue-50 text-blue-700'
-                        : 'border-zinc-300 bg-zinc-50 text-zinc-700'
-                      return (
-                        <select
-                          value={st}
-                          onChange={(e) => setStatus(s.id, e.target.value as ProjectState)}
-                          className={`rounded-md px-2 py-1 text-xs outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10 ${colorCls}`}
-                          title="Editar estado"
-                        >
-                          <option value="Borrador">Borrador</option>
-                          <option value="Enviada">Enviada</option>
-                          <option value="Observada">Observada</option>
-                          <option value="Aprobada">Aprobada</option>
-                        </select>
-                      )
-                    })()}
-                  </Td>
                   <Td className="align-top">
                     <select
                       value={phaseOf(s)}
                       onChange={(e) => {
                         const phase = e.target.value as PhaseName
-                        const prev = localCycle[s.id] || { phase: 'Fase: Inicio' } as LocalCycleEntry
-                        const prevPhases = { ...(prev.phases || {}) } as Record<PhaseName, PhaseDates>
-                        prevPhases[phase] = prevPhases[phase] || { start: undefined, end: undefined }
-                        const nextEntry: LocalCycleEntry = { phase, phases: prevPhases }
-                        saveCycle({
-                          ...localCycle,
-                          [s.id]: nextEntry,
-                        })
+                        handlePhaseChange(s.id, phase)
                       }}
-                      className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
+                      disabled={savingPhase === s.id}
+                      className={`w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10 ${savingPhase === s.id ? 'opacity-50 cursor-wait' : ''}`}
                       title="Seleccionar fase"
                     >
                       {PHASES.map(({ value: phase, label }) => (
@@ -259,7 +187,7 @@ export default function EstadoCoord() {
                   <Td className="text-right">
                     <div className="flex flex-col items-end gap-1">
                       <button
-                        onClick={() => { const cur = mapStatus(s); setEditTarget({ id: s.id, state: cur }); setEditSelection(cur) }}
+                        onClick={() => setEditTarget({ id: s.id })}
                         className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
                       >
                         Ver información
@@ -276,15 +204,14 @@ export default function EstadoCoord() {
       {editTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setEditTarget(null)}>
           <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">Información adicional</h2>
-              <button onClick={() => setEditTarget(null)} className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50">Cerrar</button>
+            <div className="mb-3">
+              <h2 className="text-base font-semibold">Información de fase</h2>
             </div>
             <div className="mb-4 rounded-md border border-zinc-200 bg-zinc-50 p-3">
               {(() => {
                 const id = editTarget?.id
-                const info = id != null ? localCycle[id] : undefined
-                const currentPhase = (info?.phase || 'Fase: Inicio') as PhaseName
+                const subject = items.find((s) => s.id === id)
+                const currentPhase = subject ? phaseOf(subject) : 'inicio' as PhaseName
                 // Get admin dates for current phase
                 const adminInfo = getAdminPhaseInfo(currentPhase)
                 const startDate = adminInfo?.start || 'No asignadas'
@@ -308,7 +235,7 @@ export default function EstadoCoord() {
               })()}
             </div>
             <div className="flex justify-end">
-              <button onClick={() => setEditTarget(null)} className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Cerrar</button>
+              <button onClick={() => setEditTarget(null)} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Cerrar</button>
             </div>
           </div>
         </div>
@@ -328,8 +255,6 @@ function Th({ children, className = '' }: { children: any; className?: string })
 function Td({ children, className = '' }: { children: any; className?: string }) {
   return <td className={`px-4 py-2 text-sm text-zinc-800 ${className}`}>{children}</td>
 }
-
-
 
 
 

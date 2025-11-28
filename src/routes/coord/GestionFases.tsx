@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { toast } from '../lib/toast'
+import { useNavigate } from 'react-router'
+import { toast } from '../../lib/toast'
 import {
   createPeriodPhaseSchedule,
   listPeriodPhaseSchedules,
   updatePeriodPhaseSchedule,
   type PeriodPhaseSchedule,
-} from '../api/periods'
-import { type PeriodSeason, normalizePeriodSeason } from '../lib/period'
-import { usePeriodStore } from '../store/period'
+} from '../../api/periods'
+import { type PeriodSeason, normalizePeriodSeason } from '../../lib/period'
+import { usePeriodStore } from '../../store/period'
 
 const PHASES: Array<{ value: string; label: string }> = [
   { value: 'inicio', label: 'Inicio' },
@@ -34,7 +35,8 @@ function parseSeasonToken(value: string | PeriodSeason | null | undefined): Peri
   return normalizePeriodSeason(value || undefined)
 }
 
-export default function AdminPeriodos() {
+export default function GestionFasesCoord() {
+  const navigate = useNavigate()
   const [items, setItems] = useState<PeriodPhaseSchedule[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -42,9 +44,6 @@ export default function AdminPeriodos() {
   const season = usePeriodStore((s) => s.season)
   const year = usePeriodStore((s) => s.year)
   const periodCode = usePeriodStore((s) => s.periodCode)
-  const setPeriod = usePeriodStore((s) => s.setPeriod)
-  const syncPeriodFromServer = usePeriodStore((s) => s.syncFromServer)
-  const [yearInput, setYearInput] = useState(() => String(year))
 
   async function loadSchedules() {
     setLoading(true)
@@ -53,7 +52,7 @@ export default function AdminPeriodos() {
       const data = await listPeriodPhaseSchedules()
       setItems(data)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'No se pudo cargar la configuración de periodos'
+      const msg = e instanceof Error ? e.message : 'No se pudo cargar la configuración de fases'
       setError(msg)
     } finally {
       setLoading(false)
@@ -63,14 +62,6 @@ export default function AdminPeriodos() {
   useEffect(() => {
     loadSchedules()
   }, [])
-
-  useEffect(() => {
-    syncPeriodFromServer().catch(() => null)
-  }, [syncPeriodFromServer])
-
-  useEffect(() => {
-    setYearInput(String(year))
-  }, [year])
 
   useEffect(() => {
     const filtered = items.filter(
@@ -97,26 +88,6 @@ export default function AdminPeriodos() {
     }))
   }
 
-  function handleSemesterChange(next: PeriodSeason) {
-    if (next === season) return
-    setPeriod(next, year)
-  }
-
-  function handleYearInput(value: string) {
-    const digitsOnly = value.replace(/[^0-9]/g, '')
-    setYearInput(digitsOnly)
-    if (/^\d{4}$/.test(digitsOnly)) {
-      const parsed = Number.parseInt(digitsOnly, 10)
-      setPeriod(season, parsed)
-    }
-  }
-
-  function handleYearBlur() {
-    if (!/^\d{4}$/.test(yearInput.trim())) {
-      setYearInput(String(year))
-    }
-  }
-
   const [savingPhases, setSavingPhases] = useState<Record<string, boolean>>({})
 
   async function handleSavePhase(phase: string) {
@@ -138,8 +109,27 @@ export default function AdminPeriodos() {
       }
       toast.success(`Fase ${PHASES.find(p => p.value === phase)?.label} guardada correctamente`)
       await loadSchedules()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'No se pudo guardar la fase'
+    } catch (e: any) {
+      // Extraer mensaje de error del servidor
+      let msg = 'No se pudo guardar la fase'
+      if (e?.response?.data) {
+        const data = e.response.data
+        if (typeof data === 'string') {
+          msg = data
+        } else if (data.detail) {
+          msg = data.detail
+        } else if (data.non_field_errors) {
+          msg = data.non_field_errors.join(', ')
+        } else {
+          // Mostrar errores de campos específicos
+          const fieldErrors = Object.entries(data)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+            .join('; ')
+          if (fieldErrors) msg = fieldErrors
+        }
+      } else if (e instanceof Error) {
+        msg = e.message
+      }
       setError(msg)
       toast.error(msg)
     } finally {
@@ -149,68 +139,22 @@ export default function AdminPeriodos() {
 
   return (
     <section className="p-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-zinc-900">Gestionar periodos</h1>
-        <p className="text-sm text-zinc-600">
-          Define el periodo académico vigente y registra las fechas de inicio y término de cada fase del proceso.
-        </p>
-      </div>
-
-      <div className="mb-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-        <div className="mb-4">
-          <h2 className="text-base font-semibold text-zinc-900">Determinar el periodo actual</h2>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-900">Gestionar Fases</h1>
           <p className="text-sm text-zinc-600">
-            Selecciona el semestre y el año que se considerarán como periodo vigente. Este valor se refleja en el encabezado y en las consultas globales.
+            Registra las fechas de inicio y término de cada fase del proceso para el periodo {periodCode}.
           </p>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-zinc-600">Semestre actual</label>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => handleSemesterChange('O')}
-                className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition ${
-                  season === 'O'
-                    ? 'border-red-600 bg-red-50 text-red-700'
-                    : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'
-                }`}
-              >
-                Otoño
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSemesterChange('P')}
-                className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition ${
-                  season === 'P'
-                    ? 'border-red-600 bg-red-50 text-red-700'
-                    : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'
-                }`}
-              >
-                Primavera
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-zinc-600">Año</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={yearInput}
-              onChange={(e) => handleYearInput(e.target.value)}
-              onBlur={handleYearBlur}
-              maxLength={4}
-              placeholder="2025"
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10"
-            />
-            <p className="mt-1 text-xs text-zinc-500">Debe contener 4 dígitos.</p>
-          </div>
-          <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Periodo establecido</p>
-            <p className="text-lg font-semibold text-zinc-900">{periodCode}</p>
-            <p className="text-xs text-zinc-500">Se mostrará en el encabezado.</p>
-          </div>
-        </div>
+        <button
+          onClick={() => navigate('/coord')}
+          className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Volver
+        </button>
       </div>
 
       {error ? (

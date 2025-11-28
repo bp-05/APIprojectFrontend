@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import { listCompanies, type Company } from '../../api/companies'
 import { 
   createCompanyRequirement, 
@@ -101,9 +101,9 @@ export default function PosibleContraparteDetalle() {
         <div>
           <button 
             onClick={() => navigate('/dc/posible-contraparte')}
-            className="mb-2 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+            className="mb-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
           >
-            <span>←</span> Volver a asignaturas
+            Volver
           </button>
           <h1 className="text-xl font-semibold">
             {subject ? `${subject.code}-${subject.section} - ${subject.name}` : 'Cargando...'}

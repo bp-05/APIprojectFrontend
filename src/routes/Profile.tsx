@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import http from '../lib/http'
-import { toast } from 'react-hot-toast'
+import { toast } from '../lib/toast'
 import { useAuth } from '../store/auth'
 import { getArea, getCareer } from '../api/subjects'
 
@@ -17,7 +17,11 @@ export default function Profile() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const canChangePassword = useMemo(
-    () => oldPassword.trim().length > 0 && newPassword.length >= 8 && newPassword === confirmPassword,
+    () => 
+      oldPassword.trim().length > 0 && 
+      newPassword.trim().length >= 8 && 
+      confirmPassword.trim().length >= 8 &&
+      newPassword === confirmPassword,
     [oldPassword, newPassword, confirmPassword]
   )
   const [changingPwd, setChangingPwd] = useState(false)

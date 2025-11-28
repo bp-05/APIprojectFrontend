@@ -5,7 +5,7 @@ import { listProblemStatements, updateProblemStatement, deleteProblemStatement, 
 import { listCompanies, type Company } from '../../api/companies'
 import { getSubject, type Subject } from '../../api/subjects'
 
-export default function DCProyectoDetalle() {
+export default function DOCProyectoDetalle() {
   const navigate = useNavigate()
   const { id } = useParams()
   const problemaId = Number(id)
@@ -69,7 +69,7 @@ export default function DCProyectoDetalle() {
     try {
       await deleteProblemStatement(problemaId)
       toast.success('Proyecto eliminado')
-      navigate('/dc/proyectos')
+      navigate('/doc/proyectos')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al eliminar')
     }
@@ -95,7 +95,7 @@ export default function DCProyectoDetalle() {
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <button
-          onClick={() => navigate('/dc/proyectos')}
+          onClick={() => navigate('/doc/proyectos')}
           className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
         >
           Volver

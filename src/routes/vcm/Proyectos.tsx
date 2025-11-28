@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type React from 'react'
 import axios from 'axios'
-import { toast } from 'react-hot-toast'
+import { toast } from '../../lib/toast'
 import { useNavigate } from 'react-router'
 import {
   createProblemStatement,
@@ -27,8 +27,6 @@ export default function Proyectos() {
 
   const [loading, setLoading] = useState(false)
 
-  const [error, setError] = useState<string | null>(null)
-
   const [showForm, setShowForm] = useState(false)
 
   const [editing, setEditing] = useState<ProblemStatement | null>(null)
@@ -44,8 +42,6 @@ export default function Proyectos() {
   async function load() {
 
     setLoading(true)
-
-    setError(null)
 
     try {
 
@@ -69,7 +65,7 @@ export default function Proyectos() {
 
       const msg = e instanceof Error ? e.message : 'Error al cargar datos'
 
-      setError(msg)
+      toast.error(msg)
 
     } finally {
 
@@ -255,14 +251,6 @@ export default function Proyectos() {
         </div>
 
       </div>
-
-
-
-      {error ? (
-
-        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
-
-      ) : null}
 
 
 
