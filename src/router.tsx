@@ -61,6 +61,7 @@ import AdminPosibleContraparte from './routes/admin/PosibleContraparte'
 import AdminPosibleContraparteDetalle from './routes/admin/PosibleContraparteDetalle'
 import AdminFichas from './routes/admin/Fichas'
 import FichasCoord from './routes/coord/Fichas'
+import GestionFasesCoord from './routes/coord/GestionFases'
 
 // NOTE: Data Router setup. Loaders are placeholders for now.
 export const router = createBrowserRouter([
@@ -133,6 +134,7 @@ export const router = createBrowserRouter([
       { path: 'coord/asignaturas/:id/empresa/:companyId', loader: requireRoleLoader('COORD'), element: <EmpresaDetalle /> },
       { path: 'coord/docentes', loader: requireRoleLoader('COORD'), element: <DocentesCoord /> },
       { path: 'coord/fichas', loader: requireRoleLoader('COORD'), element: <FichasCoord /> },
+      { path: 'coord/gestion-fases', loader: requireRoleLoader('COORD'), element: <GestionFasesCoord /> },
       { path: 'coord/estado', loader: requireRoleLoader('COORD'), element: <EstadoCoord /> },
       { path: 'coord/gantt', loader: requireRoleLoader('COORD'), element: <Gantt /> },
       { path: 'coord/reportes', loader: requireRoleLoader('COORD'), element: <Reportes /> },
